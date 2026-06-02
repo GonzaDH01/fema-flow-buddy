@@ -9,34 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
-import { Route as AuthenticatedSueldosRouteImport } from './routes/_authenticated/sueldos'
-import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticated/reportes'
-import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
-import { Route as AuthenticatedPresupuestosRouteImport } from './routes/_authenticated/presupuestos'
-import { Route as AuthenticatedOcrRouteImport } from './routes/_authenticated/ocr'
-import { Route as AuthenticatedKpisRouteImport } from './routes/_authenticated/kpis'
-import { Route as AuthenticatedGastosRouteImport } from './routes/_authenticated/gastos'
-import { Route as AuthenticatedFacturasRouteImport } from './routes/_authenticated/facturas'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppReportesRouteImport } from './routes/app.reportes'
+import { Route as AppProductosRouteImport } from './routes/app.productos'
+import { Route as AppClientesRouteImport } from './routes/app.clientes'
 
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -44,181 +32,91 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
 } as any)
-const AuthenticatedSueldosRoute = AuthenticatedSueldosRouteImport.update({
-  id: '/sueldos',
-  path: '/sueldos',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedReportesRoute = AuthenticatedReportesRouteImport.update({
+const AppReportesRoute = AppReportesRouteImport.update({
   id: '/reportes',
   path: '/reportes',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
+const AppProductosRoute = AppProductosRouteImport.update({
   id: '/productos',
   path: '/productos',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const AuthenticatedPresupuestosRoute =
-  AuthenticatedPresupuestosRouteImport.update({
-    id: '/presupuestos',
-    path: '/presupuestos',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedOcrRoute = AuthenticatedOcrRouteImport.update({
-  id: '/ocr',
-  path: '/ocr',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedKpisRoute = AuthenticatedKpisRouteImport.update({
-  id: '/kpis',
-  path: '/kpis',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGastosRoute = AuthenticatedGastosRouteImport.update({
-  id: '/gastos',
-  path: '/gastos',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFacturasRoute = AuthenticatedFacturasRouteImport.update({
-  id: '/facturas',
-  path: '/facturas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedClientesRoute = AuthenticatedClientesRouteImport.update({
+const AppClientesRoute = AppClientesRouteImport.update({
   id: '/clientes',
   path: '/clientes',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/clientes': typeof AuthenticatedClientesRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/facturas': typeof AuthenticatedFacturasRoute
-  '/gastos': typeof AuthenticatedGastosRoute
-  '/kpis': typeof AuthenticatedKpisRoute
-  '/ocr': typeof AuthenticatedOcrRoute
-  '/presupuestos': typeof AuthenticatedPresupuestosRoute
-  '/productos': typeof AuthenticatedProductosRoute
-  '/reportes': typeof AuthenticatedReportesRoute
-  '/sueldos': typeof AuthenticatedSueldosRoute
-  '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/app/clientes': typeof AppClientesRoute
+  '/app/productos': typeof AppProductosRoute
+  '/app/reportes': typeof AppReportesRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/clientes': typeof AuthenticatedClientesRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/facturas': typeof AuthenticatedFacturasRoute
-  '/gastos': typeof AuthenticatedGastosRoute
-  '/kpis': typeof AuthenticatedKpisRoute
-  '/ocr': typeof AuthenticatedOcrRoute
-  '/presupuestos': typeof AuthenticatedPresupuestosRoute
-  '/productos': typeof AuthenticatedProductosRoute
-  '/reportes': typeof AuthenticatedReportesRoute
-  '/sueldos': typeof AuthenticatedSueldosRoute
-  '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/app/clientes': typeof AppClientesRoute
+  '/app/productos': typeof AppProductosRoute
+  '/app/reportes': typeof AppReportesRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/_authenticated/clientes': typeof AuthenticatedClientesRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/facturas': typeof AuthenticatedFacturasRoute
-  '/_authenticated/gastos': typeof AuthenticatedGastosRoute
-  '/_authenticated/kpis': typeof AuthenticatedKpisRoute
-  '/_authenticated/ocr': typeof AuthenticatedOcrRoute
-  '/_authenticated/presupuestos': typeof AuthenticatedPresupuestosRoute
-  '/_authenticated/productos': typeof AuthenticatedProductosRoute
-  '/_authenticated/reportes': typeof AuthenticatedReportesRoute
-  '/_authenticated/sueldos': typeof AuthenticatedSueldosRoute
-  '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/app/clientes': typeof AppClientesRoute
+  '/app/productos': typeof AppProductosRoute
+  '/app/reportes': typeof AppReportesRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/auth'
-    | '/reset-password'
-    | '/clientes'
-    | '/dashboard'
-    | '/facturas'
-    | '/gastos'
-    | '/kpis'
-    | '/ocr'
-    | '/presupuestos'
-    | '/productos'
-    | '/reportes'
-    | '/sueldos'
-    | '/usuarios'
+    | '/app/clientes'
+    | '/app/productos'
+    | '/app/reportes'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/reset-password'
-    | '/clientes'
-    | '/dashboard'
-    | '/facturas'
-    | '/gastos'
-    | '/kpis'
-    | '/ocr'
-    | '/presupuestos'
-    | '/productos'
-    | '/reportes'
-    | '/sueldos'
-    | '/usuarios'
+    | '/app/clientes'
+    | '/app/productos'
+    | '/app/reportes'
+    | '/app'
   id:
     | '__root__'
     | '/'
-    | '/_authenticated'
+    | '/app'
     | '/auth'
-    | '/reset-password'
-    | '/_authenticated/clientes'
-    | '/_authenticated/dashboard'
-    | '/_authenticated/facturas'
-    | '/_authenticated/gastos'
-    | '/_authenticated/kpis'
-    | '/_authenticated/ocr'
-    | '/_authenticated/presupuestos'
-    | '/_authenticated/productos'
-    | '/_authenticated/reportes'
-    | '/_authenticated/sueldos'
-    | '/_authenticated/usuarios'
+    | '/app/clientes'
+    | '/app/productos'
+    | '/app/reportes'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -226,11 +124,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -240,122 +138,57 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/usuarios': {
-      id: '/_authenticated/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_authenticated/sueldos': {
-      id: '/_authenticated/sueldos'
-      path: '/sueldos'
-      fullPath: '/sueldos'
-      preLoaderRoute: typeof AuthenticatedSueldosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/reportes': {
-      id: '/_authenticated/reportes'
+    '/app/reportes': {
+      id: '/app/reportes'
       path: '/reportes'
-      fullPath: '/reportes'
-      preLoaderRoute: typeof AuthenticatedReportesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      fullPath: '/app/reportes'
+      preLoaderRoute: typeof AppReportesRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_authenticated/productos': {
-      id: '/_authenticated/productos'
+    '/app/productos': {
+      id: '/app/productos'
       path: '/productos'
-      fullPath: '/productos'
-      preLoaderRoute: typeof AuthenticatedProductosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      fullPath: '/app/productos'
+      preLoaderRoute: typeof AppProductosRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_authenticated/presupuestos': {
-      id: '/_authenticated/presupuestos'
-      path: '/presupuestos'
-      fullPath: '/presupuestos'
-      preLoaderRoute: typeof AuthenticatedPresupuestosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/ocr': {
-      id: '/_authenticated/ocr'
-      path: '/ocr'
-      fullPath: '/ocr'
-      preLoaderRoute: typeof AuthenticatedOcrRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/kpis': {
-      id: '/_authenticated/kpis'
-      path: '/kpis'
-      fullPath: '/kpis'
-      preLoaderRoute: typeof AuthenticatedKpisRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/gastos': {
-      id: '/_authenticated/gastos'
-      path: '/gastos'
-      fullPath: '/gastos'
-      preLoaderRoute: typeof AuthenticatedGastosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/facturas': {
-      id: '/_authenticated/facturas'
-      path: '/facturas'
-      fullPath: '/facturas'
-      preLoaderRoute: typeof AuthenticatedFacturasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/clientes': {
-      id: '/_authenticated/clientes'
+    '/app/clientes': {
+      id: '/app/clientes'
       path: '/clientes'
-      fullPath: '/clientes'
-      preLoaderRoute: typeof AuthenticatedClientesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      fullPath: '/app/clientes'
+      preLoaderRoute: typeof AppClientesRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFacturasRoute: typeof AuthenticatedFacturasRoute
-  AuthenticatedGastosRoute: typeof AuthenticatedGastosRoute
-  AuthenticatedKpisRoute: typeof AuthenticatedKpisRoute
-  AuthenticatedOcrRoute: typeof AuthenticatedOcrRoute
-  AuthenticatedPresupuestosRoute: typeof AuthenticatedPresupuestosRoute
-  AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
-  AuthenticatedReportesRoute: typeof AuthenticatedReportesRoute
-  AuthenticatedSueldosRoute: typeof AuthenticatedSueldosRoute
-  AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+interface AppRouteChildren {
+  AppClientesRoute: typeof AppClientesRoute
+  AppProductosRoute: typeof AppProductosRoute
+  AppReportesRoute: typeof AppReportesRoute
+  AppIndexRoute: typeof AppIndexRoute
 }
 
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedClientesRoute: AuthenticatedClientesRoute,
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFacturasRoute: AuthenticatedFacturasRoute,
-  AuthenticatedGastosRoute: AuthenticatedGastosRoute,
-  AuthenticatedKpisRoute: AuthenticatedKpisRoute,
-  AuthenticatedOcrRoute: AuthenticatedOcrRoute,
-  AuthenticatedPresupuestosRoute: AuthenticatedPresupuestosRoute,
-  AuthenticatedProductosRoute: AuthenticatedProductosRoute,
-  AuthenticatedReportesRoute: AuthenticatedReportesRoute,
-  AuthenticatedSueldosRoute: AuthenticatedSueldosRoute,
-  AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+const AppRouteChildren: AppRouteChildren = {
+  AppClientesRoute: AppClientesRoute,
+  AppProductosRoute: AppProductosRoute,
+  AppReportesRoute: AppReportesRoute,
+  AppIndexRoute: AppIndexRoute,
 }
 
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

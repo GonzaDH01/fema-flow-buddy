@@ -1,32 +1,19 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine, ShieldCheck, ClipboardList, Receipt, LineChart, Wallet } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Package, FileText } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useMyRoles } from "@/lib/use-roles";
 import { Button } from "@/components/ui/button";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
-const nav: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/clientes", label: "Clientes / Proveedores", icon: Users },
-  { to: "/facturas", label: "Facturas", icon: FileText },
-  { to: "/presupuestos", label: "Presupuestos", icon: ClipboardList },
-  { to: "/gastos", label: "Gastos", icon: Receipt },
-  { to: "/sueldos", label: "Sueldos", icon: Wallet },
-  { to: "/ocr", label: "OCR Comprobantes", icon: ScanLine },
-  { to: "/productos", label: "Productos", icon: Package },
-  { to: "/reportes", label: "Reportes", icon: BarChart3 },
-  { to: "/kpis", label: "KPIs / AFIP", icon: LineChart },
+const nav = [
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/app/clientes", label: "Clientes", icon: Users },
+  { to: "/app/productos", label: "Productos", icon: Package },
+  { to: "/app/reportes", label: "Reportes", icon: FileText },
 ];
 
 export function AppShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
-  const { data: roles = [] } = useMyRoles();
-  const isAdmin = roles.includes("admin");
-  const items: NavItem[] = isAdmin
-    ? [...nav, { to: "/usuarios", label: "Usuarios", icon: ShieldCheck }]
-    : nav;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -41,7 +28,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {items.map((n) => {
+          {nav.map((n) => {
             const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
             return (
               <Link
