@@ -7,30 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Upload, ScanLine, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { extractFactura } from "@/lib/ocr.functions";
+import { extractFactura, type ExtractedFactura } from "@/lib/ocr.functions";
 
 export const Route = createFileRoute("/_authenticated/ocr")({
   component: OcrPage,
 });
 
-type Extracted = {
-  tipo?: string | null;
-  punto_venta?: number | null;
-  numero?: number | null;
-  fecha_emision?: string | null;
-  fecha_vencimiento?: string | null;
-  razon_social?: string | null;
-  cuit?: string | null;
-  condicion_iva?: string | null;
-  concepto?: string | null;
-  neto?: number | null;
-  iva_total?: number | null;
-  percepciones_total?: number | null;
-  retenciones_total?: number | null;
-  total?: number | null;
-  iva_lineas?: { alicuota: number; base_imponible: number; importe: number }[];
-  confianza?: number;
-};
+type Extracted = ExtractedFactura;
 
 const fmt = (n?: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
