@@ -5,9 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, ScanLine, Loader2, CheckCircle2 } from "lucide-react";
+import { Upload, ScanLine, Loader2, CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { extractFactura, type ExtractedFactura } from "@/lib/ocr.functions";
+import { pdfFirstPageToPng } from "@/lib/pdf-to-image";
 
 export const Route = createFileRoute("/_authenticated/ocr")({
   component: OcrPage,
@@ -41,8 +42,17 @@ function OcrPage() {
     mutationFn: async () => {
       if (!file) throw new Error("Seleccioná una imagen primero");
       if (file.size > 8 * 1024 * 1024) throw new Error("La imagen supera los 8 MB");
-      const b64 = await readAsBase64(file);
-      return await extract({ data: { imageBase64: b64, mimeType: file.type || "image/jpeg" } });
+      let b64: string;
+      let mimeType: string;
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        const rendered = await pdfFirstPageToPng(file, 2);
+        b64 = rendered.base64;
+        mimeType = rendered.mimeType;
+      } else {
+        b64 = await readAsBase64(file);
+        mimeType = file.type || "image/jpeg";
+      }
+      return await extract({ data: { imageBase64: b64, mimeType } });
     },
     onSuccess: (d) => {
       setResult(d as Extracted);
@@ -51,11 +61,21 @@ function OcrPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const onPick = (f: File | null) => {
+  const onPick = async (f: File | null) => {
     setFile(f);
     setResult(null);
     if (preview) URL.revokeObjectURL(preview);
-    setPreview(f ? URL.createObjectURL(f) : null);
+    if (!f) { setPreview(null); return; }
+    if (f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")) {
+      try {
+        const { base64 } = await pdfFirstPageToPng(f, 1.5);
+        setPreview(`data:image/png;base64,${base64}`);
+      } catch {
+        setPreview(null);
+      }
+    } else {
+      setPreview(URL.createObjectURL(f));
+    }
   };
 
   return (
@@ -73,10 +93,12 @@ function OcrPage() {
             <Label>Imagen del comprobante</Label>
             <Input
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
               onChange={(e) => onPick(e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-muted-foreground">Formatos: JPG, PNG, WEBP. Máx. 8 MB.</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <FileText className="h-3 w-3" /> Formatos: JPG, PNG, WEBP o PDF (primera página). Máx. 8 MB.
+            </p>
           </div>
 
           {preview && (
