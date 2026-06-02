@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useMyRoles } from "@/lib/use-roles";
 import { Button } from "@/components/ui/button";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
@@ -17,6 +18,11 @@ export function AppShell() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
+  const { data: roles = [] } = useMyRoles();
+  const isAdmin = roles.includes("admin");
+  const items: NavItem[] = isAdmin
+    ? [...nav, { to: "/usuarios", label: "Usuarios", icon: ShieldCheck }]
+    : nav;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -31,7 +37,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {nav.map((n) => {
+          {items.map((n) => {
             const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
             return (
               <Link
