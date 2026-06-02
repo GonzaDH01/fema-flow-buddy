@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +8,7 @@ const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/clientes", label: "Clientes / Proveedores", icon: Users },
   { to: "/facturas", label: "Facturas", icon: FileText },
+  { to: "/ocr", label: "OCR Comprobantes", icon: ScanLine },
   { to: "/productos", label: "Productos", icon: Package },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
 ];
