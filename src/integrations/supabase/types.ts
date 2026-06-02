@@ -215,6 +215,54 @@ export type Database = {
           },
         ]
       }
+      productos: {
+        Row: {
+          activo: boolean
+          alicuota_iva: number
+          codigo: string
+          created_at: string
+          created_by: string
+          descripcion: string
+          id: string
+          notas: string | null
+          precio_unitario: number
+          stock: number
+          stock_minimo: number
+          unidad: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          alicuota_iva?: number
+          codigo: string
+          created_at?: string
+          created_by?: string
+          descripcion: string
+          id?: string
+          notas?: string | null
+          precio_unitario?: number
+          stock?: number
+          stock_minimo?: number
+          unidad?: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          alicuota_iva?: number
+          codigo?: string
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          id?: string
+          notas?: string | null
+          precio_unitario?: number
+          stock?: number
+          stock_minimo?: number
+          unidad?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
