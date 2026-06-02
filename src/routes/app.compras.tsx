@@ -5,42 +5,73 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
-import { CrudTable } from "@/components/crud-table";
 import { FormField } from "@/lib/form-helpers";
-import { formatPesos, formatFecha } from "@/lib/format";
+import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/app/compras")({ component: Page });
 
-const TIPOS = ["A","B","C","M","E"] as const;
-const CATS = ["Repuestos_JD","Mecanicos","Gomeria","Inoculante","Transportistas","Seguros","Servicios","Herramientas","Otro"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const LETRAS = ["A", "B", "C", "M", "E"] as const;
+const CATS = [
+  "Gasoil_Combustible", "Repuestos_JD", "Mecanicos", "Gomeria",
+  "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas", "Otro",
+] as const;
+const FORMAS_PAGO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Débito automático", "Otro"] as const;
+
+const labelCat = (c: string) => c.replace("_", " / ").replace("Gasoil / Combustible", "Gasoil / Combustible");
+
 const schema = z.object({
+  tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
+  tipo: z.enum(LETRAS),
+  numero: z.string().max(30).optional().or(z.literal("")),
   fecha: z.string().min(1),
-  proveedor_id: z.string().uuid().optional().or(z.literal("")),
-  numero: z.string().max(20).optional().or(z.literal("")),
-  tipo: z.enum(TIPOS),
+  proveedor_nombre: z.string().max(120).optional().or(z.literal("")),
+  categoria: z.enum(CATS),
+  mes: z.coerce.number().min(1).max(12),
+  descripcion: z.string().max(300).optional().or(z.literal("")),
   neto: z.coerce.number().min(0),
   iva_21: z.coerce.number().min(0),
-  iva_105: z.coerce.number().min(0),
-  percepciones: z.coerce.number().min(0),
+  impuestos_internos: z.coerce.number().min(0),
+  otros_impuestos: z.coerce.number().min(0),
+  litros: z.coerce.number().min(0),
+  producto: z.string().max(80).optional().or(z.literal("")),
   total: z.coerce.number().min(0),
-  categoria: z.enum(CATS),
-  estado: z.enum(["pendiente","pagada"]),
+  estado: z.enum(["pendiente", "pagada"]),
+  fecha_pago: z.string().optional().or(z.literal("")),
+  forma_pago: z.string().optional().or(z.literal("")),
+  observaciones: z.string().max(500).optional().or(z.literal("")),
 });
 type FormVals = z.infer<typeof schema>;
+
 type Row = {
   id: string; fecha: string; proveedor_id: string | null; numero: string | null;
-  tipo: typeof TIPOS[number]; neto: number; iva_21: number; iva_105: number;
-  percepciones: number; total: number; categoria: typeof CATS[number];
+  tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
+  descripcion: string | null;
+  neto: number; iva_21: number; iva_105: number; percepciones: number;
+  impuestos_internos: number | null; otros_impuestos: number | null;
+  litros: number | null; producto: string | null;
+  total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
+  fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
 };
 
 function Page() {
@@ -49,7 +80,8 @@ function Page() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const [filtroCat, setFiltroCat] = useState<string>("todas");
+  const [tab, setTab] = useState<"todas" | "pendiente" | "pagada">("todas");
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
@@ -71,159 +103,375 @@ function Page() {
       return data as { id: string; nombre: string }[];
     },
   });
-  const provsMap = useMemo(() => Object.fromEntries((provs ?? []).map((p) => [p.id, p.nombre])), [provs]);
+  const provsMap = useMemo(
+    () => Object.fromEntries((provs ?? []).map((p) => [p.id, p.nombre])),
+    [provs],
+  );
 
   const filtered = useMemo(() => {
-    if (!data) return data;
-    if (filtroCat === "todas") return data;
-    return data.filter((r) => r.categoria === filtroCat);
-  }, [data, filtroCat]);
+    let rows = data ?? [];
+    if (tab !== "todas") rows = rows.filter((r) => r.estado === tab);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter((r) => {
+        const prov = r.proveedor_id ? (provsMap[r.proveedor_id] ?? "") : "";
+        return prov.toLowerCase().includes(q)
+          || (r.numero ?? "").toLowerCase().includes(q)
+          || (r.descripcion ?? "").toLowerCase().includes(q);
+      });
+    }
+    return rows;
+  }, [data, tab, search, provsMap]);
 
   const close = () => { setOpen(false); setEdit(null); };
+
+  const ensureProveedor = async (nombre: string): Promise<string | null> => {
+    const n = nombre.trim();
+    if (!n) return null;
+    const exist = (provs ?? []).find((p) => p.nombre.toLowerCase() === n.toLowerCase());
+    if (exist) return exist.id;
+    const { data: created, error } = await supabase.from("fema_proveedores")
+      .insert({ user_id: user!.id, nombre: n }).select("id").single();
+    if (error) { toast.error(error.message); return null; }
+    qc.invalidateQueries({ queryKey: ["fema_proveedores_min"] });
+    qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
+    return created!.id;
+  };
+
   const onSubmit = async (v: FormVals) => {
+    const proveedor_id = v.proveedor_nombre ? await ensureProveedor(v.proveedor_nombre) : null;
     const payload = {
-      user_id: user!.id, fecha: v.fecha, proveedor_id: v.proveedor_id || null,
-      numero: v.numero || null, tipo: v.tipo, neto: v.neto,
-      iva_21: v.iva_21, iva_105: v.iva_105, percepciones: v.percepciones,
-      total: v.total, categoria: v.categoria, estado: v.estado,
+      user_id: user!.id,
+      fecha: v.fecha,
+      proveedor_id,
+      numero: v.numero || null,
+      tipo: v.tipo,
+      tipo_comprobante: v.tipo_comprobante,
+      descripcion: v.descripcion || null,
+      neto: v.neto,
+      iva_21: v.iva_21,
+      impuestos_internos: v.impuestos_internos,
+      otros_impuestos: v.otros_impuestos,
+      litros: v.litros,
+      producto: v.producto || null,
+      total: v.total,
+      categoria: v.categoria,
+      estado: v.estado,
+      fecha_pago: v.fecha_pago || null,
+      forma_pago: v.forma_pago || null,
+      observaciones: v.observaciones || null,
     };
     const { error } = edit
       ? await supabase.from("fema_facturas_compra").update(payload).eq("id", edit.id)
       : await supabase.from("fema_facturas_compra").insert(payload);
     if (error) { toast.error(error.message); return; }
-    toast.success(edit ? "Actualizada" : "Compra creada");
+    toast.success(edit ? "Compra actualizada" : "Compra creada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     close();
   };
+
   const onDelete = async (r: Row) => {
     const { error } = await supabase.from("fema_facturas_compra").delete().eq("id", r.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Eliminada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
   };
-  const markPagada = async (r: Row) => {
-    const { error } = await supabase.from("fema_facturas_compra").update({ estado: "pagada" }).eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Marcada como pagada");
-    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+
+  const exportXlsx = () => {
+    const rows = (data ?? []).map((r) => ({
+      "N° Factura": `${r.tipo}-${r.numero ?? ""}`,
+      Proveedor: r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : "",
+      Fecha: r.fecha,
+      Categoría: labelCat(r.categoria),
+      Descripción: r.descripcion ?? "",
+      Monto: Number(r.total),
+      Estado: r.estado,
+      "Fecha de pago": r.fecha_pago ?? "",
+      "Forma de pago": r.forma_pago ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Compras");
+    XLSX.writeFile(wb, `Compras_${year}.xlsx`);
   };
 
   return (
-    <>
-      <CrudTable<Row>
-        title="Compras" description={`Egresos del año ${year}`}
-        rows={filtered} loading={isLoading} emptyLabel="compras"
-        onAdd={() => { setEdit(null); setOpen(true); }}
-        onEdit={(r) => { setEdit(r); setOpen(true); }}
-        onDelete={onDelete}
-        extraHeader={
-          <Select value={filtroCat} onValueChange={setFiltroCat}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas las categorías</SelectItem>
-              {CATS.map((c) => <SelectItem key={c} value={c}>{c.replace("_"," ")}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        }
-        columns={[
-          { header: "Fecha", cell: (r) => formatFecha(r.fecha) },
-          { header: "Proveedor", cell: (r) => r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—" },
-          { header: "Categoría", cell: (r) => <Badge variant="secondary">{r.categoria.replace("_"," ")}</Badge> },
-          { header: "Tipo", cell: (r) => <Badge variant="outline">{r.tipo}</Badge> },
-          { header: "Total", cell: (r) => <span className="font-medium">{formatPesos(Number(r.total))}</span> },
-          { header: "Estado", cell: (r) => r.estado === "pagada"
-            ? <Badge className="bg-primary/15 text-primary">Pagada</Badge>
-            : <button onClick={() => markPagada(r)} className="inline-flex items-center gap-1 rounded bg-accent/15 px-2 py-0.5 text-xs text-accent hover:bg-accent/25">
-                <CheckCircle2 className="h-3 w-3" /> Pendiente
-              </button> },
-        ]}
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="todas">Todas</TabsTrigger>
+            <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
+            <TabsTrigger value="pagada">Abonadas</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportXlsx}>
+            <FileDown className="h-4 w-4" /> Exportar Excel
+          </Button>
+          <Button size="sm" onClick={() => { setEdit(null); setOpen(true); }}>
+            <Plus className="h-4 w-4" /> Nueva compra
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+          <CardTitle className="text-base">Compras a Proveedores</CardTitle>
+          <Input
+            placeholder="Buscar proveedor…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 max-w-xs"
+          />
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>N° FACTURA</TableHead>
+                <TableHead>PROVEEDOR</TableHead>
+                <TableHead>FECHA</TableHead>
+                <TableHead>CATEGORÍA</TableHead>
+                <TableHead>DESCRIPCIÓN</TableHead>
+                <TableHead className="text-right">MONTO</TableHead>
+                <TableHead>ESTADO</TableHead>
+                <TableHead className="text-right">ACCIONES</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+              )}
+              {!isLoading && filtered.length === 0 && (
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
+              )}
+              {filtered.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs">{r.tipo}-{r.numero ?? "—"}</TableCell>
+                  <TableCell>{r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—"}</TableCell>
+                  <TableCell>{formatFecha(r.fecha)}</TableCell>
+                  <TableCell>{labelCat(r.categoria)}</TableCell>
+                  <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
+                  <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
+                    {formatPesos(Number(r.total))}
+                  </TableCell>
+                  <TableCell>
+                    {r.estado === "pagada"
+                      ? <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
+                      : <Badge variant="outline" className="text-accent border-accent/40">● Pendiente</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="outline" size="sm" onClick={() => { setEdit(r); setOpen(true); }}>
+                        <Pencil className="h-3 w-3" /> Editar
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar compra?</AlertDialogTitle>
+                            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(r)}>Eliminar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
-        <FormDialog onSubmit={onSubmit} initial={edit} provs={provs ?? []} year={year} />
+        <FormDialog
+          onSubmit={onSubmit}
+          initial={edit}
+          provNombre={edit?.proveedor_id ? provsMap[edit.proveedor_id] ?? "" : ""}
+          year={year}
+        />
       </Dialog>
-    </>
+    </div>
   );
 }
 
-function FormDialog({ onSubmit, initial, provs, year }: {
-  onSubmit: (v: FormVals) => Promise<void>; initial: Row | null;
-  provs: { id: string; nombre: string }[]; year: number;
+function FormDialog({ onSubmit, initial, provNombre, year }: {
+  onSubmit: (v: FormVals) => Promise<void>;
+  initial: Row | null;
+  provNombre: string;
+  year: number;
 }) {
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
-      fecha: initial?.fecha ?? `${year}-01-01`,
-      proveedor_id: initial?.proveedor_id ?? "",
+      tipo_comprobante: (initial?.tipo_comprobante as any) ?? "Factura",
+      tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      tipo: initial?.tipo ?? "B",
+      fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
+      proveedor_nombre: provNombre,
+      categoria: initial?.categoria ?? "Gasoil_Combustible",
+      mes: initial ? new Date(initial.fecha).getMonth() + 1 : new Date().getMonth() + 1,
+      descripcion: initial?.descripcion ?? "",
       neto: Number(initial?.neto ?? 0),
       iva_21: Number(initial?.iva_21 ?? 0),
-      iva_105: Number(initial?.iva_105 ?? 0),
-      percepciones: Number(initial?.percepciones ?? 0),
+      impuestos_internos: Number(initial?.impuestos_internos ?? 0),
+      otros_impuestos: Number(initial?.otros_impuestos ?? 0),
+      litros: Number(initial?.litros ?? 0),
+      producto: initial?.producto ?? "",
       total: Number(initial?.total ?? 0),
-      categoria: initial?.categoria ?? "Otro",
       estado: initial?.estado ?? "pendiente",
+      fecha_pago: initial?.fecha_pago ?? "",
+      forma_pago: initial?.forma_pago ?? "Transferencia",
+      observaciones: initial?.observaciones ?? "",
     },
   });
+
   const tipo = f.watch("tipo");
+  const categoria = f.watch("categoria");
   const neto = Number(f.watch("neto") || 0);
   const iva21 = Number(f.watch("iva_21") || 0);
-  const iva105 = Number(f.watch("iva_105") || 0);
-  const perc = Number(f.watch("percepciones") || 0);
+  const impInt = Number(f.watch("impuestos_internos") || 0);
+  const otros = Number(f.watch("otros_impuestos") || 0);
+
+  const isCombustible = categoria === "Gasoil_Combustible";
+  const totalCalc = useMemo(() => {
+    if (!isCombustible) return null;
+    if (tipo === "A") return neto + iva21 + impInt + otros;
+    return neto; // B/C: IVA dentro del precio
+  }, [isCombustible, tipo, neto, iva21, impInt, otros]);
+
   useEffect(() => {
-    if (tipo === "A") f.setValue("total", neto + iva21 + iva105 + perc);
-  }, [tipo, neto, iva21, iva105, perc, f]);
+    if (totalCalc !== null) f.setValue("total", Number(totalCalc.toFixed(2)));
+  }, [totalCalc, f]);
+
+  // Sync mes con fecha
+  const fecha = f.watch("fecha");
+  useEffect(() => {
+    if (fecha) f.setValue("mes", new Date(fecha).getMonth() + 1);
+  }, [fecha, f]);
 
   return (
-    <DialogContent className="max-w-lg">
-      <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} compra</DialogTitle></DialogHeader>
+    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} Compra / Proveedor</DialogTitle></DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
-        <div className="grid grid-cols-3 gap-3">
-          <FormField label="Fecha" required><Input type="date" {...f.register("fecha")} /></FormField>
-          <FormField label="Tipo">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Tipo de comprobante</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={f.watch("tipo_comprobante")} onValueChange={(v) => f.setValue("tipo_comprobante", v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPOS_COMPROBANTE.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Select value={tipo} onValueChange={(v) => f.setValue("tipo", v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TIPOS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {LETRAS.map((t) => <SelectItem key={t} value={t}>Letra {t}</SelectItem>)}
+              </SelectContent>
             </Select>
-          </FormField>
-          <FormField label="Número"><Input {...f.register("numero")} /></FormField>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Factura A: el IVA es crédito fiscal computable. Factura B o C: el IVA va dentro del precio (no se discrimina).
+          </p>
         </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Proveedor">
-            <Select value={f.watch("proveedor_id") ?? ""} onValueChange={(v) => f.setValue("proveedor_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Sin proveedor" /></SelectTrigger>
-              <SelectContent>{provs.map((p) => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}</SelectContent>
-            </Select>
-          </FormField>
+          <FormField label="N° factura proveedor"><Input placeholder="0001-00000001" {...f.register("numero")} /></FormField>
+          <FormField label="Fecha" required><Input type="date" {...f.register("fecha")} /></FormField>
+        </div>
+
+        <FormField label="Proveedor">
+          <Input placeholder="Nombre del proveedor" {...f.register("proveedor_nombre")} />
+        </FormField>
+
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Categoría">
-            <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
+            <Select value={categoria} onValueChange={(v) => f.setValue("categoria", v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CATS.map((c) => <SelectItem key={c} value={c}>{c.replace("_"," ")}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {CATS.map((c) => <SelectItem key={c} value={c}>{labelCat(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Mes del gasto">
+            <Select value={String(f.watch("mes"))} onValueChange={(v) => f.setValue("mes", Number(v))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MESES_LARGOS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+              </SelectContent>
             </Select>
           </FormField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Neto"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
-          <FormField label="Total"><Input type="number" step="0.01" {...f.register("total")} /></FormField>
-        </div>
-        {tipo === "A" && (
-          <div className="grid grid-cols-3 gap-3 rounded-md border border-border bg-muted/30 p-3">
-            <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
-            <FormField label="IVA 10.5%"><Input type="number" step="0.01" {...f.register("iva_105")} /></FormField>
-            <FormField label="Percepciones"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
+
+        <FormField label="Descripción"><Input placeholder="Detalle de la compra" {...f.register("descripcion")} /></FormField>
+
+        {isCombustible && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+            <p className="text-xs font-semibold flex items-center gap-2">
+              <Fuel className="h-3.5 w-3.5 text-accent" /> DESGLOSE IMPUESTOS COMBUSTIBLE (SEGÚN FACTURA)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Neto (libre de impuestos)"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
+              <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
+              <FormField label="Impuestos internos ITC"><Input type="number" step="0.01" {...f.register("impuestos_internos")} /></FormField>
+              <FormField label="Otros impuestos CO₂"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+              <FormField label="Litros"><Input type="number" step="0.01" {...f.register("litros")} /></FormField>
+              <FormField label="Producto"><Input placeholder="Ej: Quantium Diesel" {...f.register("producto")} /></FormField>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total calculado: <span className="font-semibold text-foreground">{formatPesos(totalCalc ?? 0)}</span> — se completa el campo Monto automáticamente.
+            </p>
           </div>
         )}
-        <FormField label="Estado">
-          <Select value={f.watch("estado")} onValueChange={(v) => f.setValue("estado", v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pendiente">Pendiente</SelectItem>
-              <SelectItem value="pagada">Pagada</SelectItem>
-            </SelectContent>
-          </Select>
+
+        {!isCombustible && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Neto"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
+            <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Monto ($)" required><Input type="number" step="0.01" {...f.register("total")} /></FormField>
+          <FormField label="Estado">
+            <Select value={f.watch("estado")} onValueChange={(v) => f.setValue("estado", v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pendiente">Pendiente</SelectItem>
+                <SelectItem value="pagada">Abonada</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Fecha de pago"><Input type="date" {...f.register("fecha_pago")} /></FormField>
+          <FormField label="Forma de pago">
+            <Select value={f.watch("forma_pago") ?? ""} onValueChange={(v) => f.setValue("forma_pago", v)}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+              <SelectContent>
+                {FORMAS_PAGO.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
+
+        <FormField label="Observaciones">
+          <Textarea placeholder="Notas adicionales…" rows={2} {...f.register("observaciones")} />
         </FormField>
-        <DialogFooter><Button type="submit" disabled={f.formState.isSubmitting}>Guardar</Button></DialogFooter>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => f.reset()}>Cancelar</Button>
+          <Button type="submit" disabled={f.formState.isSubmitting}>Guardar compra</Button>
+        </DialogFooter>
       </form>
     </DialogContent>
   );
