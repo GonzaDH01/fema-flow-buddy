@@ -51,14 +51,14 @@ function Page() {
     const { error } = edit
       ? await supabase.from("fema_proveedores").update(payload).eq("id", edit.id)
       : await supabase.from("fema_proveedores").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(edit ? "Actualizado" : "Proveedor creado");
     qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
     close();
   };
   const onDelete = async (r: Row) => {
     const { error } = await supabase.from("fema_proveedores").delete().eq("id", r.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Eliminado");
     qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
   };
