@@ -2,6 +2,25 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type ExtractedFactura = {
+  tipo: string | null;
+  punto_venta: number | null;
+  numero: number | null;
+  fecha_emision: string | null;
+  fecha_vencimiento: string | null;
+  razon_social: string | null;
+  cuit: string | null;
+  condicion_iva: string | null;
+  concepto: string | null;
+  neto: number | null;
+  iva_total: number | null;
+  percepciones_total: number | null;
+  retenciones_total: number | null;
+  total: number | null;
+  iva_lineas: { alicuota: number; base_imponible: number; importe: number }[];
+  confianza: number | null;
+};
+
 const inputSchema = z.object({
   imageBase64: z.string().min(20).max(15_000_000),
   mimeType: z.string().min(3).max(64),
@@ -67,12 +86,30 @@ export const extractFactura = createServerFn({ method: "POST" })
 
     const json = await res.json();
     const content: string = json?.choices?.[0]?.message?.content ?? "{}";
-    let parsed: unknown;
+    let parsed: Partial<ExtractedFactura> = {};
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(content) as Partial<ExtractedFactura>;
     } catch {
       const m = content.match(/\{[\s\S]*\}/);
-      parsed = m ? JSON.parse(m[0]) : {};
+      if (m) parsed = JSON.parse(m[0]) as Partial<ExtractedFactura>;
     }
-    return parsed as Record<string, unknown>;
+    const result: ExtractedFactura = {
+      tipo: parsed.tipo ?? null,
+      punto_venta: parsed.punto_venta ?? null,
+      numero: parsed.numero ?? null,
+      fecha_emision: parsed.fecha_emision ?? null,
+      fecha_vencimiento: parsed.fecha_vencimiento ?? null,
+      razon_social: parsed.razon_social ?? null,
+      cuit: parsed.cuit ?? null,
+      condicion_iva: parsed.condicion_iva ?? null,
+      concepto: parsed.concepto ?? null,
+      neto: parsed.neto ?? null,
+      iva_total: parsed.iva_total ?? null,
+      percepciones_total: parsed.percepciones_total ?? null,
+      retenciones_total: parsed.retenciones_total ?? null,
+      total: parsed.total ?? null,
+      iva_lineas: Array.isArray(parsed.iva_lineas) ? parsed.iva_lineas : [],
+      confianza: parsed.confianza ?? null,
+    };
+    return result;
   });
