@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/app" });
@@ -54,6 +56,28 @@ function AuthPage() {
     toast.success("Cuenta creada. Ya puedes iniciar sesión.");
   };
 
+  const handleGoogle = async () => {
+    setBusy(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: `${window.location.origin}/app`,
+    });
+    if (result.error) {
+      setBusy(false);
+      toast.error(result.error.message);
+    }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Te enviamos un correo para restablecer tu contraseña.");
+  };
+
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden bg-[image:var(--gradient-primary)] p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
@@ -76,9 +100,10 @@ function AuthPage() {
             <h1 className="text-2xl font-bold">Sistema FEMA</h1>
           </div>
           <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
               <TabsTrigger value="signup">Crear cuenta</TabsTrigger>
+              <TabsTrigger value="forgot">Olvidé</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -95,6 +120,12 @@ function AuthPage() {
                   {busy ? "Ingresando..." : "Ingresar"}
                 </Button>
               </form>
+              <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" /> o <div className="h-px flex-1 bg-border" />
+              </div>
+              <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={handleGoogle}>
+                Continuar con Google
+              </Button>
             </TabsContent>
 
             <TabsContent value="signup">
@@ -113,6 +144,18 @@ function AuthPage() {
                 </div>
                 <Button type="submit" className="w-full" disabled={busy}>
                   {busy ? "Creando cuenta..." : "Crear cuenta"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="forgot">
+              <form onSubmit={handleForgot} className="mt-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rp-email">Correo electrónico</Label>
+                  <Input id="rp-email" type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
+                </div>
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy ? "Enviando..." : "Enviar enlace de recuperación"}
                 </Button>
               </form>
             </TabsContent>
