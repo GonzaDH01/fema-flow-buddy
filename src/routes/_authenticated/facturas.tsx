@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Eye } from "lucide-react";
+import { Plus, Trash2, Eye, Search } from "lucide-react";
+import { Pagination, usePagination } from "@/components/pagination";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
@@ -558,7 +559,60 @@ function FacturasPage() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <FacturasTable
+          facturas={facturas}
+          clienteNombre={clienteNombre}
+          onDetail={(id) => setDetail(id)}
+          onDelete={(id) => { if (confirm("¿Eliminar factura?")) remove.mutate(id); }}
+          onChangeEstado={(id, estado) => updateEstado.mutate({ id, estado })}
+          userId={user?.id}
+        />
+      )}
+
+      <FacturaDetail id={detail} onClose={() => setDetail(null)} clientes={clientes} />
+    </div>
+  );
+}
+
+function FacturasTable({
+  facturas, clienteNombre, onDetail, onDelete, onChangeEstado, userId,
+}: {
+  facturas: Factura[];
+  clienteNombre: (id: string | null) => string;
+  onDetail: (id: string) => void;
+  onDelete: (id: string) => void;
+  onChangeEstado: (id: string, estado: EstadoFactura) => void;
+  userId?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoFactura>("todos");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return facturas.filter((f) => {
+      if (estadoFiltro !== "todos" && f.estado !== estadoFiltro) return false;
+      if (!q) return true;
+      const comp = `${f.tipo} ${String(f.punto_venta).padStart(4, "0")}-${String(f.numero).padStart(8, "0")}`.toLowerCase();
+      return comp.includes(q) || clienteNombre(f.cliente_proveedor_id).toLowerCase().includes(q);
+    });
+  }, [facturas, query, estadoFiltro, clienteNombre]);
+  const { page, setPage, totalPages, paged, total, pageSize } = usePagination(filtered, 20);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Buscar por comprobante o cliente" className="pl-9" />
+        </div>
+        <Select value={estadoFiltro} onValueChange={(v) => { setEstadoFiltro(v as "todos" | EstadoFactura); setPage(1); }}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            {ESTADOS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -571,7 +625,7 @@ function FacturasPage() {
               </tr>
             </thead>
             <tbody>
-              {facturas.map((f) => {
+              {paged.map((f) => {
                 const est = ESTADOS.find((e) => e.value === f.estado)!;
                 return (
                   <tr key={f.id} className="border-t border-border hover:bg-muted/30">
@@ -581,7 +635,7 @@ function FacturasPage() {
                     <td className="px-4 py-3 text-muted-foreground">{f.fecha_emision}</td>
                     <td className="px-4 py-3">{clienteNombre(f.cliente_proveedor_id)}</td>
                     <td className="px-4 py-3">
-                      <Select value={f.estado} onValueChange={(v) => updateEstado.mutate({ id: f.id, estado: v as EstadoFactura })}>
+                      <Select value={f.estado} onValueChange={(v) => onChangeEstado(f.id, v as EstadoFactura)}>
                         <SelectTrigger className="h-7 w-32 border-0 bg-transparent p-0">
                           <Badge variant={est.variant}>{est.label}</Badge>
                         </SelectTrigger>
@@ -591,13 +645,11 @@ function FacturasPage() {
                     <td className="px-4 py-3 text-right font-semibold">{fmt(Number(f.total))}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => setDetail(f.id)}>
+                        <Button size="icon" variant="ghost" onClick={() => onDetail(f.id)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {f.created_by === user?.id && (
-                          <Button size="icon" variant="ghost" onClick={() => {
-                            if (confirm("¿Eliminar factura?")) remove.mutate(f.id);
-                          }}>
+                        {f.created_by === userId && (
+                          <Button size="icon" variant="ghost" onClick={() => onDelete(f.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -608,10 +660,8 @@ function FacturasPage() {
               })}
             </tbody>
           </table>
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onChange={setPage} />
         </div>
-      )}
-
-      <FacturaDetail id={detail} onClose={() => setDetail(null)} clientes={clientes} />
     </div>
   );
 }
