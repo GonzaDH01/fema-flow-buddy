@@ -238,6 +238,517 @@ export type Database = {
           },
         ]
       }
+      fema_auditoria: {
+        Row: {
+          created_at: string
+          datos_anteriores: Json | null
+          datos_nuevos: Json | null
+          id: string
+          operacion: string
+          registro_id: string | null
+          tabla: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          datos_anteriores?: Json | null
+          datos_nuevos?: Json | null
+          id?: string
+          operacion: string
+          registro_id?: string | null
+          tabla: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          datos_anteriores?: Json | null
+          datos_nuevos?: Json | null
+          id?: string
+          operacion?: string
+          registro_id?: string | null
+          tabla?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      fema_clientes: {
+        Row: {
+          condicion_iva: string | null
+          created_at: string
+          cuit: string | null
+          email: string | null
+          id: string
+          nombre: string
+          telefono: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          condicion_iva?: string | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          nombre: string
+          telefono?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          condicion_iva?: string | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          nombre?: string
+          telefono?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_combustible: {
+        Row: {
+          anio: number | null
+          co2: number | null
+          created_at: string
+          fecha: string
+          id: string
+          itc: number | null
+          litros: number
+          mes: number | null
+          precio_litro: number | null
+          producto: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          co2?: number | null
+          created_at?: string
+          fecha: string
+          id?: string
+          itc?: number | null
+          litros: number
+          mes?: number | null
+          precio_litro?: number | null
+          producto: string
+          total?: number
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          co2?: number | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          itc?: number | null
+          litros?: number
+          mes?: number | null
+          precio_litro?: number | null
+          producto?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_empleados: {
+        Row: {
+          activo: boolean | null
+          cargo: string | null
+          created_at: string
+          cuil: string | null
+          fecha_ingreso: string | null
+          id: string
+          nombre: string
+          sueldo_bruto: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activo?: boolean | null
+          cargo?: string | null
+          created_at?: string
+          cuil?: string | null
+          fecha_ingreso?: string | null
+          id?: string
+          nombre: string
+          sueldo_bruto?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activo?: boolean | null
+          cargo?: string | null
+          created_at?: string
+          cuil?: string | null
+          fecha_ingreso?: string | null
+          id?: string
+          nombre?: string
+          sueldo_bruto?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_estimaciones: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          descripcion: string | null
+          estado: string
+          fecha_estimada: string
+          id: string
+          monto: number
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string
+          fecha_estimada: string
+          id?: string
+          monto?: number
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string
+          fecha_estimada?: string
+          id?: string
+          monto?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_estimaciones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_facturas_compra: {
+        Row: {
+          anio: number | null
+          categoria: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_factura_compra"] | null
+          fecha: string
+          id: string
+          iva_105: number | null
+          iva_21: number | null
+          mes: number | null
+          neto: number | null
+          numero: string | null
+          percepciones: number | null
+          proveedor_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_factura"]
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
+          fecha: string
+          id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          mes?: number | null
+          neto?: number | null
+          numero?: string | null
+          percepciones?: number | null
+          proveedor_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
+          fecha?: string
+          id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          mes?: number | null
+          neto?: number | null
+          numero?: string | null
+          percepciones?: number | null
+          proveedor_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_facturas_compra_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "fema_proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_facturas_venta: {
+        Row: {
+          anio: number | null
+          cliente_id: string | null
+          condicion_pago: string | null
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_factura_venta"] | null
+          fecha: string
+          id: string
+          iva_105: number | null
+          iva_21: number | null
+          mes: number | null
+          neto: number | null
+          numero: string | null
+          percepciones: number | null
+          tipo: Database["public"]["Enums"]["tipo_factura"]
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          cliente_id?: string | null
+          condicion_pago?: string | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_factura_venta"] | null
+          fecha: string
+          id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          mes?: number | null
+          neto?: number | null
+          numero?: string | null
+          percepciones?: number | null
+          tipo?: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          cliente_id?: string | null
+          condicion_pago?: string | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_factura_venta"] | null
+          fecha?: string
+          id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          mes?: number | null
+          neto?: number | null
+          numero?: string | null
+          percepciones?: number | null
+          tipo?: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_facturas_venta_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_impuestos: {
+        Row: {
+          anio: number
+          created_at: string
+          ganancias_estimadas: number | null
+          id: string
+          ingresos_brutos: number | null
+          iva_credito: number | null
+          iva_debito: number | null
+          mes: number
+          periodo: string
+          user_id: string
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          ganancias_estimadas?: number | null
+          id?: string
+          ingresos_brutos?: number | null
+          iva_credito?: number | null
+          iva_debito?: number | null
+          mes: number
+          periodo: string
+          user_id: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          ganancias_estimadas?: number | null
+          id?: string
+          ingresos_brutos?: number | null
+          iva_credito?: number | null
+          iva_debito?: number | null
+          mes?: number
+          periodo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_medios_pago: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_presupuestos: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          descripcion: string | null
+          estado: string | null
+          fecha: string
+          id: string
+          total: number | null
+          user_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string | null
+          fecha: string
+          id?: string
+          total?: number | null
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: string | null
+          fecha?: string
+          id?: string
+          total?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_presupuestos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_proveedores: {
+        Row: {
+          categoria: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at: string
+          cuit: string | null
+          email: string | null
+          id: string
+          nombre: string
+          telefono: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          nombre: string
+          telefono?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          created_at?: string
+          cuit?: string | null
+          email?: string | null
+          id?: string
+          nombre?: string
+          telefono?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_sueldos: {
+        Row: {
+          cargas_sociales: number | null
+          created_at: string
+          empleado_id: string | null
+          id: string
+          periodo: string
+          sueldo_bruto: number | null
+          sueldo_neto: number | null
+          user_id: string
+        }
+        Insert: {
+          cargas_sociales?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+          periodo: string
+          sueldo_bruto?: number | null
+          sueldo_neto?: number | null
+          user_id: string
+        }
+        Update: {
+          cargas_sociales?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+          periodo?: string
+          sueldo_bruto?: number | null
+          sueldo_neto?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_sueldos_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gastos: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_gasto"]
@@ -699,6 +1210,16 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "contador" | "operador"
+      categoria_compra:
+        | "Repuestos_JD"
+        | "Mecanicos"
+        | "Gomeria"
+        | "Inoculante"
+        | "Transportistas"
+        | "Seguros"
+        | "Servicios"
+        | "Herramientas"
+        | "Otro"
       categoria_gasto:
         | "servicios"
         | "alquiler"
@@ -716,6 +1237,8 @@ export type Database = {
         | "consumidor_final"
         | "no_responsable"
       estado_factura: "borrador" | "emitida" | "pagada" | "anulada"
+      estado_factura_compra: "pendiente" | "pagada"
+      estado_factura_venta: "pendiente" | "cobrada"
       estado_presupuesto:
         | "borrador"
         | "enviado"
@@ -863,6 +1386,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "contador", "operador"],
+      categoria_compra: [
+        "Repuestos_JD",
+        "Mecanicos",
+        "Gomeria",
+        "Inoculante",
+        "Transportistas",
+        "Seguros",
+        "Servicios",
+        "Herramientas",
+        "Otro",
+      ],
       categoria_gasto: [
         "servicios",
         "alquiler",
@@ -882,6 +1416,8 @@ export const Constants = {
         "no_responsable",
       ],
       estado_factura: ["borrador", "emitida", "pagada", "anulada"],
+      estado_factura_compra: ["pendiente", "pagada"],
+      estado_factura_venta: ["pendiente", "cobrada"],
       estado_presupuesto: [
         "borrador",
         "enviado",
