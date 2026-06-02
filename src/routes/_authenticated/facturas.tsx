@@ -559,7 +559,60 @@ function FacturasPage() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <FacturasTable
+          facturas={facturas}
+          clienteNombre={clienteNombre}
+          onDetail={(id) => setDetail(id)}
+          onDelete={(id) => { if (confirm("¿Eliminar factura?")) remove.mutate(id); }}
+          onChangeEstado={(id, estado) => updateEstado.mutate({ id, estado })}
+          userId={user?.id}
+        />
+      )}
+
+      <FacturaDetail id={detail} onClose={() => setDetail(null)} clientes={clientes} />
+    </div>
+  );
+}
+
+function FacturasTable({
+  facturas, clienteNombre, onDetail, onDelete, onChangeEstado, userId,
+}: {
+  facturas: Factura[];
+  clienteNombre: (id: string | null) => string;
+  onDetail: (id: string) => void;
+  onDelete: (id: string) => void;
+  onChangeEstado: (id: string, estado: EstadoFactura) => void;
+  userId?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoFactura>("todos");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return facturas.filter((f) => {
+      if (estadoFiltro !== "todos" && f.estado !== estadoFiltro) return false;
+      if (!q) return true;
+      const comp = `${f.tipo} ${String(f.punto_venta).padStart(4, "0")}-${String(f.numero).padStart(8, "0")}`.toLowerCase();
+      return comp.includes(q) || clienteNombre(f.cliente_proveedor_id).toLowerCase().includes(q);
+    });
+  }, [facturas, query, estadoFiltro, clienteNombre]);
+  const { page, setPage, totalPages, paged, total, pageSize } = usePagination(filtered, 20);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Buscar por comprobante o cliente" className="pl-9" />
+        </div>
+        <Select value={estadoFiltro} onValueChange={(v) => { setEstadoFiltro(v as "todos" | EstadoFactura); setPage(1); }}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            {ESTADOS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
               <tr>
