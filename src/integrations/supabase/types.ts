@@ -273,34 +273,52 @@ export type Database = {
       }
       fema_clientes: {
         Row: {
+          codigo: string | null
           condicion_iva: string | null
+          cp: string | null
           created_at: string
           cuit: string | null
+          domicilio: string | null
           email: string | null
           id: string
+          localidad: string | null
           nombre: string
+          observaciones: string | null
+          provincia: string | null
           telefono: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          codigo?: string | null
           condicion_iva?: string | null
+          cp?: string | null
           created_at?: string
           cuit?: string | null
+          domicilio?: string | null
           email?: string | null
           id?: string
+          localidad?: string | null
           nombre: string
+          observaciones?: string | null
+          provincia?: string | null
           telefono?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          codigo?: string | null
           condicion_iva?: string | null
+          cp?: string | null
           created_at?: string
           cuit?: string | null
+          domicilio?: string | null
           email?: string | null
           id?: string
+          localidad?: string | null
           nombre?: string
+          observaciones?: string | null
+          provincia?: string | null
           telefono?: string | null
           updated_at?: string
           user_id?: string
