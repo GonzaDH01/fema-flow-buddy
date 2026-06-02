@@ -1,10 +1,10 @@
 // Renderiza la primera página de un PDF a PNG base64 usando pdf.js (cliente).
 export async function pdfFirstPageToPng(file: File, scale = 2): Promise<{ base64: string; mimeType: string }> {
   const pdfjs = await import("pdfjs-dist");
-  // Worker servido por Vite (?url asset import).
-  // @ts-expect-error pdfjs worker URL
-  const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const workerMod = (await import(
+    /* @vite-ignore */ "pdfjs-dist/build/pdf.worker.min.mjs?url"
+  )) as { default: string };
+  pdfjs.GlobalWorkerOptions.workerSrc = workerMod.default;
 
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
