@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Package, TrendingUp, Activity } from "lucide-react";
+import { Users, FileText, TrendingUp, Activity } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
-export const Route = createFileRoute("/app/")({
+export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
@@ -26,10 +26,10 @@ function Dashboard() {
   });
 
   const stats = [
-    { label: "Clientes / Proveedores", value: cpCount ?? "—", icon: Users, accent: "text-primary" },
-    { label: "Facturas", value: facturasCount ?? "—", icon: Package, accent: "text-primary" },
-    { label: "Operaciones", value: 0, icon: Activity, accent: "text-primary" },
-    { label: "Crecimiento", value: "—", icon: TrendingUp, accent: "text-primary" },
+    { label: "Clientes / Proveedores", value: cpCount ?? "—", icon: Users },
+    { label: "Facturas", value: facturasCount ?? "—", icon: FileText },
+    { label: "Operaciones", value: 0, icon: Activity },
+    { label: "Crecimiento", value: "—", icon: TrendingUp },
   ];
 
   return (
@@ -46,7 +46,7 @@ function Dashboard() {
           <div key={s.label} className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{s.label}</span>
-              <s.icon className={`h-4 w-4 ${s.accent}`} />
+              <s.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="mt-3 text-3xl font-bold text-foreground">{s.value}</div>
           </div>

@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
-export const Route = createFileRoute("/app/clientes")({
+export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientesPage,
 });
 

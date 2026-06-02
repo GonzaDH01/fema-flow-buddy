@@ -29,7 +29,7 @@ function AuthPage() {
   const [resetEmail, setResetEmail] = useState("");
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/app" });
+    if (!loading && session) navigate({ to: "/dashboard" });
   }, [loading, session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -39,7 +39,7 @@ function AuthPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Bienvenido");
-    navigate({ to: "/app" });
+    navigate({ to: "/dashboard" });
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -59,7 +59,7 @@ function AuthPage() {
   const handleGoogle = async () => {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/app`,
+      redirect_uri: `${window.location.origin}/dashboard`,
     });
     if (result.error) {
       setBusy(false);
