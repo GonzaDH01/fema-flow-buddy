@@ -5,40 +5,64 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
-import { CrudTable } from "@/components/crud-table";
 import { FormField } from "@/lib/form-helpers";
-import { formatPesos, formatFecha } from "@/lib/format";
+import { formatPesos, formatNumero, formatFecha, MESES_LARGOS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
-const TIPOS = ["A","B","C","M","E"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const LETRAS = ["A", "B", "C", "M", "E"] as const;
+const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
+const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
+const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Otro"] as const;
+
 const schema = z.object({
+  tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
+  tipo: z.enum(LETRAS),
+  numero: z.string().max(20).optional().or(z.literal("")),
   fecha: z.string().min(1),
   cliente_id: z.string().uuid().optional().or(z.literal("")),
-  numero: z.string().max(20).optional().or(z.literal("")),
-  tipo: z.enum(TIPOS),
-  neto: z.coerce.number().min(0),
-  iva_21: z.coerce.number().min(0),
-  iva_105: z.coerce.number().min(0),
-  percepciones: z.coerce.number().min(0),
-  total: z.coerce.number().min(0),
-  condicion_pago: z.string().max(50).optional().or(z.literal("")),
-  estado: z.enum(["pendiente","cobrada"]),
+  trabajo: z.string().max(200).optional().or(z.literal("")),
+  cultivo: z.string().optional().or(z.literal("")),
+  iva_pct: z.enum(TIPOS_IVA),
+  hectareas: z.coerce.number().min(0),
+  precio_ha: z.coerce.number().min(0),
+  metros_bolsa: z.coerce.number().min(0),
+  precio_metro: z.coerce.number().min(0),
+  estado: z.enum(["pendiente", "cobrada"]),
+  fecha_cobro: z.string().optional().or(z.literal("")),
+  forma_cobro: z.string().optional().or(z.literal("")),
+  observaciones: z.string().max(500).optional().or(z.literal("")),
 });
 type FormVals = z.infer<typeof schema>;
+
 type Row = {
   id: string; fecha: string; cliente_id: string | null; numero: string | null;
-  tipo: typeof TIPOS[number]; neto: number; iva_21: number; iva_105: number;
-  percepciones: number; total: number; condicion_pago: string | null;
+  tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
+  trabajo: string | null; cultivo: string | null;
+  hectareas: number | null; precio_ha: number | null;
+  metros_bolsa: number | null; precio_metro: number | null;
+  neto: number | null; iva_21: number | null; iva_105: number | null;
+  percepciones: number | null; total: number;
+  condicion_pago: string | null; observaciones: string | null;
+  fecha_cobro: string | null; forma_cobro: string | null;
   estado: "pendiente" | "cobrada";
 };
 
@@ -48,7 +72,8 @@ function Page() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada">("todas");
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -71,145 +96,465 @@ function Page() {
     },
   });
 
-  const clientesMap = useMemo(() => Object.fromEntries((clientes ?? []).map((c) => [c.id, c.nombre])), [clientes]);
+  const clientesMap = useMemo(
+    () => Object.fromEntries((clientes ?? []).map((c) => [c.id, c.nombre])),
+    [clientes],
+  );
+
+  const rows = data ?? [];
+
+  // KPIs
+  const kpis = useMemo(() => {
+    const totalHas = rows.reduce((a, r) => a + Number(r.hectareas ?? 0), 0);
+    const totalMts = rows.reduce((a, r) => a + Number(r.metros_bolsa ?? 0), 0);
+    const facturado = rows.reduce((a, r) => a + Number(r.total ?? 0), 0);
+    const cobrado = rows.filter((r) => r.estado === "cobrada").reduce((a, r) => a + Number(r.total ?? 0), 0);
+    const hasCobradas = rows.filter((r) => r.estado === "cobrada").reduce((a, r) => a + Number(r.hectareas ?? 0), 0);
+    const mtsCobrados = rows.filter((r) => r.estado === "cobrada").reduce((a, r) => a + Number(r.metros_bolsa ?? 0), 0);
+    return { totalHas, totalMts, facturado, cobrado, hasCobradas, mtsCobrados };
+  }, [rows]);
+
+  // Por cultivo
+  const porCultivo = useMemo(() => {
+    const map = new Map<string, { trabajos: number; has: number; mts: number; facturado: number }>();
+    for (const r of rows) {
+      const k = r.cultivo || "Sin clasificar";
+      const cur = map.get(k) ?? { trabajos: 0, has: 0, mts: 0, facturado: 0 };
+      cur.trabajos += 1;
+      cur.has += Number(r.hectareas ?? 0);
+      cur.mts += Number(r.metros_bolsa ?? 0);
+      cur.facturado += Number(r.total ?? 0);
+      map.set(k, cur);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].facturado - a[1].facturado);
+  }, [rows]);
+
+  // Top clientes
+  const topClientes = useMemo(() => {
+    const map = new Map<string, { trabajos: number; has: number; mts: number; facturado: number }>();
+    for (const r of rows) {
+      const k = r.cliente_id ? (clientesMap[r.cliente_id] ?? "—") : "Sin cliente";
+      const cur = map.get(k) ?? { trabajos: 0, has: 0, mts: 0, facturado: 0 };
+      cur.trabajos += 1;
+      cur.has += Number(r.hectareas ?? 0);
+      cur.mts += Number(r.metros_bolsa ?? 0);
+      cur.facturado += Number(r.total ?? 0);
+      map.set(k, cur);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].facturado - a[1].facturado).slice(0, 8);
+  }, [rows, clientesMap]);
 
   const filtered = useMemo(() => {
-    if (!data) return data;
-    if (filtroEstado === "todos") return data;
-    return data.filter((r) => r.estado === filtroEstado);
-  }, [data, filtroEstado]);
+    let list = rows;
+    if (tab !== "todas") list = list.filter((r) => r.estado === tab);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((r) => {
+        const cli = r.cliente_id ? (clientesMap[r.cliente_id] ?? "") : "";
+        return cli.toLowerCase().includes(q)
+          || (r.numero ?? "").toLowerCase().includes(q)
+          || (r.trabajo ?? "").toLowerCase().includes(q);
+      });
+    }
+    return list;
+  }, [rows, tab, search, clientesMap]);
 
   const close = () => { setOpen(false); setEdit(null); };
+
   const onSubmit = async (v: FormVals) => {
+    // calc
+    const importePicado = (v.hectareas || 0) * (v.precio_ha || 0);
+    const importeBolsa = (v.metros_bolsa || 0) * (v.precio_metro || 0);
+    const neto = importePicado + importeBolsa;
+    const ivaPct = v.iva_pct === "21%" ? 0.21 : v.iva_pct === "10.5%" ? 0.105 : v.iva_pct === "27%" ? 0.27 : 0;
+    const iva21 = v.iva_pct === "21%" ? neto * 0.21 : 0;
+    const iva105 = v.iva_pct === "10.5%" ? neto * 0.105 : 0;
+    const total = v.tipo === "A" ? neto * (1 + ivaPct) : neto;
+    const periodo = MESES_LARGOS[new Date(v.fecha).getMonth()];
+
     const payload = {
-      user_id: user!.id, fecha: v.fecha, cliente_id: v.cliente_id || null,
-      numero: v.numero || null, tipo: v.tipo, neto: v.neto,
-      iva_21: v.iva_21, iva_105: v.iva_105, percepciones: v.percepciones,
-      total: v.total, condicion_pago: v.condicion_pago || null, estado: v.estado,
+      user_id: user!.id,
+      fecha: v.fecha,
+      cliente_id: v.cliente_id || null,
+      numero: v.numero || null,
+      tipo: v.tipo,
+      tipo_comprobante: v.tipo_comprobante,
+      trabajo: v.trabajo || null,
+      cultivo: v.cultivo || null,
+      hectareas: v.hectareas,
+      precio_ha: v.precio_ha,
+      metros_bolsa: v.metros_bolsa,
+      precio_metro: v.precio_metro,
+      neto, iva_21: iva21, iva_105: iva105, percepciones: 0, total,
+      estado: v.estado,
+      fecha_cobro: v.fecha_cobro || null,
+      forma_cobro: v.forma_cobro || null,
+      observaciones: v.observaciones || null,
+      condicion_pago: periodo,
     };
     const { error } = edit
       ? await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id)
       : await supabase.from("fema_facturas_venta").insert(payload);
     if (error) { toast.error(error.message); return; }
-    toast.success(edit ? "Actualizada" : "Factura creada");
+    toast.success(edit ? "Factura actualizada" : "Factura creada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     close();
   };
+
   const onDelete = async (r: Row) => {
     const { error } = await supabase.from("fema_facturas_venta").delete().eq("id", r.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Eliminada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
   };
-  const markCobrada = async (r: Row) => {
-    const { error } = await supabase.from("fema_facturas_venta").update({ estado: "cobrada" }).eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Marcada como cobrada");
-    qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+
+  const exportarExcel = async () => {
+    const { exportarExcel } = await import("@/lib/exportar-excel");
+    exportarExcel(
+      rows.map((r) => ({
+        Fecha: r.fecha,
+        Numero: r.numero ?? "",
+        Cliente: r.cliente_id ? clientesMap[r.cliente_id] ?? "" : "",
+        Trabajo: r.trabajo ?? "",
+        Cultivo: r.cultivo ?? "",
+        Hectareas: r.hectareas ?? 0,
+        MetrosBolsa: r.metros_bolsa ?? 0,
+        Total: r.total,
+        Estado: r.estado,
+      })),
+      `facturas-${year}`,
+    );
   };
 
+  const pctCobrado = kpis.facturado > 0 ? Math.round((kpis.cobrado / kpis.facturado) * 100) : 0;
+
   return (
-    <>
-      <CrudTable<Row>
-        title="Facturas de Venta" description={`Ingresos del año ${year}`}
-        rows={filtered} loading={isLoading} emptyLabel="facturas"
-        onAdd={() => { setEdit(null); setOpen(true); }}
-        onEdit={(r) => { setEdit(r); setOpen(true); }}
-        onDelete={onDelete}
-        extraHeader={
-          <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-            <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="pendiente">Pendientes</SelectItem>
-              <SelectItem value="cobrada">Cobradas</SelectItem>
-            </SelectContent>
-          </Select>
-        }
-        columns={[
-          { header: "Fecha", cell: (r) => formatFecha(r.fecha) },
-          { header: "Cliente", cell: (r) => r.cliente_id ? clientesMap[r.cliente_id] ?? "—" : "—" },
-          { header: "Número", cell: (r) => r.numero ?? "—" },
-          { header: "Tipo", cell: (r) => <Badge variant="outline">{r.tipo}</Badge> },
-          { header: "Total", cell: (r) => <span className="font-medium">{formatPesos(Number(r.total))}</span> },
-          { header: "Estado", cell: (r) => r.estado === "cobrada"
-            ? <Badge className="bg-primary/15 text-primary">Cobrada</Badge>
-            : <button onClick={() => markCobrada(r)} title="Marcar cobrada" className="inline-flex items-center gap-1 rounded bg-accent/15 px-2 py-0.5 text-xs text-accent hover:bg-accent/25">
-                <CheckCircle2 className="h-3 w-3" /> Pendiente
-              </button> },
-        ]}
-      />
+    <div className="p-6">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Facturas de Servicio</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Control de campaña — año {year}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportarExcel}>
+            <FileDown className="mr-1.5 h-4 w-4" /> Exportar Excel
+          </Button>
+          <Button size="sm" onClick={() => { setEdit(null); setOpen(true); }}>
+            <Plus className="mr-1.5 h-4 w-4" /> Nueva factura
+          </Button>
+        </div>
+      </header>
+
+      {/* Control de campaña */}
+      <section className="mb-4 rounded-xl border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Control de campaña</h3>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Kpi label="Hectáreas picadas" value={formatNumero(kpis.totalHas)} sub={`Cobradas: ${formatNumero(kpis.hasCobradas)} ha`} />
+          <Kpi label="Metros de bolsa" value={formatNumero(kpis.totalMts)} sub={`Cobrados: ${formatNumero(kpis.mtsCobrados)} m`} />
+          <Kpi label="Facturado total" value={formatPesos(kpis.facturado)} sub={`${rows.length} facturas`} accent="primary" />
+          <Kpi label="Cobrado" value={formatPesos(kpis.cobrado)} sub={`${pctCobrado}% del facturado`} accent="accent" />
+        </div>
+      </section>
+
+      {/* Por cultivo + Top clientes */}
+      <section className="mb-4 grid gap-4 lg:grid-cols-2">
+        <SummaryTable
+          title="Por cultivo"
+          col1="Cultivo"
+          rows={porCultivo}
+        />
+        <SummaryTable
+          title="Top clientes"
+          col1="Cliente"
+          rows={topClientes}
+        />
+      </section>
+
+      {/* Tabs + tabla */}
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList>
+              <TabsTrigger value="todas">Todas</TabsTrigger>
+              <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
+              <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Input
+            placeholder="Buscar cliente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-56"
+          />
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>N° Factura</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Trabajo</TableHead>
+              <TableHead>Período</TableHead>
+              <TableHead className="text-right">Monto</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="w-24 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay facturas</TableCell></TableRow>
+            ) : filtered.map((r) => {
+              const periodo = MESES_LARGOS[new Date(r.fecha).getMonth()];
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs">{r.numero ?? "—"}</TableCell>
+                  <TableCell className="font-medium">{r.cliente_id ? clientesMap[r.cliente_id] ?? "—" : "—"}</TableCell>
+                  <TableCell>{formatFecha(r.fecha)}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.trabajo ?? "—"}</TableCell>
+                  <TableCell>{periodo}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(Number(r.total))}</TableCell>
+                  <TableCell>
+                    {r.estado === "cobrada"
+                      ? <Badge className="bg-primary/15 text-primary border-0">● Cobrada</Badge>
+                      : <Badge variant="outline">Pendiente</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => { setEdit(r); setOpen(true); }}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar factura?</AlertDialogTitle>
+                            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(r)}>Eliminar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </section>
+
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         <FormDialog onSubmit={onSubmit} initial={edit} clientes={clientes ?? []} year={year} />
       </Dialog>
-    </>
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "primary" | "accent" }) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-2xl font-bold ${accent === "primary" ? "text-primary" : accent === "accent" ? "text-accent" : ""}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+function SummaryTable({ title, col1, rows }: {
+  title: string;
+  col1: string;
+  rows: [string, { trabajos: number; has: number; mts: number; facturado: number }][];
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card">
+      <div className="border-b border-border px-4 py-3"><h3 className="text-sm font-semibold">{title}</h3></div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{col1}</TableHead>
+            <TableHead className="text-right">Trab.</TableHead>
+            <TableHead className="text-right">Has</TableHead>
+            <TableHead className="text-right">Mts bolsa</TableHead>
+            <TableHead className="text-right">Facturado</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground text-sm">Sin datos</TableCell></TableRow>
+          ) : rows.map(([k, v]) => (
+            <TableRow key={k}>
+              <TableCell className="font-medium">{k}</TableCell>
+              <TableCell className="text-right">{v.trabajos}</TableCell>
+              <TableCell className="text-right">{formatNumero(v.has)}</TableCell>
+              <TableCell className="text-right">{formatNumero(v.mts)}</TableCell>
+              <TableCell className="text-right font-semibold">{formatPesos(v.facturado)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
 function FormDialog({ onSubmit, initial, clientes, year }: {
-  onSubmit: (v: FormVals) => Promise<void>; initial: Row | null;
-  clientes: { id: string; nombre: string }[]; year: number;
+  onSubmit: (v: FormVals) => Promise<void>;
+  initial: Row | null;
+  clientes: { id: string; nombre: string }[];
+  year: number;
 }) {
+  const inferIva = (r: Row | null): typeof TIPOS_IVA[number] => {
+    if (!r) return "21%";
+    if ((r.iva_21 ?? 0) > 0) return "21%";
+    if ((r.iva_105 ?? 0) > 0) return "10.5%";
+    return r.tipo === "A" ? "21%" : "0%";
+  };
+
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
-      fecha: initial?.fecha ?? `${year}-01-01`,
-      cliente_id: initial?.cliente_id ?? "",
+      tipo_comprobante: (initial?.tipo_comprobante as typeof TIPOS_COMPROBANTE[number]) ?? "Factura",
+      tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      tipo: initial?.tipo ?? "B",
-      neto: Number(initial?.neto ?? 0),
-      iva_21: Number(initial?.iva_21 ?? 0),
-      iva_105: Number(initial?.iva_105 ?? 0),
-      percepciones: Number(initial?.percepciones ?? 0),
-      total: Number(initial?.total ?? 0),
-      condicion_pago: initial?.condicion_pago ?? "",
+      fecha: initial?.fecha ?? new Date(`${year}-01-01`).toISOString().slice(0, 10),
+      cliente_id: initial?.cliente_id ?? "",
+      trabajo: initial?.trabajo ?? "",
+      cultivo: initial?.cultivo ?? "Maíz",
+      iva_pct: inferIva(initial),
+      hectareas: Number(initial?.hectareas ?? 0),
+      precio_ha: Number(initial?.precio_ha ?? 0),
+      metros_bolsa: Number(initial?.metros_bolsa ?? 0),
+      precio_metro: Number(initial?.precio_metro ?? 0),
       estado: initial?.estado ?? "pendiente",
+      fecha_cobro: initial?.fecha_cobro ?? "",
+      forma_cobro: initial?.forma_cobro ?? "Transferencia",
+      observaciones: initial?.observaciones ?? "",
     },
   });
+
   const tipo = f.watch("tipo");
-  const neto = Number(f.watch("neto") || 0);
-  const iva21 = Number(f.watch("iva_21") || 0);
-  const iva105 = Number(f.watch("iva_105") || 0);
-  const perc = Number(f.watch("percepciones") || 0);
+  const ivaPctStr = f.watch("iva_pct");
+  const has = Number(f.watch("hectareas") || 0);
+  const pHa = Number(f.watch("precio_ha") || 0);
+  const mts = Number(f.watch("metros_bolsa") || 0);
+  const pMt = Number(f.watch("precio_metro") || 0);
+
+  const importePicado = has * pHa;
+  const importeBolsa = mts * pMt;
+  const neto = importePicado + importeBolsa;
+  const ivaPct = ivaPctStr === "21%" ? 0.21 : ivaPctStr === "10.5%" ? 0.105 : ivaPctStr === "27%" ? 0.27 : 0;
+  const ivaMonto = tipo === "A" ? neto * ivaPct : 0;
+  const total = neto + ivaMonto;
 
   useEffect(() => {
-    if (tipo === "A") f.setValue("total", neto + iva21 + iva105 + perc);
-  }, [tipo, neto, iva21, iva105, perc, f]);
+    if (!initial) {
+      // ensure form rerenders totals via watch — nothing to do
+    }
+  }, [initial]);
 
   return (
-    <DialogContent className="max-w-lg">
-      <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} factura</DialogTitle></DialogHeader>
-      <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
-        <div className="grid grid-cols-3 gap-3">
-          <FormField label="Fecha" required><Input type="date" {...f.register("fecha")} /></FormField>
-          <FormField label="Tipo">
-            <Select value={tipo} onValueChange={(v) => f.setValue("tipo", v as any)}>
+    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{initial ? "Editar" : "Nueva"} Factura de Servicio</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-4">
+        {/* Tipo de comprobante */}
+        <fieldset className="rounded-md border border-border bg-muted/30 p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Tipo de comprobante
+          </legend>
+          <div className="grid grid-cols-2 gap-3">
+            <Select value={f.watch("tipo_comprobante")} onValueChange={(v) => f.setValue("tipo_comprobante", v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TIPOS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              <SelectContent>{TIPOS_COMPROBANTE.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
             </Select>
-          </FormField>
-          <FormField label="Número"><Input {...f.register("numero")} /></FormField>
+            <Select value={tipo} onValueChange={(v) => f.setValue("tipo", v as any)}>
+              <SelectTrigger><SelectValue placeholder="Letra" /></SelectTrigger>
+              <SelectContent>{LETRAS.map((t) => <SelectItem key={t} value={t}>Letra {t}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Factura A: separa neto + IVA. Factura B o C: importe final, sin discriminación de IVA.
+          </p>
+        </fieldset>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="N° Factura"><Input placeholder="0001-00000123" {...f.register("numero")} /></FormField>
+          <FormField label="Fecha" required><Input type="date" {...f.register("fecha")} /></FormField>
         </div>
+
         <FormField label="Cliente">
           <Select value={f.watch("cliente_id") ?? ""} onValueChange={(v) => f.setValue("cliente_id", v)}>
-            <SelectTrigger><SelectValue placeholder="Sin cliente" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Nombre del cliente" /></SelectTrigger>
             <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}</SelectContent>
           </Select>
         </FormField>
+
+        <FormField label="Trabajo realizado">
+          <Input placeholder="Ej. Picado de maíz — 120 ha" {...f.register("trabajo")} />
+        </FormField>
+
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Neto"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
-          <FormField label="Total"><Input type="number" step="0.01" {...f.register("total")} /></FormField>
+          <FormField label="Cultivo">
+            <Select value={f.watch("cultivo") ?? ""} onValueChange={(v) => f.setValue("cultivo", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{CULTIVOS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Tipo de IVA">
+            <Select value={ivaPctStr} onValueChange={(v) => f.setValue("iva_pct", v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{TIPOS_IVA.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            </Select>
+          </FormField>
         </div>
-        {tipo === "A" && (
-          <div className="grid grid-cols-3 gap-3 rounded-md border border-border bg-muted/30 p-3">
-            <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
-            <FormField label="IVA 10.5%"><Input type="number" step="0.01" {...f.register("iva_105")} /></FormField>
-            <FormField label="Percepciones"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
+
+        <fieldset className="rounded-md border border-border p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Servicio de picado
+          </legend>
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
+            <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
+            <FormField label="Importe">
+              <Input readOnly value={formatPesos(importePicado)} className="bg-muted/30" />
+            </FormField>
           </div>
-        )}
+        </fieldset>
+
+        <fieldset className="rounded-md border border-border p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Servicio de embolsado
+          </legend>
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
+            <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
+            <FormField label="Importe">
+              <Input readOnly value={formatPesos(importeBolsa)} className="bg-muted/30" />
+            </FormField>
+          </div>
+        </fieldset>
+
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+          <div className="flex justify-between py-1"><span className="text-muted-foreground">Subtotal (neto)</span><span>{formatPesos(neto)}</span></div>
+          {tipo === "A" && (
+            <div className="flex justify-between py-1"><span className="text-muted-foreground">IVA {ivaPctStr}</span><span>{formatPesos(ivaMonto)}</span></div>
+          )}
+          <div className="mt-1 flex justify-between border-t border-border pt-2 text-base font-bold"><span>TOTAL</span><span>{formatPesos(total)}</span></div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Cond. pago"><Input {...f.register("condicion_pago")} /></FormField>
           <FormField label="Estado">
             <Select value={f.watch("estado")} onValueChange={(v) => f.setValue("estado", v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -219,8 +564,23 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
               </SelectContent>
             </Select>
           </FormField>
+          <FormField label="Fecha de cobro"><Input type="date" {...f.register("fecha_cobro")} /></FormField>
         </div>
-        <DialogFooter><Button type="submit" disabled={f.formState.isSubmitting}>Guardar</Button></DialogFooter>
+
+        <FormField label="Forma de cobro">
+          <Select value={f.watch("forma_cobro") ?? ""} onValueChange={(v) => f.setValue("forma_cobro", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{FORMAS_COBRO.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+          </Select>
+        </FormField>
+
+        <FormField label="Observaciones">
+          <Textarea placeholder="Notas adicionales..." rows={2} {...f.register("observaciones")} />
+        </FormField>
+
+        <DialogFooter>
+          <Button type="submit" disabled={f.formState.isSubmitting}>Guardar factura</Button>
+        </DialogFooter>
       </form>
     </DialogContent>
   );
