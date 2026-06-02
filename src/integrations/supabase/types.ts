@@ -59,6 +59,60 @@ export type Database = {
         }
         Relationships: []
       }
+      empleados: {
+        Row: {
+          activo: boolean
+          apellido: string
+          cargo: string | null
+          created_at: string
+          created_by: string
+          cuil: string | null
+          email: string | null
+          fecha_ingreso: string
+          id: string
+          legajo: string
+          nombre: string
+          notas: string | null
+          sueldo_basico: number
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          apellido: string
+          cargo?: string | null
+          created_at?: string
+          created_by?: string
+          cuil?: string | null
+          email?: string | null
+          fecha_ingreso?: string
+          id?: string
+          legajo: string
+          nombre: string
+          notas?: string | null
+          sueldo_basico?: number
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          apellido?: string
+          cargo?: string | null
+          created_at?: string
+          created_by?: string
+          cuil?: string | null
+          email?: string | null
+          fecha_ingreso?: string
+          id?: string
+          legajo?: string
+          nombre?: string
+          notas?: string | null
+          sueldo_basico?: number
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       factura_items: {
         Row: {
           alicuota_iva: number
@@ -484,6 +538,81 @@ export type Database = {
         }
         Relationships: []
       }
+      recibo_conceptos: {
+        Row: {
+          created_at: string
+          created_by: string
+          descripcion: string
+          id: string
+          monto: number
+          recibo_id: string
+          tipo: Database["public"]["Enums"]["tipo_concepto"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          descripcion: string
+          id?: string
+          monto?: number
+          recibo_id: string
+          tipo: Database["public"]["Enums"]["tipo_concepto"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          id?: string
+          monto?: number
+          recibo_id?: string
+          tipo?: Database["public"]["Enums"]["tipo_concepto"]
+        }
+        Relationships: []
+      }
+      recibos_sueldo: {
+        Row: {
+          created_at: string
+          created_by: string
+          empleado_id: string
+          estado: Database["public"]["Enums"]["estado_recibo"]
+          fecha_pago: string | null
+          id: string
+          notas: string | null
+          periodo: string
+          sueldo_bruto: number
+          sueldo_neto: number
+          total_descuentos: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          empleado_id: string
+          estado?: Database["public"]["Enums"]["estado_recibo"]
+          fecha_pago?: string | null
+          id?: string
+          notas?: string | null
+          periodo: string
+          sueldo_bruto?: number
+          sueldo_neto?: number
+          total_descuentos?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          empleado_id?: string
+          estado?: Database["public"]["Enums"]["estado_recibo"]
+          fecha_pago?: string | null
+          id?: string
+          notas?: string | null
+          periodo?: string
+          sueldo_bruto?: number
+          sueldo_neto?: number
+          total_descuentos?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       retenciones: {
         Row: {
           alicuota: number
@@ -593,6 +722,7 @@ export type Database = {
         | "aprobado"
         | "rechazado"
         | "convertido"
+      estado_recibo: "borrador" | "pagado" | "anulado"
       metodo_pago:
         | "efectivo"
         | "transferencia"
@@ -600,6 +730,7 @@ export type Database = {
         | "credito"
         | "cheque"
         | "otro"
+      tipo_concepto: "haber" | "descuento"
       tipo_factura: "A" | "B" | "C" | "E" | "M"
       tipo_percepcion: "iva" | "iibb"
       tipo_persona: "cliente" | "proveedor" | "ambos"
@@ -758,6 +889,7 @@ export const Constants = {
         "rechazado",
         "convertido",
       ],
+      estado_recibo: ["borrador", "pagado", "anulado"],
       metodo_pago: [
         "efectivo",
         "transferencia",
@@ -766,6 +898,7 @@ export const Constants = {
         "cheque",
         "otro",
       ],
+      tipo_concepto: ["haber", "descuento"],
       tipo_factura: ["A", "B", "C", "E", "M"],
       tipo_percepcion: ["iva", "iibb"],
       tipo_persona: ["cliente", "proveedor", "ambos"],
