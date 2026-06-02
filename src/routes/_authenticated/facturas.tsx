@@ -625,7 +625,7 @@ function FacturasTable({
               </tr>
             </thead>
             <tbody>
-              {facturas.map((f) => {
+              {paged.map((f) => {
                 const est = ESTADOS.find((e) => e.value === f.estado)!;
                 return (
                   <tr key={f.id} className="border-t border-border hover:bg-muted/30">
@@ -635,7 +635,7 @@ function FacturasTable({
                     <td className="px-4 py-3 text-muted-foreground">{f.fecha_emision}</td>
                     <td className="px-4 py-3">{clienteNombre(f.cliente_proveedor_id)}</td>
                     <td className="px-4 py-3">
-                      <Select value={f.estado} onValueChange={(v) => updateEstado.mutate({ id: f.id, estado: v as EstadoFactura })}>
+                      <Select value={f.estado} onValueChange={(v) => onChangeEstado(f.id, v as EstadoFactura)}>
                         <SelectTrigger className="h-7 w-32 border-0 bg-transparent p-0">
                           <Badge variant={est.variant}>{est.label}</Badge>
                         </SelectTrigger>
@@ -645,13 +645,11 @@ function FacturasTable({
                     <td className="px-4 py-3 text-right font-semibold">{fmt(Number(f.total))}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => setDetail(f.id)}>
+                        <Button size="icon" variant="ghost" onClick={() => onDetail(f.id)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {f.created_by === user?.id && (
-                          <Button size="icon" variant="ghost" onClick={() => {
-                            if (confirm("¿Eliminar factura?")) remove.mutate(f.id);
-                          }}>
+                        {f.created_by === userId && (
+                          <Button size="icon" variant="ghost" onClick={() => onDelete(f.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -662,10 +660,8 @@ function FacturasTable({
               })}
             </tbody>
           </table>
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onChange={setPage} />
         </div>
-      )}
-
-      <FacturaDetail id={detail} onClose={() => setDetail(null)} clientes={clientes} />
     </div>
   );
 }
