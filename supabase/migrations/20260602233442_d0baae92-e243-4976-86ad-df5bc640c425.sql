@@ -1,0 +1,1 @@
+ALTER TYPE categoria_compra ADD VALUE IF NOT EXISTS 'Gasoil_Combustible';
