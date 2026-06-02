@@ -16,7 +16,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticated/reportes'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
+import { Route as AuthenticatedPresupuestosRouteImport } from './routes/_authenticated/presupuestos'
 import { Route as AuthenticatedOcrRouteImport } from './routes/_authenticated/ocr'
+import { Route as AuthenticatedGastosRouteImport } from './routes/_authenticated/gastos'
 import { Route as AuthenticatedFacturasRouteImport } from './routes/_authenticated/facturas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
@@ -55,9 +57,20 @@ const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
   path: '/productos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPresupuestosRoute =
+  AuthenticatedPresupuestosRouteImport.update({
+    id: '/presupuestos',
+    path: '/presupuestos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOcrRoute = AuthenticatedOcrRouteImport.update({
   id: '/ocr',
   path: '/ocr',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGastosRoute = AuthenticatedGastosRouteImport.update({
+  id: '/gastos',
+  path: '/gastos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFacturasRoute = AuthenticatedFacturasRouteImport.update({
@@ -83,7 +96,9 @@ export interface FileRoutesByFullPath {
   '/clientes': typeof AuthenticatedClientesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
+  '/gastos': typeof AuthenticatedGastosRoute
   '/ocr': typeof AuthenticatedOcrRoute
+  '/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/reportes': typeof AuthenticatedReportesRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -95,7 +110,9 @@ export interface FileRoutesByTo {
   '/clientes': typeof AuthenticatedClientesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
+  '/gastos': typeof AuthenticatedGastosRoute
   '/ocr': typeof AuthenticatedOcrRoute
+  '/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/reportes': typeof AuthenticatedReportesRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -109,7 +126,9 @@ export interface FileRoutesById {
   '/_authenticated/clientes': typeof AuthenticatedClientesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/facturas': typeof AuthenticatedFacturasRoute
+  '/_authenticated/gastos': typeof AuthenticatedGastosRoute
   '/_authenticated/ocr': typeof AuthenticatedOcrRoute
+  '/_authenticated/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
   '/_authenticated/reportes': typeof AuthenticatedReportesRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -123,7 +142,9 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/dashboard'
     | '/facturas'
+    | '/gastos'
     | '/ocr'
+    | '/presupuestos'
     | '/productos'
     | '/reportes'
     | '/usuarios'
@@ -135,7 +156,9 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/dashboard'
     | '/facturas'
+    | '/gastos'
     | '/ocr'
+    | '/presupuestos'
     | '/productos'
     | '/reportes'
     | '/usuarios'
@@ -148,7 +171,9 @@ export interface FileRouteTypes {
     | '/_authenticated/clientes'
     | '/_authenticated/dashboard'
     | '/_authenticated/facturas'
+    | '/_authenticated/gastos'
     | '/_authenticated/ocr'
+    | '/_authenticated/presupuestos'
     | '/_authenticated/productos'
     | '/_authenticated/reportes'
     | '/_authenticated/usuarios'
@@ -212,11 +237,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProductosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/presupuestos': {
+      id: '/_authenticated/presupuestos'
+      path: '/presupuestos'
+      fullPath: '/presupuestos'
+      preLoaderRoute: typeof AuthenticatedPresupuestosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ocr': {
       id: '/_authenticated/ocr'
       path: '/ocr'
       fullPath: '/ocr'
       preLoaderRoute: typeof AuthenticatedOcrRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gastos': {
+      id: '/_authenticated/gastos'
+      path: '/gastos'
+      fullPath: '/gastos'
+      preLoaderRoute: typeof AuthenticatedGastosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/facturas': {
@@ -247,7 +286,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFacturasRoute: typeof AuthenticatedFacturasRoute
+  AuthenticatedGastosRoute: typeof AuthenticatedGastosRoute
   AuthenticatedOcrRoute: typeof AuthenticatedOcrRoute
+  AuthenticatedPresupuestosRoute: typeof AuthenticatedPresupuestosRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
   AuthenticatedReportesRoute: typeof AuthenticatedReportesRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -257,7 +298,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientesRoute: AuthenticatedClientesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFacturasRoute: AuthenticatedFacturasRoute,
+  AuthenticatedGastosRoute: AuthenticatedGastosRoute,
   AuthenticatedOcrRoute: AuthenticatedOcrRoute,
+  AuthenticatedPresupuestosRoute: AuthenticatedPresupuestosRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
   AuthenticatedReportesRoute: AuthenticatedReportesRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
