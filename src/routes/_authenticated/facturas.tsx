@@ -20,6 +20,8 @@ export const Route = createFileRoute("/_authenticated/facturas")({
 
 type Factura = Database["public"]["Tables"]["facturas"]["Row"];
 type CP = Database["public"]["Tables"]["clientes_proveedores"]["Row"];
+type Producto = Database["public"]["Tables"]["productos"]["Row"];
+type FacturaItemRow = Database["public"]["Tables"]["factura_items"]["Row"];
 type TipoFactura = Database["public"]["Enums"]["tipo_factura"];
 type EstadoFactura = Database["public"]["Enums"]["estado_factura"];
 type TipoRetencion = Database["public"]["Enums"]["tipo_retencion"];
@@ -37,6 +39,13 @@ const TIPOS_RET: TipoRetencion[] = ["ganancias", "iva", "iibb", "suss"];
 const TIPOS_PERC: TipoPercepcion[] = ["iva", "iibb"];
 
 type IvaRow = { alicuota: number; base: number };
+type ItemRow = {
+  producto_id: string | null;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  alicuota_iva: number;
+};
 type RetRow = { tipo: TipoRetencion; base: number; alicuota: number; jurisdiccion: string };
 type PercRow = { tipo: TipoPercepcion; base: number; alicuota: number; jurisdiccion: string };
 
@@ -64,6 +73,8 @@ function FacturasPage() {
   const [ivaRows, setIvaRows] = useState<IvaRow[]>([{ alicuota: 21, base: 0 }]);
   const [retRows, setRetRows] = useState<RetRow[]>([]);
   const [percRows, setPercRows] = useState<PercRow[]>([]);
+  const [items, setItems] = useState<ItemRow[]>([]);
+  const [useItems, setUseItems] = useState(false);
 
   const { data: facturas = [], isLoading } = useQuery({
     queryKey: ["facturas"],
@@ -83,20 +94,51 @@ function FacturasPage() {
     },
   });
 
+  const { data: productos = [] } = useQuery({
+    queryKey: ["productos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("productos")
+        .select("*")
+        .eq("activo", true)
+        .order("codigo");
+      if (error) throw error;
+      return data as Producto[];
+    },
+  });
+
+  // Cuando hay items, las filas de IVA se derivan automáticamente agrupando por alícuota.
+  const derivedIvaRows = useMemo<IvaRow[]>(() => {
+    const map = new Map<number, number>();
+    for (const it of items) {
+      const base = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+      if (base <= 0) continue;
+      const a = Number(it.alicuota_iva) || 0;
+      map.set(a, (map.get(a) || 0) + base);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([alicuota, base]) => ({ alicuota, base }));
+  }, [items]);
+
+  const effectiveIva = useItems ? derivedIvaRows : ivaRows;
+
   const totals = useMemo(() => {
-    const neto = ivaRows.reduce((s, r) => s + (Number(r.base) || 0), 0);
-    const iva_total = ivaRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
+    const neto = effectiveIva.reduce((s, r) => s + (Number(r.base) || 0), 0);
+    const iva_total = effectiveIva.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const percepciones_total = percRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const retenciones_total = retRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const total = neto + iva_total + percepciones_total - retenciones_total;
     return { neto, iva_total, percepciones_total, retenciones_total, total };
-  }, [ivaRows, retRows, percRows]);
+  }, [effectiveIva, retRows, percRows]);
 
   const resetForm = () => {
     setForm(emptyForm);
     setIvaRows([{ alicuota: 21, base: 0 }]);
     setRetRows([]);
     setPercRows([]);
+    setItems([]);
+    setUseItems(false);
   };
 
   const create = useMutation({
@@ -121,7 +163,8 @@ function FacturasPage() {
       const { data: fact, error } = await supabase.from("facturas").insert(payload).select().single();
       if (error) throw error;
 
-      const ivaIns = ivaRows
+      const ivaSrc = useItems ? derivedIvaRows : ivaRows;
+      const ivaIns = ivaSrc
         .filter((r) => Number(r.base) > 0)
         .map((r) => ({
           factura_id: fact.id,
@@ -134,6 +177,26 @@ function FacturasPage() {
         const { error: e1 } = await supabase.from("iva").insert(ivaIns);
         if (e1) throw e1;
       }
+
+      if (useItems) {
+        const itemsIns = items
+          .filter((it) => it.descripcion.trim() && Number(it.cantidad) > 0)
+          .map((it) => ({
+            factura_id: fact.id,
+            producto_id: it.producto_id,
+            descripcion: it.descripcion,
+            cantidad: Number(it.cantidad),
+            precio_unitario: Number(it.precio_unitario),
+            alicuota_iva: Number(it.alicuota_iva),
+            subtotal_neto: Number(it.cantidad) * Number(it.precio_unitario),
+            created_by: user!.id,
+          }));
+        if (itemsIns.length) {
+          const { error: eItems } = await supabase.from("factura_items").insert(itemsIns);
+          if (eItems) throw eItems;
+        }
+      }
+
       const retIns = retRows
         .filter((r) => Number(r.base) > 0)
         .map((r) => ({
@@ -173,6 +236,7 @@ function FacturasPage() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["facturas"] });
       qc.invalidateQueries({ queryKey: ["facturas-count"] });
+      qc.invalidateQueries({ queryKey: ["productos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -186,6 +250,7 @@ function FacturasPage() {
       toast.success("Factura eliminada");
       qc.invalidateQueries({ queryKey: ["facturas"] });
       qc.invalidateQueries({ queryKey: ["facturas-count"] });
+      qc.invalidateQueries({ queryKey: ["productos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -270,32 +335,123 @@ function FacturasPage() {
 
               <section className="rounded-lg border border-border p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold">IVA</h3>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setIvaRows([...ivaRows, { alicuota: 21, base: 0 }])}>
-                    <Plus className="h-3 w-3" /> Agregar
-                  </Button>
+                  <h3 className="font-semibold">Detalle</h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button type="button" onClick={() => setUseItems(false)}
+                      className={`rounded px-2 py-1 ${!useItems ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      IVA manual
+                    </button>
+                    <button type="button" onClick={() => setUseItems(true)}
+                      className={`rounded px-2 py-1 ${useItems ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      Por productos
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {ivaRows.map((r, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                      <Select value={String(r.alicuota)} onValueChange={(v) => {
-                        const copy = [...ivaRows]; copy[i] = { ...copy[i], alicuota: Number(v) }; setIvaRows(copy);
-                      }}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
-                      </Select>
-                      <Input type="number" step="0.01" placeholder="Base" value={r.base} onChange={(e) => {
-                        const copy = [...ivaRows]; copy[i] = { ...copy[i], base: Number(e.target.value) }; setIvaRows(copy);
-                      }} />
-                      <div className="flex items-center px-2 text-sm text-muted-foreground">
-                        {fmt((Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100)}
+
+                {useItems ? (
+                  <div className="space-y-2">
+                    {items.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Agregá líneas de productos. El stock se actualiza automáticamente al guardar.</p>
+                    )}
+                    {items.map((it, i) => {
+                      const subtotal = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+                      return (
+                        <div key={i} className="grid grid-cols-[1.6fr_1.4fr_70px_110px_90px_90px_auto] gap-2">
+                          <Select
+                            value={it.producto_id ?? "__manual"}
+                            onValueChange={(v) => {
+                              const copy = [...items];
+                              if (v === "__manual") {
+                                copy[i] = { ...copy[i], producto_id: null };
+                              } else {
+                                const p = productos.find((pp) => pp.id === v);
+                                if (p) {
+                                  copy[i] = {
+                                    ...copy[i],
+                                    producto_id: p.id,
+                                    descripcion: p.descripcion,
+                                    precio_unitario: Number(p.precio_unitario),
+                                    alicuota_iva: Number(p.alicuota_iva),
+                                  };
+                                }
+                              }
+                              setItems(copy);
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Producto..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__manual">— Manual —</SelectItem>
+                              {productos.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.codigo} · {p.descripcion} (stock {Number(p.stock)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input placeholder="Descripción" value={it.descripcion}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], descripcion: e.target.value }; setItems(copy);
+                            }} />
+                          <Input type="number" step="0.01" min="0" placeholder="Cant." value={it.cantidad}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], cantidad: Number(e.target.value) }; setItems(copy);
+                            }} />
+                          <Input type="number" step="0.01" min="0" placeholder="P. unit." value={it.precio_unitario}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], precio_unitario: Number(e.target.value) }; setItems(copy);
+                            }} />
+                          <Select value={String(it.alicuota_iva)} onValueChange={(v) => {
+                            const copy = [...items]; copy[i] = { ...copy[i], alicuota_iva: Number(v) }; setItems(copy);
+                          }}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
+                          </Select>
+                          <div className="flex items-center justify-end px-2 text-sm">{fmt(subtotal)}</div>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <Button type="button" size="sm" variant="outline" className="gap-1"
+                      onClick={() => setItems([...items, { producto_id: null, descripcion: "", cantidad: 1, precio_unitario: 0, alicuota_iva: 21 }])}>
+                      <Plus className="h-3 w-3" /> Agregar línea
+                    </Button>
+                    {derivedIvaRows.length > 0 && (
+                      <div className="mt-3 rounded border border-dashed border-border p-2 text-xs text-muted-foreground">
+                        IVA calculado:{" "}
+                        {derivedIvaRows.map((r) => `${r.alicuota}% sobre ${fmt(r.base)}`).join(" · ")}
                       </div>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => setIvaRows(ivaRows.filter((_, j) => j !== i))}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="mb-2 flex justify-end">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setIvaRows([...ivaRows, { alicuota: 21, base: 0 }])}>
+                        <Plus className="h-3 w-3" /> Agregar
                       </Button>
                     </div>
-                  ))}
-                </div>
+                    {ivaRows.map((r, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
+                        <Select value={String(r.alicuota)} onValueChange={(v) => {
+                          const copy = [...ivaRows]; copy[i] = { ...copy[i], alicuota: Number(v) }; setIvaRows(copy);
+                        }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Input type="number" step="0.01" placeholder="Base" value={r.base} onChange={(e) => {
+                          const copy = [...ivaRows]; copy[i] = { ...copy[i], base: Number(e.target.value) }; setIvaRows(copy);
+                        }} />
+                        <div className="flex items-center px-2 text-sm text-muted-foreground">
+                          {fmt((Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100)}
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" onClick={() => setIvaRows(ivaRows.filter((_, j) => j !== i))}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className="rounded-lg border border-border p-4">
@@ -465,14 +621,21 @@ function FacturaDetail({ id, onClose, clientes }: { id: string | null; onClose: 
     enabled: !!id,
     queryKey: ["factura-detail", id],
     queryFn: async () => {
-      const [f, iv, rt, pc] = await Promise.all([
+      const [f, iv, rt, pc, it] = await Promise.all([
         supabase.from("facturas").select("*").eq("id", id!).single(),
         supabase.from("iva").select("*").eq("factura_id", id!),
         supabase.from("retenciones").select("*").eq("factura_id", id!),
         supabase.from("percepciones").select("*").eq("factura_id", id!),
+        supabase.from("factura_items").select("*").eq("factura_id", id!),
       ]);
       if (f.error) throw f.error;
-      return { factura: f.data, iva: iv.data ?? [], retenciones: rt.data ?? [], percepciones: pc.data ?? [] };
+      return {
+        factura: f.data,
+        iva: iv.data ?? [],
+        retenciones: rt.data ?? [],
+        percepciones: pc.data ?? [],
+        items: (it.data ?? []) as FacturaItemRow[],
+      };
     },
   });
 
@@ -495,6 +658,28 @@ function FacturaDetail({ id, onClose, clientes }: { id: string | null; onClose: 
               <div className="col-span-2"><span className="text-muted-foreground">Cliente:</span> {cliente?.razon_social ?? "—"}</div>
               <div className="col-span-2"><span className="text-muted-foreground">Concepto:</span> {f.concepto ?? "—"}</div>
             </div>
+
+            {data.items.length > 0 && (
+              <div>
+                <h4 className="mb-1 font-semibold">Líneas</h4>
+                <table className="w-full text-xs">
+                  <thead className="text-left text-muted-foreground">
+                    <tr><th className="py-1">Descripción</th><th className="py-1 text-right">Cant.</th><th className="py-1 text-right">P. unit</th><th className="py-1 text-right">IVA</th><th className="py-1 text-right">Subtotal</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.items.map((r) => (
+                      <tr key={r.id} className="border-t border-border">
+                        <td className="py-1">{r.descripcion}</td>
+                        <td className="py-1 text-right">{Number(r.cantidad)}</td>
+                        <td className="py-1 text-right">{fmt(Number(r.precio_unitario))}</td>
+                        <td className="py-1 text-right">{Number(r.alicuota_iva)}%</td>
+                        <td className="py-1 text-right">{fmt(Number(r.subtotal_neto))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <Section title="IVA" cols={["Alícuota", "Base", "Importe"]} rows={data.iva.map((r) => ({ a: `${r.alicuota}%`, b: fmt(Number(r.base_imponible)), c: fmt(Number(r.importe)) }))} />
             <Section title="Percepciones" cols={["Tipo", "Base", "Importe"]} rows={data.percepciones.map((r) => ({ a: `${r.tipo} ${r.jurisdiccion ?? ""}`, b: fmt(Number(r.base_imponible)), c: fmt(Number(r.importe)) }))} />
