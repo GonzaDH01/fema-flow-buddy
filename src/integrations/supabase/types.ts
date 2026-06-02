@@ -397,38 +397,68 @@ export type Database = {
         Row: {
           activo: boolean | null
           cargo: string | null
+          contacto_emergencia: string | null
           created_at: string
           cuil: string | null
+          dni: string | null
+          domicilio: string | null
+          email: string | null
           fecha_ingreso: string | null
+          funcion: string | null
           id: string
           nombre: string
+          obra_social: string | null
+          observaciones: string | null
           sueldo_bruto: number | null
+          telefono: string | null
+          tipo_contratacion: string | null
           updated_at: string
           user_id: string
+          valor_hora: number | null
         }
         Insert: {
           activo?: boolean | null
           cargo?: string | null
+          contacto_emergencia?: string | null
           created_at?: string
           cuil?: string | null
+          dni?: string | null
+          domicilio?: string | null
+          email?: string | null
           fecha_ingreso?: string | null
+          funcion?: string | null
           id?: string
           nombre: string
+          obra_social?: string | null
+          observaciones?: string | null
           sueldo_bruto?: number | null
+          telefono?: string | null
+          tipo_contratacion?: string | null
           updated_at?: string
           user_id: string
+          valor_hora?: number | null
         }
         Update: {
           activo?: boolean | null
           cargo?: string | null
+          contacto_emergencia?: string | null
           created_at?: string
           cuil?: string | null
+          dni?: string | null
+          domicilio?: string | null
+          email?: string | null
           fecha_ingreso?: string | null
+          funcion?: string | null
           id?: string
           nombre?: string
+          obra_social?: string | null
+          observaciones?: string | null
           sueldo_bruto?: number | null
+          telefono?: string | null
+          tipo_contratacion?: string | null
           updated_at?: string
           user_id?: string
+          valor_hora?: number | null
         }
         Relationships: []
       }
@@ -705,6 +735,56 @@ export type Database = {
           },
         ]
       }
+      fema_horas_trabajadas: {
+        Row: {
+          anio: number | null
+          created_at: string
+          empleado_id: string | null
+          fecha: string
+          horas: number
+          id: string
+          mes: number | null
+          observaciones: string | null
+          referencia: string | null
+          tarea: string | null
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          fecha: string
+          horas?: number
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          referencia?: string | null
+          tarea?: string | null
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          fecha?: string
+          horas?: number
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          referencia?: string | null
+          tarea?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_horas_trabajadas_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_impuestos: {
         Row: {
           anio: number
@@ -847,33 +927,57 @@ export type Database = {
       }
       fema_sueldos: {
         Row: {
+          adicional: number | null
+          anio: number | null
+          basico: number | null
           cargas_sociales: number | null
           created_at: string
           empleado_id: string | null
+          estado: string | null
           id: string
+          mes: number | null
+          observaciones: string | null
           periodo: string
+          rol: string | null
           sueldo_bruto: number | null
           sueldo_neto: number | null
+          total: number | null
           user_id: string
         }
         Insert: {
+          adicional?: number | null
+          anio?: number | null
+          basico?: number | null
           cargas_sociales?: number | null
           created_at?: string
           empleado_id?: string | null
+          estado?: string | null
           id?: string
+          mes?: number | null
+          observaciones?: string | null
           periodo: string
+          rol?: string | null
           sueldo_bruto?: number | null
           sueldo_neto?: number | null
+          total?: number | null
           user_id: string
         }
         Update: {
+          adicional?: number | null
+          anio?: number | null
+          basico?: number | null
           cargas_sociales?: number | null
           created_at?: string
           empleado_id?: string | null
+          estado?: string | null
           id?: string
+          mes?: number | null
+          observaciones?: string | null
           periodo?: string
+          rol?: string | null
           sueldo_bruto?: number | null
           sueldo_neto?: number | null
+          total?: number | null
           user_id?: string
         }
         Relationships: [
