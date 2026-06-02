@@ -335,32 +335,123 @@ function FacturasPage() {
 
               <section className="rounded-lg border border-border p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold">IVA</h3>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setIvaRows([...ivaRows, { alicuota: 21, base: 0 }])}>
-                    <Plus className="h-3 w-3" /> Agregar
-                  </Button>
+                  <h3 className="font-semibold">Detalle</h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button type="button" onClick={() => setUseItems(false)}
+                      className={`rounded px-2 py-1 ${!useItems ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      IVA manual
+                    </button>
+                    <button type="button" onClick={() => setUseItems(true)}
+                      className={`rounded px-2 py-1 ${useItems ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                      Por productos
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {ivaRows.map((r, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
-                      <Select value={String(r.alicuota)} onValueChange={(v) => {
-                        const copy = [...ivaRows]; copy[i] = { ...copy[i], alicuota: Number(v) }; setIvaRows(copy);
-                      }}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
-                      </Select>
-                      <Input type="number" step="0.01" placeholder="Base" value={r.base} onChange={(e) => {
-                        const copy = [...ivaRows]; copy[i] = { ...copy[i], base: Number(e.target.value) }; setIvaRows(copy);
-                      }} />
-                      <div className="flex items-center px-2 text-sm text-muted-foreground">
-                        {fmt((Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100)}
+
+                {useItems ? (
+                  <div className="space-y-2">
+                    {items.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Agregá líneas de productos. El stock se actualiza automáticamente al guardar.</p>
+                    )}
+                    {items.map((it, i) => {
+                      const subtotal = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+                      return (
+                        <div key={i} className="grid grid-cols-[1.6fr_1.4fr_70px_110px_90px_90px_auto] gap-2">
+                          <Select
+                            value={it.producto_id ?? "__manual"}
+                            onValueChange={(v) => {
+                              const copy = [...items];
+                              if (v === "__manual") {
+                                copy[i] = { ...copy[i], producto_id: null };
+                              } else {
+                                const p = productos.find((pp) => pp.id === v);
+                                if (p) {
+                                  copy[i] = {
+                                    ...copy[i],
+                                    producto_id: p.id,
+                                    descripcion: p.descripcion,
+                                    precio_unitario: Number(p.precio_unitario),
+                                    alicuota_iva: Number(p.alicuota_iva),
+                                  };
+                                }
+                              }
+                              setItems(copy);
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Producto..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__manual">— Manual —</SelectItem>
+                              {productos.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.codigo} · {p.descripcion} (stock {Number(p.stock)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input placeholder="Descripción" value={it.descripcion}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], descripcion: e.target.value }; setItems(copy);
+                            }} />
+                          <Input type="number" step="0.01" min="0" placeholder="Cant." value={it.cantidad}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], cantidad: Number(e.target.value) }; setItems(copy);
+                            }} />
+                          <Input type="number" step="0.01" min="0" placeholder="P. unit." value={it.precio_unitario}
+                            onChange={(e) => {
+                              const copy = [...items]; copy[i] = { ...copy[i], precio_unitario: Number(e.target.value) }; setItems(copy);
+                            }} />
+                          <Select value={String(it.alicuota_iva)} onValueChange={(v) => {
+                            const copy = [...items]; copy[i] = { ...copy[i], alicuota_iva: Number(v) }; setItems(copy);
+                          }}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
+                          </Select>
+                          <div className="flex items-center justify-end px-2 text-sm">{fmt(subtotal)}</div>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    <Button type="button" size="sm" variant="outline" className="gap-1"
+                      onClick={() => setItems([...items, { producto_id: null, descripcion: "", cantidad: 1, precio_unitario: 0, alicuota_iva: 21 }])}>
+                      <Plus className="h-3 w-3" /> Agregar línea
+                    </Button>
+                    {derivedIvaRows.length > 0 && (
+                      <div className="mt-3 rounded border border-dashed border-border p-2 text-xs text-muted-foreground">
+                        IVA calculado:{" "}
+                        {derivedIvaRows.map((r) => `${r.alicuota}% sobre ${fmt(r.base)}`).join(" · ")}
                       </div>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => setIvaRows(ivaRows.filter((_, j) => j !== i))}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="mb-2 flex justify-end">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setIvaRows([...ivaRows, { alicuota: 21, base: 0 }])}>
+                        <Plus className="h-3 w-3" /> Agregar
                       </Button>
                     </div>
-                  ))}
-                </div>
+                    {ivaRows.map((r, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
+                        <Select value={String(r.alicuota)} onValueChange={(v) => {
+                          const copy = [...ivaRows]; copy[i] = { ...copy[i], alicuota: Number(v) }; setIvaRows(copy);
+                        }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{ALICUOTAS_IVA.map((a) => <SelectItem key={a} value={String(a)}>{a}%</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Input type="number" step="0.01" placeholder="Base" value={r.base} onChange={(e) => {
+                          const copy = [...ivaRows]; copy[i] = { ...copy[i], base: Number(e.target.value) }; setIvaRows(copy);
+                        }} />
+                        <div className="flex items-center px-2 text-sm text-muted-foreground">
+                          {fmt((Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100)}
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" onClick={() => setIvaRows(ivaRows.filter((_, j) => j !== i))}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className="rounded-lg border border-border p-4">
