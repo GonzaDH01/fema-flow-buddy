@@ -506,17 +506,27 @@ export type Database = {
           cliente_id: string | null
           condicion_pago: string | null
           created_at: string
+          cultivo: string | null
           estado: Database["public"]["Enums"]["estado_factura_venta"] | null
           fecha: string
+          fecha_cobro: string | null
+          forma_cobro: string | null
+          hectareas: number | null
           id: string
           iva_105: number | null
           iva_21: number | null
           mes: number | null
+          metros_bolsa: number | null
           neto: number | null
           numero: string | null
+          observaciones: string | null
           percepciones: number | null
+          precio_ha: number | null
+          precio_metro: number | null
           tipo: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante: string | null
           total: number
+          trabajo: string | null
           updated_at: string
           user_id: string
         }
@@ -525,17 +535,27 @@ export type Database = {
           cliente_id?: string | null
           condicion_pago?: string | null
           created_at?: string
+          cultivo?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_venta"] | null
           fecha: string
+          fecha_cobro?: string | null
+          forma_cobro?: string | null
+          hectareas?: number | null
           id?: string
           iva_105?: number | null
           iva_21?: number | null
           mes?: number | null
+          metros_bolsa?: number | null
           neto?: number | null
           numero?: string | null
+          observaciones?: string | null
           percepciones?: number | null
+          precio_ha?: number | null
+          precio_metro?: number | null
           tipo?: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante?: string | null
           total?: number
+          trabajo?: string | null
           updated_at?: string
           user_id: string
         }
@@ -544,17 +564,27 @@ export type Database = {
           cliente_id?: string | null
           condicion_pago?: string | null
           created_at?: string
+          cultivo?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_venta"] | null
           fecha?: string
+          fecha_cobro?: string | null
+          forma_cobro?: string | null
+          hectareas?: number | null
           id?: string
           iva_105?: number | null
           iva_21?: number | null
           mes?: number | null
+          metros_bolsa?: number | null
           neto?: number | null
           numero?: string | null
+          observaciones?: string | null
           percepciones?: number | null
+          precio_ha?: number | null
+          precio_metro?: number | null
           tipo?: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante?: string | null
           total?: number
+          trabajo?: string | null
           updated_at?: string
           user_id?: string
         }
