@@ -59,6 +59,60 @@ export type Database = {
         }
         Relationships: []
       }
+      factura_items: {
+        Row: {
+          alicuota_iva: number
+          cantidad: number
+          created_at: string
+          created_by: string
+          descripcion: string
+          factura_id: string
+          id: string
+          precio_unitario: number
+          producto_id: string | null
+          subtotal_neto: number
+        }
+        Insert: {
+          alicuota_iva?: number
+          cantidad?: number
+          created_at?: string
+          created_by?: string
+          descripcion: string
+          factura_id: string
+          id?: string
+          precio_unitario?: number
+          producto_id?: string | null
+          subtotal_neto?: number
+        }
+        Update: {
+          alicuota_iva?: number
+          cantidad?: number
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          factura_id?: string
+          id?: string
+          precio_unitario?: number
+          producto_id?: string | null
+          subtotal_neto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factura_items_factura_id_fkey"
+            columns: ["factura_id"]
+            isOneToOne: false
+            referencedRelation: "facturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factura_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facturas: {
         Row: {
           cliente_proveedor_id: string | null
