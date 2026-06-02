@@ -13,6 +13,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
+import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
 
 const AuthRoute = AuthRouteImport.update({
@@ -35,6 +37,16 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProveedoresRoute = AppProveedoresRouteImport.update({
+  id: '/proveedores',
+  path: '/proveedores',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpleadosRoute = AppEmpleadosRouteImport.update({
+  id: '/empleados',
+  path: '/empleados',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClientesRoute = AppClientesRouteImport.update({
   id: '/clientes',
   path: '/clientes',
@@ -46,12 +58,16 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/app/clientes': typeof AppClientesRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app/clientes': typeof AppClientesRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
@@ -60,14 +76,37 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/app/clientes': typeof AppClientesRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/auth' | '/app/clientes' | '/app/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/clientes'
+    | '/app/empleados'
+    | '/app/proveedores'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app/clientes' | '/app'
-  id: '__root__' | '/' | '/app' | '/auth' | '/app/clientes' | '/app/'
+  to:
+    | '/'
+    | '/auth'
+    | '/app/clientes'
+    | '/app/empleados'
+    | '/app/proveedores'
+    | '/app'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/clientes'
+    | '/app/empleados'
+    | '/app/proveedores'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +145,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/proveedores': {
+      id: '/app/proveedores'
+      path: '/proveedores'
+      fullPath: '/app/proveedores'
+      preLoaderRoute: typeof AppProveedoresRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empleados': {
+      id: '/app/empleados'
+      path: '/empleados'
+      fullPath: '/app/empleados'
+      preLoaderRoute: typeof AppEmpleadosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/clientes': {
       id: '/app/clientes'
       path: '/clientes'
@@ -118,11 +171,15 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppClientesRoute: typeof AppClientesRoute
+  AppEmpleadosRoute: typeof AppEmpleadosRoute
+  AppProveedoresRoute: typeof AppProveedoresRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppClientesRoute: AppClientesRoute,
+  AppEmpleadosRoute: AppEmpleadosRoute,
+  AppProveedoresRoute: AppProveedoresRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -136,3 +193,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
