@@ -184,6 +184,51 @@ export type Database = {
           },
         ]
       }
+      gastos: {
+        Row: {
+          categoria: Database["public"]["Enums"]["categoria_gasto"]
+          comprobante_numero: string | null
+          created_at: string
+          created_by: string
+          descripcion: string
+          fecha: string
+          id: string
+          metodo_pago: Database["public"]["Enums"]["metodo_pago"]
+          monto: number
+          notas: string | null
+          proveedor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: Database["public"]["Enums"]["categoria_gasto"]
+          comprobante_numero?: string | null
+          created_at?: string
+          created_by?: string
+          descripcion: string
+          fecha?: string
+          id?: string
+          metodo_pago?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          notas?: string | null
+          proveedor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["categoria_gasto"]
+          comprobante_numero?: string | null
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          fecha?: string
+          id?: string
+          metodo_pago?: Database["public"]["Enums"]["metodo_pago"]
+          monto?: number
+          notas?: string | null
+          proveedor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       iva: {
         Row: {
           alicuota: number
@@ -268,6 +313,104 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      presupuesto_items: {
+        Row: {
+          alicuota_iva: number
+          cantidad: number
+          created_at: string
+          created_by: string
+          descripcion: string
+          id: string
+          precio_unitario: number
+          presupuesto_id: string
+          producto_id: string | null
+          subtotal_neto: number
+        }
+        Insert: {
+          alicuota_iva?: number
+          cantidad?: number
+          created_at?: string
+          created_by?: string
+          descripcion: string
+          id?: string
+          precio_unitario?: number
+          presupuesto_id: string
+          producto_id?: string | null
+          subtotal_neto?: number
+        }
+        Update: {
+          alicuota_iva?: number
+          cantidad?: number
+          created_at?: string
+          created_by?: string
+          descripcion?: string
+          id?: string
+          precio_unitario?: number
+          presupuesto_id?: string
+          producto_id?: string | null
+          subtotal_neto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presupuesto_items_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "presupuestos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      presupuestos: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          created_by: string
+          estado: Database["public"]["Enums"]["estado_presupuesto"]
+          factura_id: string | null
+          fecha: string
+          id: string
+          iva_total: number
+          notas: string | null
+          numero: number
+          subtotal_neto: number
+          total: number
+          updated_at: string
+          validez_dias: number
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: Database["public"]["Enums"]["estado_presupuesto"]
+          factura_id?: string | null
+          fecha?: string
+          id?: string
+          iva_total?: number
+          notas?: string | null
+          numero: number
+          subtotal_neto?: number
+          total?: number
+          updated_at?: string
+          validez_dias?: number
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: Database["public"]["Enums"]["estado_presupuesto"]
+          factura_id?: string | null
+          fecha?: string
+          id?: string
+          iva_total?: number
+          notas?: string | null
+          numero?: number
+          subtotal_neto?: number
+          total?: number
+          updated_at?: string
+          validez_dias?: number
+        }
+        Relationships: []
       }
       productos: {
         Row: {
@@ -427,6 +570,16 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "contador" | "operador"
+      categoria_gasto:
+        | "servicios"
+        | "alquiler"
+        | "sueldos"
+        | "impuestos"
+        | "insumos"
+        | "marketing"
+        | "transporte"
+        | "mantenimiento"
+        | "otros"
       condicion_iva:
         | "responsable_inscripto"
         | "monotributo"
@@ -434,6 +587,19 @@ export type Database = {
         | "consumidor_final"
         | "no_responsable"
       estado_factura: "borrador" | "emitida" | "pagada" | "anulada"
+      estado_presupuesto:
+        | "borrador"
+        | "enviado"
+        | "aprobado"
+        | "rechazado"
+        | "convertido"
+      metodo_pago:
+        | "efectivo"
+        | "transferencia"
+        | "debito"
+        | "credito"
+        | "cheque"
+        | "otro"
       tipo_factura: "A" | "B" | "C" | "E" | "M"
       tipo_percepcion: "iva" | "iibb"
       tipo_persona: "cliente" | "proveedor" | "ambos"
@@ -566,6 +732,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "contador", "operador"],
+      categoria_gasto: [
+        "servicios",
+        "alquiler",
+        "sueldos",
+        "impuestos",
+        "insumos",
+        "marketing",
+        "transporte",
+        "mantenimiento",
+        "otros",
+      ],
       condicion_iva: [
         "responsable_inscripto",
         "monotributo",
@@ -574,6 +751,21 @@ export const Constants = {
         "no_responsable",
       ],
       estado_factura: ["borrador", "emitida", "pagada", "anulada"],
+      estado_presupuesto: [
+        "borrador",
+        "enviado",
+        "aprobado",
+        "rechazado",
+        "convertido",
+      ],
+      metodo_pago: [
+        "efectivo",
+        "transferencia",
+        "debito",
+        "credito",
+        "cheque",
+        "otro",
+      ],
       tipo_factura: ["A", "B", "C", "E", "M"],
       tipo_percepcion: ["iva", "iibb"],
       tipo_persona: ["cliente", "proveedor", "ambos"],
