@@ -28,7 +28,7 @@ function ResetPasswordPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Contraseña actualizada");
-    navigate({ to: "/app" });
+    navigate({ to: "/dashboard" });
   };
 
   return (

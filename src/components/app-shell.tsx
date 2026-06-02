@@ -1,14 +1,15 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Package, FileText } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
 const nav = [
-  { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/app/clientes", label: "Clientes", icon: Users },
-  { to: "/app/productos", label: "Productos", icon: Package },
-  { to: "/app/reportes", label: "Reportes", icon: FileText },
-];
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/clientes", label: "Clientes / Proveedores", icon: Users },
+  { to: "/facturas", label: "Facturas", icon: FileText },
+  { to: "/productos", label: "Productos", icon: Package },
+  { to: "/reportes", label: "Reportes", icon: BarChart3 },
+] as const;
 
 export function AppShell() {
   const { user, signOut } = useAuth();
