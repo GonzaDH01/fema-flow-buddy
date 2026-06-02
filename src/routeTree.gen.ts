@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticated/reportes'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
+import { Route as AuthenticatedOcrRouteImport } from './routes/_authenticated/ocr'
 import { Route as AuthenticatedFacturasRouteImport } from './routes/_authenticated/facturas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
@@ -48,6 +49,11 @@ const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
   path: '/productos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOcrRoute = AuthenticatedOcrRouteImport.update({
+  id: '/ocr',
+  path: '/ocr',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFacturasRoute = AuthenticatedFacturasRouteImport.update({
   id: '/facturas',
   path: '/facturas',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/clientes': typeof AuthenticatedClientesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
+  '/ocr': typeof AuthenticatedOcrRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/reportes': typeof AuthenticatedReportesRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/clientes': typeof AuthenticatedClientesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
+  '/ocr': typeof AuthenticatedOcrRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/reportes': typeof AuthenticatedReportesRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/_authenticated/clientes': typeof AuthenticatedClientesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/facturas': typeof AuthenticatedFacturasRoute
+  '/_authenticated/ocr': typeof AuthenticatedOcrRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
   '/_authenticated/reportes': typeof AuthenticatedReportesRoute
 }
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/dashboard'
     | '/facturas'
+    | '/ocr'
     | '/productos'
     | '/reportes'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/dashboard'
     | '/facturas'
+    | '/ocr'
     | '/productos'
     | '/reportes'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clientes'
     | '/_authenticated/dashboard'
     | '/_authenticated/facturas'
+    | '/_authenticated/ocr'
     | '/_authenticated/productos'
     | '/_authenticated/reportes'
   fileRoutesById: FileRoutesById
@@ -181,6 +193,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProductosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ocr': {
+      id: '/_authenticated/ocr'
+      path: '/ocr'
+      fullPath: '/ocr'
+      preLoaderRoute: typeof AuthenticatedOcrRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/facturas': {
       id: '/_authenticated/facturas'
       path: '/facturas'
@@ -209,6 +228,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFacturasRoute: typeof AuthenticatedFacturasRoute
+  AuthenticatedOcrRoute: typeof AuthenticatedOcrRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
   AuthenticatedReportesRoute: typeof AuthenticatedReportesRoute
 }
@@ -217,6 +237,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientesRoute: AuthenticatedClientesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFacturasRoute: AuthenticatedFacturasRoute,
+  AuthenticatedOcrRoute: AuthenticatedOcrRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
   AuthenticatedReportesRoute: AuthenticatedReportesRoute,
 }
