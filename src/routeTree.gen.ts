@@ -13,9 +13,20 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as AppReportesRouteImport } from './routes/app.reportes'
-import { Route as AppProductosRouteImport } from './routes/app.productos'
+import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
+import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
+import { Route as AppOcrRouteImport } from './routes/app.ocr'
+import { Route as AppMediosRouteImport } from './routes/app.medios'
+import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
+import { Route as AppFacturasRouteImport } from './routes/app.facturas'
+import { Route as AppEstimacionesRouteImport } from './routes/app.estimaciones'
+import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
+import { Route as AppComprasRouteImport } from './routes/app.compras'
+import { Route as AppCombustibleRouteImport } from './routes/app.combustible'
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
+import { Route as AppCashflowRouteImport } from './routes/app.cashflow'
+import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
+import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -37,14 +48,54 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppReportesRoute = AppReportesRouteImport.update({
-  id: '/reportes',
-  path: '/reportes',
+const AppProveedoresRoute = AppProveedoresRouteImport.update({
+  id: '/proveedores',
+  path: '/proveedores',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProductosRoute = AppProductosRouteImport.update({
-  id: '/productos',
-  path: '/productos',
+const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
+  id: '/presupuestos',
+  path: '/presupuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOcrRoute = AppOcrRouteImport.update({
+  id: '/ocr',
+  path: '/ocr',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMediosRoute = AppMediosRouteImport.update({
+  id: '/medios',
+  path: '/medios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImpuestosRoute = AppImpuestosRouteImport.update({
+  id: '/impuestos',
+  path: '/impuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFacturasRoute = AppFacturasRouteImport.update({
+  id: '/facturas',
+  path: '/facturas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEstimacionesRoute = AppEstimacionesRouteImport.update({
+  id: '/estimaciones',
+  path: '/estimaciones',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpleadosRoute = AppEmpleadosRouteImport.update({
+  id: '/empleados',
+  path: '/empleados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppComprasRoute = AppComprasRouteImport.update({
+  id: '/compras',
+  path: '/compras',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCombustibleRoute = AppCombustibleRouteImport.update({
+  id: '/combustible',
+  path: '/combustible',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientesRoute = AppClientesRouteImport.update({
@@ -52,33 +103,81 @@ const AppClientesRoute = AppClientesRouteImport.update({
   path: '/clientes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCashflowRoute = AppCashflowRouteImport.update({
+  id: '/cashflow',
+  path: '/cashflow',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
+  getParentRoute: () => AppRoute,
+} as any)
+const ApiPublicOcrFacturaRoute = ApiPublicOcrFacturaRouteImport.update({
+  id: '/api/public/ocr-factura',
+  path: '/api/public/ocr-factura',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
-  '/app/productos': typeof AppProductosRoute
-  '/app/reportes': typeof AppReportesRoute
+  '/app/combustible': typeof AppCombustibleRoute
+  '/app/compras': typeof AppComprasRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/estimaciones': typeof AppEstimacionesRoute
+  '/app/facturas': typeof AppFacturasRoute
+  '/app/impuestos': typeof AppImpuestosRoute
+  '/app/medios': typeof AppMediosRoute
+  '/app/ocr': typeof AppOcrRoute
+  '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
-  '/app/productos': typeof AppProductosRoute
-  '/app/reportes': typeof AppReportesRoute
+  '/app/combustible': typeof AppCombustibleRoute
+  '/app/compras': typeof AppComprasRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/estimaciones': typeof AppEstimacionesRoute
+  '/app/facturas': typeof AppFacturasRoute
+  '/app/impuestos': typeof AppImpuestosRoute
+  '/app/medios': typeof AppMediosRoute
+  '/app/ocr': typeof AppOcrRoute
+  '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app': typeof AppIndexRoute
+  '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/app/auditoria': typeof AppAuditoriaRoute
+  '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
-  '/app/productos': typeof AppProductosRoute
-  '/app/reportes': typeof AppReportesRoute
+  '/app/combustible': typeof AppCombustibleRoute
+  '/app/compras': typeof AppComprasRoute
+  '/app/empleados': typeof AppEmpleadosRoute
+  '/app/estimaciones': typeof AppEstimacionesRoute
+  '/app/facturas': typeof AppFacturasRoute
+  '/app/impuestos': typeof AppImpuestosRoute
+  '/app/medios': typeof AppMediosRoute
+  '/app/ocr': typeof AppOcrRoute
+  '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/proveedores': typeof AppProveedoresRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -86,33 +185,67 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/app/auditoria'
+    | '/app/cashflow'
     | '/app/clientes'
-    | '/app/productos'
-    | '/app/reportes'
+    | '/app/combustible'
+    | '/app/compras'
+    | '/app/empleados'
+    | '/app/estimaciones'
+    | '/app/facturas'
+    | '/app/impuestos'
+    | '/app/medios'
+    | '/app/ocr'
+    | '/app/presupuestos'
+    | '/app/proveedores'
     | '/app/'
+    | '/api/public/ocr-factura'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/app/auditoria'
+    | '/app/cashflow'
     | '/app/clientes'
-    | '/app/productos'
-    | '/app/reportes'
+    | '/app/combustible'
+    | '/app/compras'
+    | '/app/empleados'
+    | '/app/estimaciones'
+    | '/app/facturas'
+    | '/app/impuestos'
+    | '/app/medios'
+    | '/app/ocr'
+    | '/app/presupuestos'
+    | '/app/proveedores'
     | '/app'
+    | '/api/public/ocr-factura'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/auth'
+    | '/app/auditoria'
+    | '/app/cashflow'
     | '/app/clientes'
-    | '/app/productos'
-    | '/app/reportes'
+    | '/app/combustible'
+    | '/app/compras'
+    | '/app/empleados'
+    | '/app/estimaciones'
+    | '/app/facturas'
+    | '/app/impuestos'
+    | '/app/medios'
+    | '/app/ocr'
+    | '/app/presupuestos'
+    | '/app/proveedores'
     | '/app/'
+    | '/api/public/ocr-factura'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicOcrFacturaRoute: typeof ApiPublicOcrFacturaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -145,18 +278,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/reportes': {
-      id: '/app/reportes'
-      path: '/reportes'
-      fullPath: '/app/reportes'
-      preLoaderRoute: typeof AppReportesRouteImport
+    '/app/proveedores': {
+      id: '/app/proveedores'
+      path: '/proveedores'
+      fullPath: '/app/proveedores'
+      preLoaderRoute: typeof AppProveedoresRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/productos': {
-      id: '/app/productos'
-      path: '/productos'
-      fullPath: '/app/productos'
-      preLoaderRoute: typeof AppProductosRouteImport
+    '/app/presupuestos': {
+      id: '/app/presupuestos'
+      path: '/presupuestos'
+      fullPath: '/app/presupuestos'
+      preLoaderRoute: typeof AppPresupuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ocr': {
+      id: '/app/ocr'
+      path: '/ocr'
+      fullPath: '/app/ocr'
+      preLoaderRoute: typeof AppOcrRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/medios': {
+      id: '/app/medios'
+      path: '/medios'
+      fullPath: '/app/medios'
+      preLoaderRoute: typeof AppMediosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/impuestos': {
+      id: '/app/impuestos'
+      path: '/impuestos'
+      fullPath: '/app/impuestos'
+      preLoaderRoute: typeof AppImpuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/facturas': {
+      id: '/app/facturas'
+      path: '/facturas'
+      fullPath: '/app/facturas'
+      preLoaderRoute: typeof AppFacturasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/estimaciones': {
+      id: '/app/estimaciones'
+      path: '/estimaciones'
+      fullPath: '/app/estimaciones'
+      preLoaderRoute: typeof AppEstimacionesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empleados': {
+      id: '/app/empleados'
+      path: '/empleados'
+      fullPath: '/app/empleados'
+      preLoaderRoute: typeof AppEmpleadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/compras': {
+      id: '/app/compras'
+      path: '/compras'
+      fullPath: '/app/compras'
+      preLoaderRoute: typeof AppComprasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/combustible': {
+      id: '/app/combustible'
+      path: '/combustible'
+      fullPath: '/app/combustible'
+      preLoaderRoute: typeof AppCombustibleRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/clientes': {
@@ -166,20 +355,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/cashflow': {
+      id: '/app/cashflow'
+      path: '/cashflow'
+      fullPath: '/app/cashflow'
+      preLoaderRoute: typeof AppCashflowRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/auditoria': {
+      id: '/app/auditoria'
+      path: '/auditoria'
+      fullPath: '/app/auditoria'
+      preLoaderRoute: typeof AppAuditoriaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/api/public/ocr-factura': {
+      id: '/api/public/ocr-factura'
+      path: '/api/public/ocr-factura'
+      fullPath: '/api/public/ocr-factura'
+      preLoaderRoute: typeof ApiPublicOcrFacturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppAuditoriaRoute: typeof AppAuditoriaRoute
+  AppCashflowRoute: typeof AppCashflowRoute
   AppClientesRoute: typeof AppClientesRoute
-  AppProductosRoute: typeof AppProductosRoute
-  AppReportesRoute: typeof AppReportesRoute
+  AppCombustibleRoute: typeof AppCombustibleRoute
+  AppComprasRoute: typeof AppComprasRoute
+  AppEmpleadosRoute: typeof AppEmpleadosRoute
+  AppEstimacionesRoute: typeof AppEstimacionesRoute
+  AppFacturasRoute: typeof AppFacturasRoute
+  AppImpuestosRoute: typeof AppImpuestosRoute
+  AppMediosRoute: typeof AppMediosRoute
+  AppOcrRoute: typeof AppOcrRoute
+  AppPresupuestosRoute: typeof AppPresupuestosRoute
+  AppProveedoresRoute: typeof AppProveedoresRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAuditoriaRoute: AppAuditoriaRoute,
+  AppCashflowRoute: AppCashflowRoute,
   AppClientesRoute: AppClientesRoute,
-  AppProductosRoute: AppProductosRoute,
-  AppReportesRoute: AppReportesRoute,
+  AppCombustibleRoute: AppCombustibleRoute,
+  AppComprasRoute: AppComprasRoute,
+  AppEmpleadosRoute: AppEmpleadosRoute,
+  AppEstimacionesRoute: AppEstimacionesRoute,
+  AppFacturasRoute: AppFacturasRoute,
+  AppImpuestosRoute: AppImpuestosRoute,
+  AppMediosRoute: AppMediosRoute,
+  AppOcrRoute: AppOcrRoute,
+  AppPresupuestosRoute: AppPresupuestosRoute,
+  AppProveedoresRoute: AppProveedoresRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -189,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicOcrFacturaRoute: ApiPublicOcrFacturaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -11,21 +11,22 @@ import { CrudTable } from "@/components/crud-table";
 import { FormField } from "@/lib/form-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/app/clientes")({ component: Page });
+export const Route = createFileRoute("/app/proveedores")({ component: Page });
 
-const CONDICIONES = ["Responsable Inscripto","Monotributista","Exento","Consumidor Final"] as const;
+const CATS = ["Repuestos_JD","Mecanicos","Gomeria","Inoculante","Transportistas","Seguros","Servicios","Herramientas","Otro"] as const;
 const schema = z.object({
   nombre: z.string().min(2).max(100),
   cuit: z.string().max(15).optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
   telefono: z.string().max(20).optional().or(z.literal("")),
-  condicion_iva: z.enum(CONDICIONES).optional(),
+  categoria: z.enum(CATS),
 });
 type FormVals = z.infer<typeof schema>;
-type Row = { id: string; nombre: string; cuit: string | null; email: string | null; telefono: string | null; condicion_iva: string | null };
+type Row = { id: string; nombre: string; cuit: string | null; email: string | null; telefono: string | null; categoria: string };
 
 function Page() {
   const { user } = useAuth();
@@ -34,10 +35,10 @@ function Page() {
   const [edit, setEdit] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["fema_clientes"],
+    queryKey: ["fema_proveedores"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fema_clientes")
-        .select("id,nombre,cuit,email,telefono,condicion_iva")
+      const { data, error } = await supabase.from("fema_proveedores")
+        .select("id,nombre,cuit,email,telefono,categoria")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Row[];
@@ -46,34 +47,27 @@ function Page() {
 
   const close = () => { setOpen(false); setEdit(null); };
   const onSubmit = async (v: FormVals) => {
-    const payload = {
-      user_id: user!.id,
-      nombre: v.nombre,
-      cuit: v.cuit || null,
-      email: v.email || null,
-      telefono: v.telefono || null,
-      condicion_iva: v.condicion_iva || null,
-    };
+    const payload = { user_id: user!.id, nombre: v.nombre, cuit: v.cuit || null, email: v.email || null, telefono: v.telefono || null, categoria: v.categoria };
     const { error } = edit
-      ? await supabase.from("fema_clientes").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_clientes").insert(payload);
+      ? await supabase.from("fema_proveedores").update(payload).eq("id", edit.id)
+      : await supabase.from("fema_proveedores").insert(payload);
     if (error) { toast.error(error.message); return; }
-    toast.success(edit ? "Actualizado" : "Cliente creado");
-    qc.invalidateQueries({ queryKey: ["fema_clientes"] });
+    toast.success(edit ? "Actualizado" : "Proveedor creado");
+    qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
     close();
   };
   const onDelete = async (r: Row) => {
-    const { error } = await supabase.from("fema_clientes").delete().eq("id", r.id);
+    const { error } = await supabase.from("fema_proveedores").delete().eq("id", r.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Eliminado");
-    qc.invalidateQueries({ queryKey: ["fema_clientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
   };
 
   return (
     <>
       <CrudTable<Row>
-        title="Clientes" description="Cartera de clientes FEMA"
-        rows={data} loading={isLoading} emptyLabel="clientes"
+        title="Proveedores" description="Catálogo de proveedores"
+        rows={data} loading={isLoading} emptyLabel="proveedores"
         onAdd={() => { setEdit(null); setOpen(true); }}
         onEdit={(r) => { setEdit(r); setOpen(true); }}
         onDelete={onDelete}
@@ -81,7 +75,7 @@ function Page() {
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "CUIT", cell: (r) => r.cuit ?? "—" },
           { header: "Email", cell: (r) => r.email ?? "—" },
-          { header: "Condición IVA", cell: (r) => r.condicion_iva ?? "—" },
+          { header: "Categoría", cell: (r) => <Badge variant="secondary">{r.categoria.replace("_"," ")}</Badge> },
         ]}
       />
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
@@ -99,28 +93,26 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
       cuit: initial?.cuit ?? "",
       email: initial?.email ?? "",
       telefono: initial?.telefono ?? "",
-      condicion_iva: (initial?.condicion_iva as any) ?? undefined,
+      categoria: (initial?.categoria as any) ?? "Otro",
     },
   });
   return (
     <DialogContent>
-      <DialogHeader><DialogTitle>{initial ? "Editar" : "Nuevo"} cliente</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{initial ? "Editar" : "Nuevo"} proveedor</DialogTitle></DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
         <FormField label="Nombre" required error={f.formState.errors.nombre?.message}>
           <Input {...f.register("nombre")} />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="CUIT"><Input placeholder="XX-XXXXXXXX-X" {...f.register("cuit")} /></FormField>
+          <FormField label="CUIT"><Input {...f.register("cuit")} /></FormField>
           <FormField label="Teléfono"><Input {...f.register("telefono")} /></FormField>
         </div>
-        <FormField label="Email" error={f.formState.errors.email?.message}>
-          <Input type="email" {...f.register("email")} />
-        </FormField>
-        <FormField label="Condición IVA">
-          <Select value={f.watch("condicion_iva") ?? ""} onValueChange={(v) => f.setValue("condicion_iva", v as any)}>
-            <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+        <FormField label="Email" error={f.formState.errors.email?.message}><Input type="email" {...f.register("email")} /></FormField>
+        <FormField label="Categoría">
+          <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {CONDICIONES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {CATS.map((c) => <SelectItem key={c} value={c}>{c.replace("_"," ")}</SelectItem>)}
             </SelectContent>
           </Select>
         </FormField>

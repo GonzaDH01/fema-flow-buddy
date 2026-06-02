@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
+import { YearProvider } from "@/lib/year-context";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -20,5 +21,9 @@ function AppLayout() {
       <div className="grid min-h-screen place-items-center text-muted-foreground">Cargando…</div>
     );
   }
-  return <AppShell />;
+  return (
+    <YearProvider>
+      <AppShell />
+    </YearProvider>
+  );
 }
