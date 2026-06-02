@@ -621,14 +621,21 @@ function FacturaDetail({ id, onClose, clientes }: { id: string | null; onClose: 
     enabled: !!id,
     queryKey: ["factura-detail", id],
     queryFn: async () => {
-      const [f, iv, rt, pc] = await Promise.all([
+      const [f, iv, rt, pc, it] = await Promise.all([
         supabase.from("facturas").select("*").eq("id", id!).single(),
         supabase.from("iva").select("*").eq("factura_id", id!),
         supabase.from("retenciones").select("*").eq("factura_id", id!),
         supabase.from("percepciones").select("*").eq("factura_id", id!),
+        supabase.from("factura_items").select("*").eq("factura_id", id!),
       ]);
       if (f.error) throw f.error;
-      return { factura: f.data, iva: iv.data ?? [], retenciones: rt.data ?? [], percepciones: pc.data ?? [] };
+      return {
+        factura: f.data,
+        iva: iv.data ?? [],
+        retenciones: rt.data ?? [],
+        percepciones: pc.data ?? [],
+        items: (it.data ?? []) as FacturaItemRow[],
+      };
     },
   });
 
@@ -651,6 +658,28 @@ function FacturaDetail({ id, onClose, clientes }: { id: string | null; onClose: 
               <div className="col-span-2"><span className="text-muted-foreground">Cliente:</span> {cliente?.razon_social ?? "—"}</div>
               <div className="col-span-2"><span className="text-muted-foreground">Concepto:</span> {f.concepto ?? "—"}</div>
             </div>
+
+            {data.items.length > 0 && (
+              <div>
+                <h4 className="mb-1 font-semibold">Líneas</h4>
+                <table className="w-full text-xs">
+                  <thead className="text-left text-muted-foreground">
+                    <tr><th className="py-1">Descripción</th><th className="py-1 text-right">Cant.</th><th className="py-1 text-right">P. unit</th><th className="py-1 text-right">IVA</th><th className="py-1 text-right">Subtotal</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.items.map((r) => (
+                      <tr key={r.id} className="border-t border-border">
+                        <td className="py-1">{r.descripcion}</td>
+                        <td className="py-1 text-right">{Number(r.cantidad)}</td>
+                        <td className="py-1 text-right">{fmt(Number(r.precio_unitario))}</td>
+                        <td className="py-1 text-right">{Number(r.alicuota_iva)}%</td>
+                        <td className="py-1 text-right">{fmt(Number(r.subtotal_neto))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <Section title="IVA" cols={["Alícuota", "Base", "Importe"]} rows={data.iva.map((r) => ({ a: `${r.alicuota}%`, b: fmt(Number(r.base_imponible)), c: fmt(Number(r.importe)) }))} />
             <Section title="Percepciones" cols={["Tipo", "Base", "Importe"]} rows={data.percepciones.map((r) => ({ a: `${r.tipo} ${r.jurisdiccion ?? ""}`, b: fmt(Number(r.base_imponible)), c: fmt(Number(r.importe)) }))} />
