@@ -14,44 +14,206 @@ export type Database = {
   }
   public: {
     Tables: {
-      clientes: {
+      clientes_proveedores: {
         Row: {
+          condicion_iva: Database["public"]["Enums"]["condicion_iva"]
           created_at: string
-          created_by: string | null
+          created_by: string
+          cuit: string | null
           direccion: string | null
           email: string | null
-          empresa: string | null
           id: string
-          nombre: string
           notas: string | null
+          razon_social: string
           telefono: string | null
+          tipo: Database["public"]["Enums"]["tipo_persona"]
           updated_at: string
         }
         Insert: {
+          condicion_iva?: Database["public"]["Enums"]["condicion_iva"]
           created_at?: string
-          created_by?: string | null
+          created_by?: string
+          cuit?: string | null
           direccion?: string | null
           email?: string | null
-          empresa?: string | null
           id?: string
-          nombre: string
           notas?: string | null
+          razon_social: string
           telefono?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_persona"]
           updated_at?: string
         }
         Update: {
+          condicion_iva?: Database["public"]["Enums"]["condicion_iva"]
           created_at?: string
-          created_by?: string | null
+          created_by?: string
+          cuit?: string | null
           direccion?: string | null
           email?: string | null
-          empresa?: string | null
           id?: string
-          nombre?: string
           notas?: string | null
+          razon_social?: string
           telefono?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_persona"]
           updated_at?: string
         }
         Relationships: []
+      }
+      facturas: {
+        Row: {
+          cliente_proveedor_id: string | null
+          concepto: string | null
+          created_at: string
+          created_by: string
+          estado: Database["public"]["Enums"]["estado_factura"]
+          fecha_emision: string
+          fecha_vencimiento: string | null
+          id: string
+          iva_total: number
+          neto: number
+          notas: string | null
+          numero: number
+          percepciones_total: number
+          punto_venta: number
+          retenciones_total: number
+          tipo: Database["public"]["Enums"]["tipo_factura"]
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          cliente_proveedor_id?: string | null
+          concepto?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: Database["public"]["Enums"]["estado_factura"]
+          fecha_emision?: string
+          fecha_vencimiento?: string | null
+          id?: string
+          iva_total?: number
+          neto?: number
+          notas?: string | null
+          numero: number
+          percepciones_total?: number
+          punto_venta?: number
+          retenciones_total?: number
+          tipo: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          cliente_proveedor_id?: string | null
+          concepto?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: Database["public"]["Enums"]["estado_factura"]
+          fecha_emision?: string
+          fecha_vencimiento?: string | null
+          id?: string
+          iva_total?: number
+          neto?: number
+          notas?: string | null
+          numero?: number
+          percepciones_total?: number
+          punto_venta?: number
+          retenciones_total?: number
+          tipo?: Database["public"]["Enums"]["tipo_factura"]
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facturas_cliente_proveedor_id_fkey"
+            columns: ["cliente_proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      iva: {
+        Row: {
+          alicuota: number
+          base_imponible: number
+          created_at: string
+          created_by: string
+          factura_id: string
+          id: string
+          importe: number
+        }
+        Insert: {
+          alicuota: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id: string
+          id?: string
+          importe?: number
+        }
+        Update: {
+          alicuota?: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id?: string
+          id?: string
+          importe?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "iva_factura_id_fkey"
+            columns: ["factura_id"]
+            isOneToOne: false
+            referencedRelation: "facturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      percepciones: {
+        Row: {
+          alicuota: number
+          base_imponible: number
+          created_at: string
+          created_by: string
+          factura_id: string
+          fecha: string
+          id: string
+          importe: number
+          jurisdiccion: string | null
+          tipo: Database["public"]["Enums"]["tipo_percepcion"]
+        }
+        Insert: {
+          alicuota?: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id: string
+          fecha?: string
+          id?: string
+          importe?: number
+          jurisdiccion?: string | null
+          tipo: Database["public"]["Enums"]["tipo_percepcion"]
+        }
+        Update: {
+          alicuota?: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id?: string
+          fecha?: string
+          id?: string
+          importe?: number
+          jurisdiccion?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_percepcion"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "percepciones_factura_id_fkey"
+            columns: ["factura_id"]
+            isOneToOne: false
+            referencedRelation: "facturas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -76,6 +238,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      retenciones: {
+        Row: {
+          alicuota: number
+          base_imponible: number
+          created_at: string
+          created_by: string
+          factura_id: string
+          fecha: string
+          id: string
+          importe: number
+          jurisdiccion: string | null
+          numero_certificado: string | null
+          tipo: Database["public"]["Enums"]["tipo_retencion"]
+        }
+        Insert: {
+          alicuota?: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id: string
+          fecha?: string
+          id?: string
+          importe?: number
+          jurisdiccion?: string | null
+          numero_certificado?: string | null
+          tipo: Database["public"]["Enums"]["tipo_retencion"]
+        }
+        Update: {
+          alicuota?: number
+          base_imponible?: number
+          created_at?: string
+          created_by?: string
+          factura_id?: string
+          fecha?: string
+          id?: string
+          importe?: number
+          jurisdiccion?: string | null
+          numero_certificado?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_retencion"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retenciones_factura_id_fkey"
+            columns: ["factura_id"]
+            isOneToOne: false
+            referencedRelation: "facturas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -113,6 +325,17 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      condicion_iva:
+        | "responsable_inscripto"
+        | "monotributo"
+        | "exento"
+        | "consumidor_final"
+        | "no_responsable"
+      estado_factura: "borrador" | "emitida" | "pagada" | "anulada"
+      tipo_factura: "A" | "B" | "C" | "E" | "M"
+      tipo_percepcion: "iva" | "iibb"
+      tipo_persona: "cliente" | "proveedor" | "ambos"
+      tipo_retencion: "ganancias" | "iva" | "iibb" | "suss"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -241,6 +464,18 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      condicion_iva: [
+        "responsable_inscripto",
+        "monotributo",
+        "exento",
+        "consumidor_final",
+        "no_responsable",
+      ],
+      estado_factura: ["borrador", "emitida", "pagada", "anulada"],
+      tipo_factura: ["A", "B", "C", "E", "M"],
+      tipo_percepcion: ["iva", "iibb"],
+      tipo_persona: ["cliente", "proveedor", "ambos"],
+      tipo_retencion: ["ganancias", "iva", "iibb", "suss"],
     },
   },
 } as const

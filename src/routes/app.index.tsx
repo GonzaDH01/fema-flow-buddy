@@ -10,17 +10,24 @@ export const Route = createFileRoute("/app/")({
 
 function Dashboard() {
   const { user } = useAuth();
-  const { data: clientesCount } = useQuery({
-    queryKey: ["clientes-count"],
+  const { data: cpCount } = useQuery({
+    queryKey: ["cp-count"],
     queryFn: async () => {
-      const { count } = await supabase.from("clientes").select("*", { count: "exact", head: true });
+      const { count } = await supabase.from("clientes_proveedores").select("*", { count: "exact", head: true });
+      return count ?? 0;
+    },
+  });
+  const { data: facturasCount } = useQuery({
+    queryKey: ["facturas-count"],
+    queryFn: async () => {
+      const { count } = await supabase.from("facturas").select("*", { count: "exact", head: true });
       return count ?? 0;
     },
   });
 
   const stats = [
-    { label: "Clientes", value: clientesCount ?? "—", icon: Users, accent: "text-primary" },
-    { label: "Productos", value: 0, icon: Package, accent: "text-primary" },
+    { label: "Clientes / Proveedores", value: cpCount ?? "—", icon: Users, accent: "text-primary" },
+    { label: "Facturas", value: facturasCount ?? "—", icon: Package, accent: "text-primary" },
     { label: "Operaciones", value: 0, icon: Activity, accent: "text-primary" },
     { label: "Crecimiento", value: "—", icon: TrendingUp, accent: "text-primary" },
   ];
@@ -49,7 +56,7 @@ function Dashboard() {
       <div className="mt-8 rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-sm)]">
         <h2 className="text-lg font-semibold">Empieza por aquí</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Registra tus primeros clientes desde el módulo <strong>Clientes</strong> en la barra lateral.
+          Registra tus primeros clientes y proveedores, luego carga facturas con IVA, retenciones y percepciones.
         </p>
       </div>
     </div>
