@@ -455,17 +455,26 @@ export type Database = {
           anio: number | null
           categoria: Database["public"]["Enums"]["categoria_compra"] | null
           created_at: string
+          descripcion: string | null
           estado: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
+          fecha_pago: string | null
+          forma_pago: string | null
           id: string
+          impuestos_internos: number | null
           iva_105: number | null
           iva_21: number | null
+          litros: number | null
           mes: number | null
           neto: number | null
           numero: string | null
+          observaciones: string | null
+          otros_impuestos: number | null
           percepciones: number | null
+          producto: string | null
           proveedor_id: string | null
           tipo: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante: string | null
           total: number
           updated_at: string
           user_id: string
@@ -474,17 +483,26 @@ export type Database = {
           anio?: number | null
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
           created_at?: string
+          descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
+          fecha_pago?: string | null
+          forma_pago?: string | null
           id?: string
+          impuestos_internos?: number | null
           iva_105?: number | null
           iva_21?: number | null
+          litros?: number | null
           mes?: number | null
           neto?: number | null
           numero?: string | null
+          observaciones?: string | null
+          otros_impuestos?: number | null
           percepciones?: number | null
+          producto?: string | null
           proveedor_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante?: string | null
           total?: number
           updated_at?: string
           user_id: string
@@ -493,17 +511,26 @@ export type Database = {
           anio?: number | null
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
           created_at?: string
+          descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha?: string
+          fecha_pago?: string | null
+          forma_pago?: string | null
           id?: string
+          impuestos_internos?: number | null
           iva_105?: number | null
           iva_21?: number | null
+          litros?: number | null
           mes?: number | null
           neto?: number | null
           numero?: string | null
+          observaciones?: string | null
+          otros_impuestos?: number | null
           percepciones?: number | null
+          producto?: string | null
           proveedor_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_factura"]
+          tipo_comprobante?: string | null
           total?: number
           updated_at?: string
           user_id?: string
