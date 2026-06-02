@@ -330,45 +330,68 @@ export type Database = {
           anio: number | null
           co2: number | null
           created_at: string
+          equipo_id: string | null
           fecha: string
+          horas: number | null
           id: string
           itc: number | null
+          kilometros: number | null
           litros: number
           mes: number | null
+          observaciones: string | null
           precio_litro: number | null
           producto: string
           total: number
+          trabajo: string | null
           user_id: string
         }
         Insert: {
           anio?: number | null
           co2?: number | null
           created_at?: string
+          equipo_id?: string | null
           fecha: string
+          horas?: number | null
           id?: string
           itc?: number | null
+          kilometros?: number | null
           litros: number
           mes?: number | null
+          observaciones?: string | null
           precio_litro?: number | null
           producto: string
           total?: number
+          trabajo?: string | null
           user_id: string
         }
         Update: {
           anio?: number | null
           co2?: number | null
           created_at?: string
+          equipo_id?: string | null
           fecha?: string
+          horas?: number | null
           id?: string
           itc?: number | null
+          kilometros?: number | null
           litros?: number
           mes?: number | null
+          observaciones?: string | null
           precio_litro?: number | null
           producto?: string
           total?: number
+          trabajo?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fema_combustible_equipo_id_fkey"
+            columns: ["equipo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_equipos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fema_empleados: {
         Row: {
@@ -405,6 +428,45 @@ export type Database = {
           nombre?: string
           sueldo_bruto?: number | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fema_equipos: {
+        Row: {
+          created_at: string
+          estado: string
+          id: string
+          interno: string | null
+          nombre: string
+          observaciones: string | null
+          tenencia: string
+          tipo: string
+          transportista: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          id?: string
+          interno?: string | null
+          nombre: string
+          observaciones?: string | null
+          tenencia?: string
+          tipo?: string
+          transportista?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          id?: string
+          interno?: string | null
+          nombre?: string
+          observaciones?: string | null
+          tenencia?: string
+          tipo?: string
+          transportista?: string | null
           user_id?: string
         }
         Relationships: []
@@ -823,6 +885,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fema_tanque_mov: {
+        Row: {
+          anio: number | null
+          created_at: string
+          fecha: string
+          id: string
+          litros: number
+          mes: number | null
+          observaciones: string | null
+          precio_litro: number | null
+          proveedor: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          created_at?: string
+          fecha: string
+          id?: string
+          litros: number
+          mes?: number | null
+          observaciones?: string | null
+          precio_litro?: number | null
+          proveedor?: string | null
+          tipo?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          litros?: number
+          mes?: number | null
+          observaciones?: string | null
+          precio_litro?: number | null
+          proveedor?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       gastos: {
         Row: {
