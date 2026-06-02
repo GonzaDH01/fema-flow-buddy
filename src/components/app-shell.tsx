@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine, ShieldCheck, ClipboardList, Receipt } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3, ScanLine, ShieldCheck, ClipboardList, Receipt, LineChart } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMyRoles } from "@/lib/use-roles";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ const nav: NavItem[] = [
   { to: "/ocr", label: "OCR Comprobantes", icon: ScanLine },
   { to: "/productos", label: "Productos", icon: Package },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
+  { to: "/kpis", label: "KPIs / AFIP", icon: LineChart },
 ];
 
 export function AppShell() {

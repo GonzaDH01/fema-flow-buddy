@@ -18,6 +18,7 @@ import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
 import { Route as AuthenticatedPresupuestosRouteImport } from './routes/_authenticated/presupuestos'
 import { Route as AuthenticatedOcrRouteImport } from './routes/_authenticated/ocr'
+import { Route as AuthenticatedKpisRouteImport } from './routes/_authenticated/kpis'
 import { Route as AuthenticatedGastosRouteImport } from './routes/_authenticated/gastos'
 import { Route as AuthenticatedFacturasRouteImport } from './routes/_authenticated/facturas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -68,6 +69,11 @@ const AuthenticatedOcrRoute = AuthenticatedOcrRouteImport.update({
   path: '/ocr',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKpisRoute = AuthenticatedKpisRouteImport.update({
+  id: '/kpis',
+  path: '/kpis',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGastosRoute = AuthenticatedGastosRouteImport.update({
   id: '/gastos',
   path: '/gastos',
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
   '/gastos': typeof AuthenticatedGastosRoute
+  '/kpis': typeof AuthenticatedKpisRoute
   '/ocr': typeof AuthenticatedOcrRoute
   '/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/productos': typeof AuthenticatedProductosRoute
@@ -111,6 +118,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/facturas': typeof AuthenticatedFacturasRoute
   '/gastos': typeof AuthenticatedGastosRoute
+  '/kpis': typeof AuthenticatedKpisRoute
   '/ocr': typeof AuthenticatedOcrRoute
   '/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/productos': typeof AuthenticatedProductosRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/facturas': typeof AuthenticatedFacturasRoute
   '/_authenticated/gastos': typeof AuthenticatedGastosRoute
+  '/_authenticated/kpis': typeof AuthenticatedKpisRoute
   '/_authenticated/ocr': typeof AuthenticatedOcrRoute
   '/_authenticated/presupuestos': typeof AuthenticatedPresupuestosRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/facturas'
     | '/gastos'
+    | '/kpis'
     | '/ocr'
     | '/presupuestos'
     | '/productos'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/facturas'
     | '/gastos'
+    | '/kpis'
     | '/ocr'
     | '/presupuestos'
     | '/productos'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/facturas'
     | '/_authenticated/gastos'
+    | '/_authenticated/kpis'
     | '/_authenticated/ocr'
     | '/_authenticated/presupuestos'
     | '/_authenticated/productos'
@@ -251,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOcrRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/kpis': {
+      id: '/_authenticated/kpis'
+      path: '/kpis'
+      fullPath: '/kpis'
+      preLoaderRoute: typeof AuthenticatedKpisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/gastos': {
       id: '/_authenticated/gastos'
       path: '/gastos'
@@ -287,6 +306,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFacturasRoute: typeof AuthenticatedFacturasRoute
   AuthenticatedGastosRoute: typeof AuthenticatedGastosRoute
+  AuthenticatedKpisRoute: typeof AuthenticatedKpisRoute
   AuthenticatedOcrRoute: typeof AuthenticatedOcrRoute
   AuthenticatedPresupuestosRoute: typeof AuthenticatedPresupuestosRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
@@ -299,6 +319,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFacturasRoute: AuthenticatedFacturasRoute,
   AuthenticatedGastosRoute: AuthenticatedGastosRoute,
+  AuthenticatedKpisRoute: AuthenticatedKpisRoute,
   AuthenticatedOcrRoute: AuthenticatedOcrRoute,
   AuthenticatedPresupuestosRoute: AuthenticatedPresupuestosRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
