@@ -20,6 +20,8 @@ export const Route = createFileRoute("/_authenticated/facturas")({
 
 type Factura = Database["public"]["Tables"]["facturas"]["Row"];
 type CP = Database["public"]["Tables"]["clientes_proveedores"]["Row"];
+type Producto = Database["public"]["Tables"]["productos"]["Row"];
+type FacturaItemRow = Database["public"]["Tables"]["factura_items"]["Row"];
 type TipoFactura = Database["public"]["Enums"]["tipo_factura"];
 type EstadoFactura = Database["public"]["Enums"]["estado_factura"];
 type TipoRetencion = Database["public"]["Enums"]["tipo_retencion"];
@@ -37,6 +39,13 @@ const TIPOS_RET: TipoRetencion[] = ["ganancias", "iva", "iibb", "suss"];
 const TIPOS_PERC: TipoPercepcion[] = ["iva", "iibb"];
 
 type IvaRow = { alicuota: number; base: number };
+type ItemRow = {
+  producto_id: string | null;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  alicuota_iva: number;
+};
 type RetRow = { tipo: TipoRetencion; base: number; alicuota: number; jurisdiccion: string };
 type PercRow = { tipo: TipoPercepcion; base: number; alicuota: number; jurisdiccion: string };
 
@@ -64,6 +73,8 @@ function FacturasPage() {
   const [ivaRows, setIvaRows] = useState<IvaRow[]>([{ alicuota: 21, base: 0 }]);
   const [retRows, setRetRows] = useState<RetRow[]>([]);
   const [percRows, setPercRows] = useState<PercRow[]>([]);
+  const [items, setItems] = useState<ItemRow[]>([]);
+  const [useItems, setUseItems] = useState(false);
 
   const { data: facturas = [], isLoading } = useQuery({
     queryKey: ["facturas"],
@@ -83,20 +94,51 @@ function FacturasPage() {
     },
   });
 
+  const { data: productos = [] } = useQuery({
+    queryKey: ["productos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("productos")
+        .select("*")
+        .eq("activo", true)
+        .order("codigo");
+      if (error) throw error;
+      return data as Producto[];
+    },
+  });
+
+  // Cuando hay items, las filas de IVA se derivan automáticamente agrupando por alícuota.
+  const derivedIvaRows = useMemo<IvaRow[]>(() => {
+    const map = new Map<number, number>();
+    for (const it of items) {
+      const base = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+      if (base <= 0) continue;
+      const a = Number(it.alicuota_iva) || 0;
+      map.set(a, (map.get(a) || 0) + base);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([alicuota, base]) => ({ alicuota, base }));
+  }, [items]);
+
+  const effectiveIva = useItems ? derivedIvaRows : ivaRows;
+
   const totals = useMemo(() => {
-    const neto = ivaRows.reduce((s, r) => s + (Number(r.base) || 0), 0);
-    const iva_total = ivaRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
+    const neto = effectiveIva.reduce((s, r) => s + (Number(r.base) || 0), 0);
+    const iva_total = effectiveIva.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const percepciones_total = percRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const retenciones_total = retRows.reduce((s, r) => s + (Number(r.base) || 0) * (Number(r.alicuota) || 0) / 100, 0);
     const total = neto + iva_total + percepciones_total - retenciones_total;
     return { neto, iva_total, percepciones_total, retenciones_total, total };
-  }, [ivaRows, retRows, percRows]);
+  }, [effectiveIva, retRows, percRows]);
 
   const resetForm = () => {
     setForm(emptyForm);
     setIvaRows([{ alicuota: 21, base: 0 }]);
     setRetRows([]);
     setPercRows([]);
+    setItems([]);
+    setUseItems(false);
   };
 
   const create = useMutation({
@@ -121,7 +163,8 @@ function FacturasPage() {
       const { data: fact, error } = await supabase.from("facturas").insert(payload).select().single();
       if (error) throw error;
 
-      const ivaIns = ivaRows
+      const ivaSrc = useItems ? derivedIvaRows : ivaRows;
+      const ivaIns = ivaSrc
         .filter((r) => Number(r.base) > 0)
         .map((r) => ({
           factura_id: fact.id,
@@ -134,6 +177,26 @@ function FacturasPage() {
         const { error: e1 } = await supabase.from("iva").insert(ivaIns);
         if (e1) throw e1;
       }
+
+      if (useItems) {
+        const itemsIns = items
+          .filter((it) => it.descripcion.trim() && Number(it.cantidad) > 0)
+          .map((it) => ({
+            factura_id: fact.id,
+            producto_id: it.producto_id,
+            descripcion: it.descripcion,
+            cantidad: Number(it.cantidad),
+            precio_unitario: Number(it.precio_unitario),
+            alicuota_iva: Number(it.alicuota_iva),
+            subtotal_neto: Number(it.cantidad) * Number(it.precio_unitario),
+            created_by: user!.id,
+          }));
+        if (itemsIns.length) {
+          const { error: eItems } = await supabase.from("factura_items").insert(itemsIns);
+          if (eItems) throw eItems;
+        }
+      }
+
       const retIns = retRows
         .filter((r) => Number(r.base) > 0)
         .map((r) => ({
@@ -173,6 +236,7 @@ function FacturasPage() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["facturas"] });
       qc.invalidateQueries({ queryKey: ["facturas-count"] });
+      qc.invalidateQueries({ queryKey: ["productos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -186,6 +250,7 @@ function FacturasPage() {
       toast.success("Factura eliminada");
       qc.invalidateQueries({ queryKey: ["facturas"] });
       qc.invalidateQueries({ queryKey: ["facturas-count"] });
+      qc.invalidateQueries({ queryKey: ["productos"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
