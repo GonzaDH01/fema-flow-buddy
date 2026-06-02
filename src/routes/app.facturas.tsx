@@ -210,21 +210,21 @@ function Page() {
   };
 
   const exportarExcel = async () => {
-    const { exportarExcel } = await import("@/lib/exportar-excel");
-    exportarExcel(
-      rows.map((r) => ({
-        Fecha: r.fecha,
-        Numero: r.numero ?? "",
-        Cliente: r.cliente_id ? clientesMap[r.cliente_id] ?? "" : "",
-        Trabajo: r.trabajo ?? "",
-        Cultivo: r.cultivo ?? "",
-        Hectareas: r.hectareas ?? 0,
-        MetrosBolsa: r.metros_bolsa ?? 0,
-        Total: r.total,
-        Estado: r.estado,
-      })),
-      `facturas-${year}`,
-    );
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(rows.map((r) => ({
+      Fecha: r.fecha,
+      Numero: r.numero ?? "",
+      Cliente: r.cliente_id ? clientesMap[r.cliente_id] ?? "" : "",
+      Trabajo: r.trabajo ?? "",
+      Cultivo: r.cultivo ?? "",
+      Hectareas: r.hectareas ?? 0,
+      MetrosBolsa: r.metros_bolsa ?? 0,
+      Total: r.total,
+      Estado: r.estado,
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Facturas");
+    XLSX.writeFile(wb, `facturas-${year}.xlsx`);
   };
 
   const pctCobrado = kpis.facturado > 0 ? Math.round((kpis.cobrado / kpis.facturado) * 100) : 0;
