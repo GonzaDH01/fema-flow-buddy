@@ -3,13 +3,14 @@ import { LayoutDashboard, Users, LogOut, Package, FileText, BarChart3 } from "lu
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/clientes", label: "Clientes / Proveedores", icon: Users },
   { to: "/facturas", label: "Facturas", icon: FileText },
   { to: "/productos", label: "Productos", icon: Package },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
-] as const;
+];
 
 export function AppShell() {
   const { user, signOut } = useAuth();
