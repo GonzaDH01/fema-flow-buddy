@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil, Printer, FileDown, FileText, Search, X } from "lucide-react";
@@ -198,7 +198,7 @@ function Page() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button size="icon" variant="ghost" title="Imprimir" onClick={() => printPresupuesto(p.id, qc)}>
+                          <Button size="icon" variant="ghost" title="Imprimir" onClick={() => printPresupuesto(p.id)}>
                             <Printer className="h-4 w-4" />
                           </Button>
                           <Button size="icon" variant="ghost" title="Editar" onClick={() => handleEdit(p)}>
@@ -628,7 +628,7 @@ function Row({ k, v }: { k: string; v: string }) {
 
 // ============ Print existing record ============
 
-async function printPresupuesto(id: string, qc: ReturnType<typeof useQueryClient>) {
+async function printPresupuesto(id: string) {
   const { data: p } = await supabase.from("fema_presupuestos").select("*").eq("id", id).single();
   const { data: its } = await supabase.from("fema_presupuesto_items").select("*").eq("presupuesto_id", id).order("orden");
   if (!p) return;
