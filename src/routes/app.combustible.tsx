@@ -33,6 +33,12 @@ type TanqueMov = {
   id: string; fecha: string; tipo: string; litros: number; precio_litro: number;
   proveedor: string | null; observaciones: string | null;
 };
+type Viaje = {
+  id: string; fecha: string; transportista: string; equipo_id: string | null;
+  ubicacion: string | null; origen: string | null; destino: string | null;
+  cantidad_viajes: number; precio_viaje: number; total: number;
+  trabajo: string | null; observaciones: string | null;
+};
 
 function Page() {
   const { user } = useAuth();
@@ -44,6 +50,8 @@ function Page() {
   const [openEquipo, setOpenEquipo] = useState(false);
   const [editEquipo, setEditEquipo] = useState<Equipo | null>(null);
   const [openTanque, setOpenTanque] = useState(false);
+  const [openViaje, setOpenViaje] = useState(false);
+  const [editViaje, setEditViaje] = useState<Viaje | null>(null);
   const [filtroEquipo, setFiltroEquipo] = useState<string>("all");
   const [busqueda, setBusqueda] = useState("");
 
@@ -68,10 +76,18 @@ function Page() {
       if (error) throw error; return data as TanqueMov[];
     },
   });
+  const viajesQ = useQuery({
+    queryKey: ["fema_viajes", user?.id, year], enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_viajes_transp").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha", { ascending: false });
+      if (error) throw error; return data as Viaje[];
+    },
+  });
 
   const equipos = equiposQ.data ?? [];
   const cargas = cargasQ.data ?? [];
   const tanqueMovs = tanqueQ.data ?? [];
+  const viajes = viajesQ.data ?? [];
   const equiposMap = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
 
   // KPIs
@@ -156,6 +172,28 @@ function Page() {
     toast.success("Eliminado");
     qc.invalidateQueries({ queryKey: ["fema_tanque"] });
   };
+  const deleteViaje = async (id: string) => {
+    const { error } = await (supabase as any).from("fema_viajes_transp").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_viajes"] });
+  };
+
+  // Resumen viajes por transportista
+  const viajesPorTransp = useMemo(() => {
+    const map = new Map<string, { transportista: string; cantidad: number; total: number; ubicaciones: Set<string> }>();
+    viajes.forEach((v) => {
+      const cur = map.get(v.transportista) ?? { transportista: v.transportista, cantidad: 0, total: 0, ubicaciones: new Set<string>() };
+      cur.cantidad += Number(v.cantidad_viajes);
+      cur.total += Number(v.total);
+      if (v.ubicacion) cur.ubicaciones.add(v.ubicacion);
+      if (v.destino) cur.ubicaciones.add(v.destino);
+      map.set(v.transportista, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.cantidad - a.cantidad);
+  }, [viajes]);
+  const totalViajes = viajes.reduce((a, x) => a + Number(x.cantidad_viajes), 0);
+  const totalImporteViajes = viajes.reduce((a, x) => a + Number(x.total), 0);
 
   const exportarExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -211,6 +249,7 @@ function Page() {
               <TabsTrigger value="cargas">Cargas de gasoil</TabsTrigger>
               <TabsTrigger value="tanque">Tanque propio</TabsTrigger>
               <TabsTrigger value="equipos">Equipos / Máquinas</TabsTrigger>
+              <TabsTrigger value="viajes">Viajes transportistas</TabsTrigger>
               <TabsTrigger value="reporte">Reporte de consumo</TabsTrigger>
             </TabsList>
             <Button size="sm" variant="ghost" onClick={cargarEjemplos}><Sparkles className="h-3 w-3 mr-1 text-amber-500" />Cargar ejemplos</Button>
