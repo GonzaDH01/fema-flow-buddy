@@ -1032,6 +1032,63 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_viajes_transp: {
+        Row: {
+          anio: number | null
+          cantidad_viajes: number
+          created_at: string
+          destino: string | null
+          equipo_id: string | null
+          fecha: string
+          id: string
+          mes: number | null
+          observaciones: string | null
+          origen: string | null
+          precio_viaje: number | null
+          total: number | null
+          trabajo: string | null
+          transportista: string
+          ubicacion: string | null
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          cantidad_viajes?: number
+          created_at?: string
+          destino?: string | null
+          equipo_id?: string | null
+          fecha: string
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          origen?: string | null
+          precio_viaje?: number | null
+          total?: number | null
+          trabajo?: string | null
+          transportista: string
+          ubicacion?: string | null
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          cantidad_viajes?: number
+          created_at?: string
+          destino?: string | null
+          equipo_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          origen?: string | null
+          precio_viaje?: number | null
+          total?: number | null
+          trabajo?: string | null
+          transportista?: string
+          ubicacion?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       gastos: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_gasto"]
