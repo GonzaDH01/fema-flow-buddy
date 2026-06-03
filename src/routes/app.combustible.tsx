@@ -154,6 +154,25 @@ function Page() {
     return Array.from(map.values());
   }, [cargasTransp, equiposMap]);
 
+  const reporteTransportistas = useMemo(() => {
+    const map = new Map<string, { transportista: string; litros: number; importeCombustible: number; viajes: number; importeViajes: number }>();
+    cargasTransp.forEach((c) => {
+      const eq = c.equipo_id ? equiposMap.get(c.equipo_id) : null;
+      const key = eq?.transportista || "Sin transportista";
+      const cur = map.get(key) ?? { transportista: key, litros: 0, importeCombustible: 0, viajes: 0, importeViajes: 0 };
+      cur.litros += Number(c.litros);
+      cur.importeCombustible += Number(c.total);
+      map.set(key, cur);
+    });
+    viajes.forEach((v) => {
+      const cur = map.get(v.transportista) ?? { transportista: v.transportista, litros: 0, importeCombustible: 0, viajes: 0, importeViajes: 0 };
+      cur.viajes += Number(v.cantidad_viajes);
+      cur.importeViajes += Number(v.total);
+      map.set(v.transportista, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => (b.importeCombustible + b.importeViajes) - (a.importeCombustible + a.importeViajes));
+  }, [cargasTransp, equiposMap, viajes]);
+
   const deleteCarga = async (id: string) => {
     const { error } = await supabase.from("fema_combustible").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
