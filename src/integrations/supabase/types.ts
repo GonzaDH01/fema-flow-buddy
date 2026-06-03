@@ -848,34 +848,132 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_presupuesto_items: {
+        Row: {
+          alicuota_iva: number
+          cantidad: number
+          codigo: string | null
+          created_at: string
+          descripcion: string
+          id: string
+          orden: number | null
+          precio_unitario: number
+          presupuesto_id: string
+          subtotal: number
+          user_id: string
+        }
+        Insert: {
+          alicuota_iva?: number
+          cantidad?: number
+          codigo?: string | null
+          created_at?: string
+          descripcion: string
+          id?: string
+          orden?: number | null
+          precio_unitario?: number
+          presupuesto_id: string
+          subtotal?: number
+          user_id: string
+        }
+        Update: {
+          alicuota_iva?: number
+          cantidad?: number
+          codigo?: string | null
+          created_at?: string
+          descripcion?: string
+          id?: string
+          orden?: number | null
+          precio_unitario?: number
+          presupuesto_id?: string
+          subtotal?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_presupuesto_items_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "fema_presupuestos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_presupuestos: {
         Row: {
+          anio: number | null
+          cliente_cond_iva: string | null
+          cliente_cuit: string | null
+          cliente_domicilio: string | null
           cliente_id: string | null
+          cliente_localidad: string | null
+          cliente_nombre: string | null
+          condicion_pago: string | null
+          consideraciones: string | null
           created_at: string
           descripcion: string | null
+          descuento_monto: number | null
+          descuento_pct: number | null
           estado: string | null
           fecha: string
+          fecha_vencimiento: string | null
           id: string
+          iva_105: number | null
+          iva_21: number | null
+          neto: number | null
+          numero: string | null
+          observaciones: string | null
           total: number | null
           user_id: string
         }
         Insert: {
+          anio?: number | null
+          cliente_cond_iva?: string | null
+          cliente_cuit?: string | null
+          cliente_domicilio?: string | null
           cliente_id?: string | null
+          cliente_localidad?: string | null
+          cliente_nombre?: string | null
+          condicion_pago?: string | null
+          consideraciones?: string | null
           created_at?: string
           descripcion?: string | null
+          descuento_monto?: number | null
+          descuento_pct?: number | null
           estado?: string | null
           fecha: string
+          fecha_vencimiento?: string | null
           id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          neto?: number | null
+          numero?: string | null
+          observaciones?: string | null
           total?: number | null
           user_id: string
         }
         Update: {
+          anio?: number | null
+          cliente_cond_iva?: string | null
+          cliente_cuit?: string | null
+          cliente_domicilio?: string | null
           cliente_id?: string | null
+          cliente_localidad?: string | null
+          cliente_nombre?: string | null
+          condicion_pago?: string | null
+          consideraciones?: string | null
           created_at?: string
           descripcion?: string | null
+          descuento_monto?: number | null
+          descuento_pct?: number | null
           estado?: string | null
           fecha?: string
+          fecha_vencimiento?: string | null
           id?: string
+          iva_105?: number | null
+          iva_21?: number | null
+          neto?: number | null
+          numero?: string | null
+          observaciones?: string | null
           total?: number | null
           user_id?: string
         }
