@@ -427,6 +427,52 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [proveedorCesion, setProveedorCesion] = useState("");
   const [facturaCompraCesion, setFacturaCompraCesion] = useState<string>("");
 
+  // multi-cuota / echeqs para cobro_cliente y pago_proveedor
+  type Cuota = { numero: string; banco: string; vencimiento: string; monto: number; obs: string };
+  const [cuotas, setCuotas] = useState<Cuota[]>([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]);
+  const [bancoGlobal, setBancoGlobal] = useState("");
+  const [genCuotas, setGenCuotas] = useState(1);
+  const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
+  const [genPeriodicidad, setGenPeriodicidad] = useState<"semanal"|"quincenal"|"mensual">("mensual");
+
+  const facturaActual = useMemo(() => {
+    if (!facturaSel) return null;
+    const list = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+    return list.find(f => f.id === facturaSel) ?? null;
+  }, [facturaSel, tipo, facturasVenta, facturasCompra]);
+
+  const totalCargado = useMemo(
+    () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
+    [cuotas]);
+  const totalFactura = Number(facturaActual?.total ?? monto ?? 0);
+  const diferencia = totalFactura - totalCargado;
+
+  const generarCuotas = () => {
+    if (!genCuotas || genCuotas < 1) return;
+    const base = totalFactura > 0 ? totalFactura : Number(monto || 0);
+    const cuotaMonto = Math.round((base / genCuotas) * 100) / 100;
+    const start = genPrimerVto ? new Date(genPrimerVto + "T00:00:00") : new Date();
+    const arr: Cuota[] = [];
+    for (let i = 0; i < genCuotas; i++) {
+      const d = new Date(start);
+      if (genPeriodicidad === "semanal") d.setDate(d.getDate() + 7 * i);
+      else if (genPeriodicidad === "quincenal") d.setDate(d.getDate() + 15 * i);
+      else d.setMonth(d.getMonth() + i);
+      arr.push({
+        numero: numero ? `${numero}-${i+1}` : "",
+        banco: bancoGlobal || banco || "",
+        vencimiento: d.toISOString().split("T")[0],
+        monto: cuotaMonto,
+        obs: `Cuota ${i+1}/${genCuotas}`,
+      });
+    }
+    setCuotas(arr);
+  };
+
+  const addFila = () => setCuotas(prev => [...prev, { numero: "", banco: bancoGlobal || "", vencimiento: "", monto: 0, obs: "" }]);
+  const delFila = (i: number) => setCuotas(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+  const updFila = (i: number, patch: Partial<Cuota>) => setCuotas(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c));
+
   useEffect(() => {
     if (tipo === "ceder_echeq" && echeqId) {
       const e = echeqsCartera.find(x => x.id === echeqId);
@@ -460,26 +506,46 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
-        const payload: any = {
-          user_id: userId,
-          instrumento: instrumento as any,
-          direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
-          tipo_movimiento: tipo,
-          fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-          vencimiento: vencimiento || null,
-          numero: numero || null, banco: banco || null,
-          contraparte: contraparte || (fact?.proveedor ?? null),
-          monto: Number(monto || fact?.total || 0),
-          estado, observaciones: observaciones || null,
-          factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-          factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
-          anio: year, mes,
-        };
-        const op = initial
-          ? sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id)
-          : sb.from("fema_movimientos_pago").insert(payload);
-        const { error } = await op;
-        if (error) throw error;
+        const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
+        if (filasValidas.length === 0) { toast.error("Cargá al menos una cuota con monto"); return; }
+        if (initial) {
+          // edición: actualiza única fila
+          const c = filasValidas[0];
+          const payload: any = {
+            instrumento: instrumento as any,
+            direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
+            tipo_movimiento: tipo,
+            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+            vencimiento: c.vencimiento || null,
+            numero: c.numero || null, banco: c.banco || bancoGlobal || null,
+            contraparte: contraparte || (fact?.proveedor ?? null),
+            monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
+            factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
+            factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
+            anio: year, mes,
+          };
+          const { error } = await sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id);
+          if (error) throw error;
+        } else {
+          const rows = filasValidas.map(c => ({
+            user_id: userId,
+            instrumento: instrumento as any,
+            direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
+            tipo_movimiento: tipo,
+            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+            vencimiento: c.vencimiento || null,
+            numero: c.numero || null,
+            banco: c.banco || bancoGlobal || null,
+            contraparte: contraparte || (fact?.proveedor ?? null),
+            monto: Number(c.monto),
+            estado, observaciones: c.obs || observaciones || null,
+            factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
+            factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
+            anio: year, mes,
+          }));
+          const { error } = await sb.from("fema_movimientos_pago").insert(rows);
+          if (error) throw error;
+        }
       } else {
         // libre
         const payload: any = {
