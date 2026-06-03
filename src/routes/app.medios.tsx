@@ -592,27 +592,47 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
-          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Factura de compra a pagar"}>
+          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Factura de proveedor a pagar"}>
             <Input placeholder="Buscar por cliente / proveedor / Nº factura..." value={busqFact} onChange={(e) => setBusqFact(e.target.value)} />
           </FormField>
-          <div className="max-h-48 overflow-auto border rounded-md divide-y">
-            {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
-            {facturasFiltradas.map(f => (
-              <button key={f.id} type="button"
-                onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); }}
-                className={`w-full text-left p-3 hover:bg-muted/50 ${facturaSel === f.id ? "bg-muted/60" : ""}`}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-medium text-sm">{f.proveedor ?? "Cliente"}</div>
-                    <div className="text-xs text-muted-foreground">Fact. {f.numero ?? "s/n"} · {formatFecha(f.fecha)} {f.trabajo ? `· ${f.trabajo}` : ""}</div>
-                  </div>
-                  <div className="font-mono text-emerald-400 text-sm">{formatPesos(f.total)}</div>
+
+          {facturaActual ? (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-sm uppercase truncate">{facturaActual.proveedor ?? "Cliente"}</div>
+                <div className="text-xs text-muted-foreground">
+                  Factura {facturaActual.numero ?? "s/n"} · {formatFecha(facturaActual.fecha)}
+                  {facturaActual.trabajo ? ` · ${facturaActual.trabajo}` : ""}
                 </div>
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Instrumento">
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="font-mono text-emerald-400 text-base">{formatPesos(facturaActual.total)}</div>
+                <Button size="sm" variant="outline" onClick={() => { setFacturaSel(null); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
+                  <XIcon className="w-3 h-3 mr-1" />Cambiar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-auto border rounded-md divide-y">
+              {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
+              {facturasFiltradas.map(f => (
+                <button key={f.id} type="button"
+                  onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: Number(f.total), obs: "" }]); }}
+                  className="w-full text-left p-3 hover:bg-muted/50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-sm">{f.proveedor ?? "Cliente"}</div>
+                      <div className="text-xs text-muted-foreground">Fact. {f.numero ?? "s/n"} · {formatFecha(f.fecha)} {f.trabajo ? `· ${f.trabajo}` : ""}</div>
+                    </div>
+                    <div className="font-mono text-emerald-400 text-sm">{formatPesos(f.total)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Tipo documento">
               <Select value={instrumento} onValueChange={setInstrumento}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -623,13 +643,109 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="Monto"><Input type="number" value={monto} onChange={(e) => setMonto(Number(e.target.value))} /></FormField>
-            <FormField label="Nº cheque / echeq / ref."><Input value={numero} onChange={(e) => setNumero(e.target.value)} /></FormField>
-            <FormField label="Banco"><Input value={banco} onChange={(e) => setBanco(e.target.value)} /></FormField>
-            <FormField label="Fecha emisión"><Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} /></FormField>
-            <FormField label="Vencimiento"><Input type="date" value={vencimiento} onChange={(e) => setVencimiento(e.target.value)} /></FormField>
+            <FormField label="Banco (todas las filas)">
+              <Input placeholder="— Banco —" value={bancoGlobal} onChange={(e) => setBancoGlobal(e.target.value)} />
+            </FormField>
+            <FormField label="Estado inicial">
+              <Select value={estado} onValueChange={setEstado}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en_cartera">En cartera</SelectItem>
+                  <SelectItem value="pagado">Pagado</SelectItem>
+                  <SelectItem value="cobrado">Cobrado</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
-          <FormField label="Observaciones"><Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} /></FormField>
+
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">Cuotas</div>
+                <Input type="number" min={1} max={48} className="w-20" value={genCuotas} onChange={(e) => setGenCuotas(Math.max(1, Number(e.target.value)))} />
+              </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">1° vto</div>
+                <Input type="date" className="w-[160px]" value={genPrimerVto} onChange={(e) => setGenPrimerVto(e.target.value)} />
+              </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">Periodicidad</div>
+                <Select value={genPeriodicidad} onValueChange={(v) => setGenPeriodicidad(v as any)}>
+                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="semanal">Semanal</SelectItem>
+                    <SelectItem value="quincenal">Quincenal</SelectItem>
+                    <SelectItem value="mensual">Mensual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" size="sm" onClick={generarCuotas}>
+                <Sparkles className="w-3 h-3 mr-1" />Generar
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-md border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>Nº {instrumento === "echeq" ? "Echeq" : instrumento === "cheque_fisico" ? "Cheque" : "Ref"}</TableHead>
+                  <TableHead>Banco</TableHead>
+                  <TableHead>Vencimiento</TableHead>
+                  <TableHead className="text-right">Monto ($)</TableHead>
+                  <TableHead>Obs.</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cuotas.map((c, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
+                    <TableCell><Input className="h-8" placeholder="Nº" value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
+                    <TableCell><Input className="h-8" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
+                    <TableCell><Input className="h-8" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
+                    <TableCell><Input className="h-8 text-right font-mono" type="number" value={c.monto} onChange={(e) => updFila(i, { monto: Number(e.target.value) })} /></TableCell>
+                    <TableCell><Input className="h-8" placeholder="nota..." value={c.obs} onChange={(e) => updFila(i, { obs: e.target.value })} /></TableCell>
+                    <TableCell>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400" onClick={() => delFila(i)}><XIcon className="w-3 h-3" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex items-center justify-between p-2 border-t bg-muted/30 text-xs">
+              <Button type="button" size="sm" variant="outline" onClick={addFila}>
+                <Plus className="w-3 h-3 mr-1" />Agregar fila
+              </Button>
+              <div className="flex items-center gap-4">
+                <span className="text-muted-foreground">Total cargado</span>
+                <span className="font-mono font-semibold">{formatPesos(totalCargado)}</span>
+                {totalFactura > 0 && Math.abs(diferencia) > 0.5 && (
+                  <span className={diferencia > 0 ? "text-amber-400" : "text-rose-400"}>
+                    {diferencia > 0 ? `Faltan ${formatPesos(diferencia)} para cubrir el total` : `Excede en ${formatPesos(-diferencia)}`}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Mes asociado">
+              <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MESES_LARGOS.map((m, i) => <SelectItem key={i} value={String(i+1)}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <div className="col-span-2">
+              <FormField label="Observaciones generales">
+                <Input placeholder="Ej: Paquete anticipado — financiado 8 meses" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+              </FormField>
+            </div>
+          </div>
         </div>
       )}
 
