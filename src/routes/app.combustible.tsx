@@ -393,6 +393,74 @@ function Page() {
           </TabsContent>
 
           <TabsContent value="reporte" className="mt-4 space-y-4">
+          </TabsContent>
+          <TabsContent value="viajes" className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Kpi label="Viajes registrados" value={String(totalViajes)} sub={`${viajes.length} entradas`} color="text-amber-400" />
+              <Kpi label="Transportistas" value={String(viajesPorTransp.length)} color="text-blue-400" />
+              <Kpi label="Importe total" value={formatPesos(totalImporteViajes)} color="text-emerald-400" />
+            </div>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between border-b p-3">
+                <div className="font-medium">Viajes de transportistas</div>
+                <Button size="sm" onClick={() => { setEditViaje(null); setOpenViaje(true); }}><Plus className="h-3 w-3 mr-1" />Nuevo viaje</Button>
+              </div>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Fecha</TableHead><TableHead>Transportista</TableHead>
+                  <TableHead>Ubicación / destino</TableHead><TableHead>Trabajo</TableHead>
+                  <TableHead className="text-right">Cant. viajes</TableHead>
+                  <TableHead className="text-right">$ / viaje</TableHead>
+                  <TableHead className="text-right">Total</TableHead><TableHead className="w-24" />
+                </TableRow></TableHeader>
+                <TableBody>
+                  {viajes.map((v) => (
+                    <TableRow key={v.id}>
+                      <TableCell>{formatFecha(v.fecha)}</TableCell>
+                      <TableCell className="font-medium">{v.transportista}</TableCell>
+                      <TableCell>
+                        {v.ubicacion ?? v.destino ?? "—"}
+                        {v.origen && v.destino && <div className="text-xs text-muted-foreground">{v.origen} → {v.destino}</div>}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{v.trabajo ?? "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatNumero(v.cantidad_viajes, 0)}</TableCell>
+                      <TableCell className="text-right">{formatPesos(v.precio_viaje)}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">{formatPesos(v.total)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => { setEditViaje(v); setOpenViaje(true); }}><Pencil className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => deleteViaje(v.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {viajes.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Sin viajes registrados</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b p-3 font-medium">Resumen por transportista</div>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Transportista</TableHead><TableHead>Ubicaciones</TableHead>
+                  <TableHead className="text-right">Cantidad viajes</TableHead>
+                  <TableHead className="text-right">Importe total</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {viajesPorTransp.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{r.transportista}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{Array.from(r.ubicaciones).join(", ") || "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatNumero(r.cantidad, 0)}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">{formatPesos(r.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {viajesPorTransp.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Sin datos</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+          <TabsContent value="_reporte_continue" className="hidden">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-lg border border-border bg-card">
                 <div className="border-b p-3 font-medium">Consumo por equipo</div>
