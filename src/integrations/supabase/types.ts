@@ -848,6 +848,83 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_movimientos_pago: {
+        Row: {
+          anio: number
+          banco: string | null
+          contraparte: string | null
+          created_at: string
+          direccion: string
+          echeq_origen_id: string | null
+          estado: string
+          factura_compra_id: string | null
+          factura_venta_id: string | null
+          fecha_emision: string
+          id: string
+          instrumento: string
+          mes: number
+          monto: number
+          numero: string | null
+          observaciones: string | null
+          tipo_movimiento: string
+          updated_at: string
+          user_id: string
+          vencimiento: string | null
+        }
+        Insert: {
+          anio?: number
+          banco?: string | null
+          contraparte?: string | null
+          created_at?: string
+          direccion: string
+          echeq_origen_id?: string | null
+          estado?: string
+          factura_compra_id?: string | null
+          factura_venta_id?: string | null
+          fecha_emision?: string
+          id?: string
+          instrumento: string
+          mes?: number
+          monto?: number
+          numero?: string | null
+          observaciones?: string | null
+          tipo_movimiento: string
+          updated_at?: string
+          user_id: string
+          vencimiento?: string | null
+        }
+        Update: {
+          anio?: number
+          banco?: string | null
+          contraparte?: string | null
+          created_at?: string
+          direccion?: string
+          echeq_origen_id?: string | null
+          estado?: string
+          factura_compra_id?: string | null
+          factura_venta_id?: string | null
+          fecha_emision?: string
+          id?: string
+          instrumento?: string
+          mes?: number
+          monto?: number
+          numero?: string | null
+          observaciones?: string | null
+          tipo_movimiento?: string
+          updated_at?: string
+          user_id?: string
+          vencimiento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_movimientos_pago_echeq_origen_id_fkey"
+            columns: ["echeq_origen_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_presupuesto_items: {
         Row: {
           alicuota_iva: number
