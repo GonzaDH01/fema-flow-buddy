@@ -154,6 +154,25 @@ function Page() {
     return Array.from(map.values());
   }, [cargasTransp, equiposMap]);
 
+  const reporteTransportistas = useMemo(() => {
+    const map = new Map<string, { transportista: string; litros: number; importeCombustible: number; viajes: number; importeViajes: number }>();
+    cargasTransp.forEach((c) => {
+      const eq = c.equipo_id ? equiposMap.get(c.equipo_id) : null;
+      const key = eq?.transportista || "Sin transportista";
+      const cur = map.get(key) ?? { transportista: key, litros: 0, importeCombustible: 0, viajes: 0, importeViajes: 0 };
+      cur.litros += Number(c.litros);
+      cur.importeCombustible += Number(c.total);
+      map.set(key, cur);
+    });
+    viajes.forEach((v) => {
+      const cur = map.get(v.transportista) ?? { transportista: v.transportista, litros: 0, importeCombustible: 0, viajes: 0, importeViajes: 0 };
+      cur.viajes += Number(v.cantidad_viajes);
+      cur.importeViajes += Number(v.total);
+      map.set(v.transportista, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => (b.importeCombustible + b.importeViajes) - (a.importeCombustible + a.importeViajes));
+  }, [cargasTransp, equiposMap, viajes]);
+
   const deleteCarga = async (id: string) => {
     const { error } = await supabase.from("fema_combustible").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
@@ -251,6 +270,7 @@ function Page() {
               <TabsTrigger value="equipos">Equipos / Máquinas</TabsTrigger>
               <TabsTrigger value="viajes">Viajes transportistas</TabsTrigger>
               <TabsTrigger value="reporte">Reporte de consumo</TabsTrigger>
+              <TabsTrigger value="reporte-transp">Reporte transportistas</TabsTrigger>
             </TabsList>
             <Button size="sm" variant="ghost" onClick={cargarEjemplos}><Sparkles className="h-3 w-3 mr-1 text-amber-500" />Cargar ejemplos</Button>
           </div>
@@ -526,6 +546,39 @@ function Page() {
                     </TableRow>
                   ))}
                   {cedidoPorTransportista.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sin cargas a transportistas</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+          <TabsContent value="reporte-transp" className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Kpi label="Transportistas" value={String(reporteTransportistas.length)} color="text-blue-400" />
+              <Kpi label="Total litros cedidos" value={`${formatNumero(reporteTransportistas.reduce((a, x) => a + x.litros, 0))} lt`} color="text-amber-400" />
+              <Kpi label="Total viajes" value={String(reporteTransportistas.reduce((a, x) => a + x.viajes, 0))} color="text-emerald-400" />
+            </div>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b p-3 font-medium">Reporte consolidado por transportista</div>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Transportista</TableHead>
+                  <TableHead className="text-right">Litros cedidos</TableHead>
+                  <TableHead className="text-right">Importe combustible</TableHead>
+                  <TableHead className="text-right">Cant. viajes</TableHead>
+                  <TableHead className="text-right">Importe viajes</TableHead>
+                  <TableHead className="text-right">Total movimientos</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {reporteTransportistas.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{r.transportista}</TableCell>
+                      <TableCell className="text-right">{formatNumero(r.litros)} lt</TableCell>
+                      <TableCell className="text-right text-rose-400">{formatPesos(r.importeCombustible)}</TableCell>
+                      <TableCell className="text-right">{formatNumero(r.viajes, 0)}</TableCell>
+                      <TableCell className="text-right text-emerald-400">{formatPesos(r.importeViajes)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatPesos(r.importeCombustible + r.importeViajes)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {reporteTransportistas.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sin datos de transportistas</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </div>
