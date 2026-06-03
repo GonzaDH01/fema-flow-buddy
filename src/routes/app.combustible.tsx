@@ -33,6 +33,12 @@ type TanqueMov = {
   id: string; fecha: string; tipo: string; litros: number; precio_litro: number;
   proveedor: string | null; observaciones: string | null;
 };
+type Viaje = {
+  id: string; fecha: string; transportista: string; equipo_id: string | null;
+  ubicacion: string | null; origen: string | null; destino: string | null;
+  cantidad_viajes: number; precio_viaje: number; total: number;
+  trabajo: string | null; observaciones: string | null;
+};
 
 function Page() {
   const { user } = useAuth();
@@ -44,6 +50,8 @@ function Page() {
   const [openEquipo, setOpenEquipo] = useState(false);
   const [editEquipo, setEditEquipo] = useState<Equipo | null>(null);
   const [openTanque, setOpenTanque] = useState(false);
+  const [openViaje, setOpenViaje] = useState(false);
+  const [editViaje, setEditViaje] = useState<Viaje | null>(null);
   const [filtroEquipo, setFiltroEquipo] = useState<string>("all");
   const [busqueda, setBusqueda] = useState("");
 
@@ -68,10 +76,18 @@ function Page() {
       if (error) throw error; return data as TanqueMov[];
     },
   });
+  const viajesQ = useQuery({
+    queryKey: ["fema_viajes", user?.id, year], enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_viajes_transp").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha", { ascending: false });
+      if (error) throw error; return data as Viaje[];
+    },
+  });
 
   const equipos = equiposQ.data ?? [];
   const cargas = cargasQ.data ?? [];
   const tanqueMovs = tanqueQ.data ?? [];
+  const viajes = viajesQ.data ?? [];
   const equiposMap = useMemo(() => new Map(equipos.map((e) => [e.id, e])), [equipos]);
 
   // KPIs
@@ -156,6 +172,28 @@ function Page() {
     toast.success("Eliminado");
     qc.invalidateQueries({ queryKey: ["fema_tanque"] });
   };
+  const deleteViaje = async (id: string) => {
+    const { error } = await (supabase as any).from("fema_viajes_transp").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_viajes"] });
+  };
+
+  // Resumen viajes por transportista
+  const viajesPorTransp = useMemo(() => {
+    const map = new Map<string, { transportista: string; cantidad: number; total: number; ubicaciones: Set<string> }>();
+    viajes.forEach((v) => {
+      const cur = map.get(v.transportista) ?? { transportista: v.transportista, cantidad: 0, total: 0, ubicaciones: new Set<string>() };
+      cur.cantidad += Number(v.cantidad_viajes);
+      cur.total += Number(v.total);
+      if (v.ubicacion) cur.ubicaciones.add(v.ubicacion);
+      if (v.destino) cur.ubicaciones.add(v.destino);
+      map.set(v.transportista, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.cantidad - a.cantidad);
+  }, [viajes]);
+  const totalViajes = viajes.reduce((a, x) => a + Number(x.cantidad_viajes), 0);
+  const totalImporteViajes = viajes.reduce((a, x) => a + Number(x.total), 0);
 
   const exportarExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -211,6 +249,7 @@ function Page() {
               <TabsTrigger value="cargas">Cargas de gasoil</TabsTrigger>
               <TabsTrigger value="tanque">Tanque propio</TabsTrigger>
               <TabsTrigger value="equipos">Equipos / Máquinas</TabsTrigger>
+              <TabsTrigger value="viajes">Viajes transportistas</TabsTrigger>
               <TabsTrigger value="reporte">Reporte de consumo</TabsTrigger>
             </TabsList>
             <Button size="sm" variant="ghost" onClick={cargarEjemplos}><Sparkles className="h-3 w-3 mr-1 text-amber-500" />Cargar ejemplos</Button>
@@ -353,6 +392,72 @@ function Page() {
             </div>
           </TabsContent>
 
+          <TabsContent value="viajes" className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Kpi label="Viajes registrados" value={String(totalViajes)} sub={`${viajes.length} entradas`} color="text-amber-400" />
+              <Kpi label="Transportistas" value={String(viajesPorTransp.length)} color="text-blue-400" />
+              <Kpi label="Importe total" value={formatPesos(totalImporteViajes)} color="text-emerald-400" />
+            </div>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between border-b p-3">
+                <div className="font-medium">Viajes de transportistas</div>
+                <Button size="sm" onClick={() => { setEditViaje(null); setOpenViaje(true); }}><Plus className="h-3 w-3 mr-1" />Nuevo viaje</Button>
+              </div>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Fecha</TableHead><TableHead>Transportista</TableHead>
+                  <TableHead>Ubicación / destino</TableHead><TableHead>Trabajo</TableHead>
+                  <TableHead className="text-right">Cant. viajes</TableHead>
+                  <TableHead className="text-right">$ / viaje</TableHead>
+                  <TableHead className="text-right">Total</TableHead><TableHead className="w-24" />
+                </TableRow></TableHeader>
+                <TableBody>
+                  {viajes.map((v) => (
+                    <TableRow key={v.id}>
+                      <TableCell>{formatFecha(v.fecha)}</TableCell>
+                      <TableCell className="font-medium">{v.transportista}</TableCell>
+                      <TableCell>
+                        {v.ubicacion ?? v.destino ?? "—"}
+                        {v.origen && v.destino && <div className="text-xs text-muted-foreground">{v.origen} → {v.destino}</div>}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{v.trabajo ?? "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatNumero(v.cantidad_viajes, 0)}</TableCell>
+                      <TableCell className="text-right">{formatPesos(v.precio_viaje)}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">{formatPesos(v.total)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => { setEditViaje(v); setOpenViaje(true); }}><Pencil className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => deleteViaje(v.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {viajes.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Sin viajes registrados</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b p-3 font-medium">Resumen por transportista</div>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Transportista</TableHead><TableHead>Ubicaciones</TableHead>
+                  <TableHead className="text-right">Cantidad viajes</TableHead>
+                  <TableHead className="text-right">Importe total</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {viajesPorTransp.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{r.transportista}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{Array.from(r.ubicaciones).join(", ") || "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatNumero(r.cantidad, 0)}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">{formatPesos(r.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {viajesPorTransp.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Sin datos</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
           <TabsContent value="reporte" className="mt-4 space-y-4">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-lg border border-border bg-card">
@@ -431,6 +536,7 @@ function Page() {
       <CargaDialog open={openCarga} setOpen={setOpenCarga} initial={editCarga} userId={user?.id ?? ""} year={year} equipos={equipos} qc={qc} />
       <EquipoDialog open={openEquipo} setOpen={setOpenEquipo} initial={editEquipo} userId={user?.id ?? ""} qc={qc} />
       <TanqueDialog open={openTanque} setOpen={setOpenTanque} userId={user?.id ?? ""} qc={qc} />
+      <ViajeDialog open={openViaje} setOpen={setOpenViaje} initial={editViaje} userId={user?.id ?? ""} year={year} qc={qc} />
     </>
   );
 }
@@ -612,6 +718,89 @@ function EquipoDialog({ open, setOpen, initial, userId, qc }: {
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button onClick={submit}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ViajeDialog({ open, setOpen, initial, userId, year, qc }: {
+  open: boolean; setOpen: (v: boolean) => void; initial: Viaje | null;
+  userId: string; year: number; qc: ReturnType<typeof useQueryClient>;
+}) {
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [transportista, setTransportista] = useState("");
+  const [ubicacion, setUbicacion] = useState("");
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [precio, setPrecio] = useState("");
+  const [trabajo, setTrabajo] = useState("");
+  const [observaciones, setObservaciones] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setFecha(initial?.fecha ?? new Date().toISOString().slice(0, 10));
+      setTransportista(initial?.transportista ?? "");
+      setUbicacion(initial?.ubicacion ?? "");
+      setOrigen(initial?.origen ?? "");
+      setDestino(initial?.destino ?? "");
+      setCantidad(String(initial?.cantidad_viajes ?? "1"));
+      setPrecio(String(initial?.precio_viaje ?? ""));
+      setTrabajo(initial?.trabajo ?? "");
+      setObservaciones(initial?.observaciones ?? "");
+    }
+  }, [open, initial]);
+
+  const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+
+  const submit = async () => {
+    if (!transportista.trim()) { toast.error("Transportista requerido"); return; }
+    if (!cantidad || Number(cantidad) <= 0) { toast.error("Cantidad de viajes requerida"); return; }
+    const d = new Date(fecha);
+    const payload: any = {
+      user_id: userId, fecha, transportista: transportista.trim(),
+      ubicacion: ubicacion || null, origen: origen || null, destino: destino || null,
+      cantidad_viajes: Number(cantidad), precio_viaje: Number(precio) || 0, total,
+      trabajo: trabajo || null, observaciones: observaciones || null,
+      mes: d.getMonth() + 1, anio: d.getFullYear() || year,
+    };
+    const { error } = initial
+      ? await (supabase as any).from("fema_viajes_transp").update(payload).eq("id", initial.id)
+      : await (supabase as any).from("fema_viajes_transp").insert(payload);
+    if (error) { toast.error(error.message); return; }
+    toast.success(initial ? "Actualizado" : "Viaje registrado");
+    qc.invalidateQueries({ queryKey: ["fema_viajes"] });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{initial ? "Editar" : "Nuevo"} viaje de transportista</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Fecha" required><Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></FormField>
+            <FormField label="Transportista" required><Input value={transportista} onChange={(e) => setTransportista(e.target.value)} placeholder="Nombre / razón social" /></FormField>
+          </div>
+          <FormField label="Ubicación"><Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej: Campo La Esperanza, Ruta 8 km 120..." /></FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Origen (opcional)"><Input value={origen} onChange={(e) => setOrigen(e.target.value)} /></FormField>
+            <FormField label="Destino (opcional)"><Input value={destino} onChange={(e) => setDestino(e.target.value)} /></FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Cantidad de viajes" required><Input type="number" step="1" value={cantidad} onChange={(e) => setCantidad(e.target.value)} /></FormField>
+            <FormField label="Precio por viaje ($)"><Input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} /></FormField>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 flex justify-between text-sm">
+            <span>Total</span><span className="font-semibold">{formatPesos(total)}</span>
+          </div>
+          <FormField label="Trabajo / cliente"><Input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} placeholder="Cliente o referencia" /></FormField>
+          <FormField label="Observaciones"><Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} /></FormField>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={submit}>Guardar viaje</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
