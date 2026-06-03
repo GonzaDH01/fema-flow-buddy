@@ -536,6 +536,7 @@ function Page() {
       <CargaDialog open={openCarga} setOpen={setOpenCarga} initial={editCarga} userId={user?.id ?? ""} year={year} equipos={equipos} qc={qc} />
       <EquipoDialog open={openEquipo} setOpen={setOpenEquipo} initial={editEquipo} userId={user?.id ?? ""} qc={qc} />
       <TanqueDialog open={openTanque} setOpen={setOpenTanque} userId={user?.id ?? ""} qc={qc} />
+      <ViajeDialog open={openViaje} setOpen={setOpenViaje} initial={editViaje} userId={user?.id ?? ""} year={year} qc={qc} />
     </>
   );
 }
