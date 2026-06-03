@@ -251,6 +251,7 @@ function Page() {
               <TabsTrigger value="equipos">Equipos / Máquinas</TabsTrigger>
               <TabsTrigger value="viajes">Viajes transportistas</TabsTrigger>
               <TabsTrigger value="reporte">Reporte de consumo</TabsTrigger>
+              <TabsTrigger value="reporte-transp">Reporte transportistas</TabsTrigger>
             </TabsList>
             <Button size="sm" variant="ghost" onClick={cargarEjemplos}><Sparkles className="h-3 w-3 mr-1 text-amber-500" />Cargar ejemplos</Button>
           </div>
