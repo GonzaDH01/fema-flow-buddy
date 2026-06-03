@@ -724,6 +724,89 @@ function EquipoDialog({ open, setOpen, initial, userId, qc }: {
   );
 }
 
+function ViajeDialog({ open, setOpen, initial, userId, year, qc }: {
+  open: boolean; setOpen: (v: boolean) => void; initial: Viaje | null;
+  userId: string; year: number; qc: ReturnType<typeof useQueryClient>;
+}) {
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [transportista, setTransportista] = useState("");
+  const [ubicacion, setUbicacion] = useState("");
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [precio, setPrecio] = useState("");
+  const [trabajo, setTrabajo] = useState("");
+  const [observaciones, setObservaciones] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setFecha(initial?.fecha ?? new Date().toISOString().slice(0, 10));
+      setTransportista(initial?.transportista ?? "");
+      setUbicacion(initial?.ubicacion ?? "");
+      setOrigen(initial?.origen ?? "");
+      setDestino(initial?.destino ?? "");
+      setCantidad(String(initial?.cantidad_viajes ?? "1"));
+      setPrecio(String(initial?.precio_viaje ?? ""));
+      setTrabajo(initial?.trabajo ?? "");
+      setObservaciones(initial?.observaciones ?? "");
+    }
+  }, [open, initial]);
+
+  const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+
+  const submit = async () => {
+    if (!transportista.trim()) { toast.error("Transportista requerido"); return; }
+    if (!cantidad || Number(cantidad) <= 0) { toast.error("Cantidad de viajes requerida"); return; }
+    const d = new Date(fecha);
+    const payload: any = {
+      user_id: userId, fecha, transportista: transportista.trim(),
+      ubicacion: ubicacion || null, origen: origen || null, destino: destino || null,
+      cantidad_viajes: Number(cantidad), precio_viaje: Number(precio) || 0, total,
+      trabajo: trabajo || null, observaciones: observaciones || null,
+      mes: d.getMonth() + 1, anio: d.getFullYear() || year,
+    };
+    const { error } = initial
+      ? await (supabase as any).from("fema_viajes_transp").update(payload).eq("id", initial.id)
+      : await (supabase as any).from("fema_viajes_transp").insert(payload);
+    if (error) { toast.error(error.message); return; }
+    toast.success(initial ? "Actualizado" : "Viaje registrado");
+    qc.invalidateQueries({ queryKey: ["fema_viajes"] });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{initial ? "Editar" : "Nuevo"} viaje de transportista</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Fecha" required><Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></FormField>
+            <FormField label="Transportista" required><Input value={transportista} onChange={(e) => setTransportista(e.target.value)} placeholder="Nombre / razón social" /></FormField>
+          </div>
+          <FormField label="Ubicación"><Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej: Campo La Esperanza, Ruta 8 km 120..." /></FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Origen (opcional)"><Input value={origen} onChange={(e) => setOrigen(e.target.value)} /></FormField>
+            <FormField label="Destino (opcional)"><Input value={destino} onChange={(e) => setDestino(e.target.value)} /></FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Cantidad de viajes" required><Input type="number" step="1" value={cantidad} onChange={(e) => setCantidad(e.target.value)} /></FormField>
+            <FormField label="Precio por viaje ($)"><Input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} /></FormField>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 flex justify-between text-sm">
+            <span>Total</span><span className="font-semibold">{formatPesos(total)}</span>
+          </div>
+          <FormField label="Trabajo / cliente"><Input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} placeholder="Cliente o referencia" /></FormField>
+          <FormField label="Observaciones"><Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} /></FormField>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={submit}>Guardar viaje</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TanqueDialog({ open, setOpen, userId, qc }: {
   open: boolean; setOpen: (v: boolean) => void; userId: string; qc: ReturnType<typeof useQueryClient>;
 }) {
