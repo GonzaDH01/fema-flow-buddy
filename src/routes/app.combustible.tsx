@@ -393,8 +393,7 @@ function Page() {
           </TabsContent>
 
           <TabsContent value="reporte" className="mt-4 space-y-4">
-          </TabsContent>
-          <TabsContent value="viajes" className="mt-4 space-y-4">
+          <TabsContent value="viajes_PLACEHOLDER" className="hidden">
             <div className="grid gap-3 sm:grid-cols-3">
               <Kpi label="Viajes registrados" value={String(totalViajes)} sub={`${viajes.length} entradas`} color="text-amber-400" />
               <Kpi label="Transportistas" value={String(viajesPorTransp.length)} color="text-blue-400" />
@@ -460,7 +459,6 @@ function Page() {
               </Table>
             </div>
           </TabsContent>
-          <TabsContent value="_reporte_continue" className="hidden">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-lg border border-border bg-card">
                 <div className="border-b p-3 font-medium">Consumo por equipo</div>
