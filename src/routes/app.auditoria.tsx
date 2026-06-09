@@ -224,7 +224,7 @@ function Page() {
   const imprimir = () => window.print();
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       <header>
         <h2 className="text-2xl font-bold">Auditoría / Reportes Contables</h2>
         <p className="mt-1 text-sm text-muted-foreground">Reportes listos para el contador · Ejercicio {year}</p>

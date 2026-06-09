@@ -111,7 +111,7 @@ function Page() {
   });
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <header className="mb-4">
         <h2 className="text-2xl font-bold">Cash Flow General</h2>
         <p className="mt-1 text-sm text-muted-foreground">

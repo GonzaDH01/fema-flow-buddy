@@ -168,7 +168,7 @@ function Page() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <header className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight">OCR de Facturas</h2>
         <p className="mt-1 text-sm text-muted-foreground">Subí una imagen o PDF para extraer datos automáticamente con IA.</p>
