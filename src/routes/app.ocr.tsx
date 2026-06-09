@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -26,6 +27,7 @@ type DocKind = "compra" | "venta";
 
 function Page() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [preview, setPreview] = useState<string | null>(null);
   const [b64, setB64] = useState<string | null>(null);
   const [mime, setMime] = useState<string | null>(null);
@@ -48,6 +50,12 @@ function Page() {
     };
     reader.readAsDataURL(file);
   }, []);
+
+  const onCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onDrop([file]);
+    e.target.value = "";
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -206,6 +214,20 @@ function Page() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, PDF</p>
           </div>
+
+          {isMobile && (
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
+              <Camera className="h-5 w-5" />
+              Tomar foto con la cámara
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={onCameraCapture}
+              />
+            </label>
+          )}
 
           {preview && (
             <div className="rounded-xl border border-border bg-card p-3">
