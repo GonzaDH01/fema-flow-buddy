@@ -52,7 +52,7 @@ function AuthPage() {
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Cuenta creada. Ya puedes iniciar sesión.");
+    toast.success("Cuenta creada. Un administrador debe aprobarla antes de poder ingresar.");
   };
 
   const handlePasswordReset = async () => {
