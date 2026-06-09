@@ -230,7 +230,7 @@ function Page() {
   const pctCobrado = kpis.facturado > 0 ? Math.round((kpis.cobrado / kpis.facturado) * 100) : 0;
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Facturas de Servicio</h2>

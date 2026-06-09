@@ -38,7 +38,7 @@ function Page() {
   const tSaldo = tDeb - tCred;
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">Impuestos {year}</h2>
         <p className="mt-1 text-sm text-muted-foreground">IVA, IIBB y Ganancias estimadas por mes.</p>
