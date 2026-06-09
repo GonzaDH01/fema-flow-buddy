@@ -319,11 +319,27 @@ function DataRow({ row }: { row: Row }) {
     <tr className="border-t border-border/40 hover:bg-muted/20">
       <td className="sticky left-0 z-10 bg-card px-3 py-2">
         <div className="font-medium">{row.label}</div>
+        {row.badge && (
+          <div className="mt-0.5">
+            <span className="inline-block rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+              {row.badge}
+            </span>
+          </div>
+        )}
         {row.sub && <div className="text-[10px] text-muted-foreground">{row.sub}</div>}
       </td>
-      {row.values.map((v, i) => (
-        <td key={i} className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : color}`}>{cell(v)}</td>
-      ))}
+      {row.values.map((v, i) => {
+        const tip = row.tooltips?.[i];
+        return (
+          <td
+            key={i}
+            title={tip}
+            className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : color} ${tip ? "cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4" : ""}`}
+          >
+            {cell(v)}
+          </td>
+        );
+      })}
       <td className={`px-3 py-2 text-right font-semibold tabular-nums ${color}`}>{cell(total)}</td>
     </tr>
   );
