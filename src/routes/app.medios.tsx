@@ -84,7 +84,7 @@ function Page() {
     queryFn: async () => {
       const { data } = await sb.from("fema_facturas_venta")
         .select("id,numero,fecha,total,cliente_id,trabajo,estado")
-        .eq("user_id", user!.id).neq("estado", "cobrada").neq("estado", "anulada")
+        .eq("user_id", user!.id).eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
       return (data ?? []) as any[];
     },
@@ -95,7 +95,7 @@ function Page() {
     queryFn: async () => {
       const { data } = await sb.from("fema_facturas_compra")
         .select("id,numero,fecha,total,proveedor,estado")
-        .eq("user_id", user!.id).neq("estado", "pagada").neq("estado", "anulada")
+        .eq("user_id", user!.id).eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
       return (data ?? []) as any[];
     },
