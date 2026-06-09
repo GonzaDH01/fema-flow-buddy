@@ -29,8 +29,8 @@ function Index() {
           <Link to="/auth">
             <Button variant="ghost">Iniciar sesión</Button>
           </Link>
-          <Link to="/auth">
-            <Button>Comenzar</Button>
+          <Link to="/app">
+            <Button>Entrar al sistema</Button>
           </Link>
         </nav>
       </header>
@@ -47,7 +47,7 @@ function Index() {
             Centraliza clientes, operaciones y reportes en una sola plataforma moderna, rápida y segura.
           </p>
           <div className="mt-8 flex justify-center gap-3">
-            <Link to="/auth">
+            <Link to="/app">
               <Button size="lg" className="gap-2">
                 Acceder al sistema <ArrowRight className="h-4 w-4" />
               </Button>
