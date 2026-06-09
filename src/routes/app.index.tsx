@@ -18,7 +18,7 @@ type SU = { sueldo_bruto: number | null; cargas_sociales: number | null };
 type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brutos: number | null; ganancias_estimadas: number | null };
 
 async function loadKPIs(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, movs] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
@@ -31,6 +31,9 @@ async function loadKPIs(userId: string, anio: number) {
     supabase.from("fema_impuestos")
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
       .eq("user_id", userId).eq("anio", anio),
+    supabase.from("fema_movimientos_pago")
+      .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio")
+      .eq("user_id", userId).eq("anio", anio),
   ]);
   if (ventas.error) throw ventas.error;
   if (compras.error) throw compras.error;
@@ -40,11 +43,40 @@ async function loadKPIs(userId: string, anio: number) {
   const cs = (compras.data ?? []) as unknown as FC[];
   const su = (sueldos.data ?? []) as SU[];
   const im = (impuestos.data ?? []) as IM[];
+  const mv = (movs.data ?? []) as any[];
 
-  const ventasCobradas = vs.filter((x) => x.estado === "cobrada");
-  const ventasPendientes = vs.filter((x) => x.estado === "pendiente");
-  const comprasPagadas = cs.filter((x) => x.estado === "pagada");
-  const comprasPendientes = cs.filter((x) => x.estado === "pendiente");
+  // Sumar cobros/pagos por factura. Echeq/cheque "en cartera" = cobrado.
+  const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
+  const cobradoPorFV = new Map<string, number>();
+  const pagadoPorFC = new Map<string, number>();
+  for (const m of mv) {
+    if (!ACTIVOS.has(m.estado)) continue;
+    if (m.direccion === "cobro" && m.factura_venta_id) {
+      cobradoPorFV.set(m.factura_venta_id, (cobradoPorFV.get(m.factura_venta_id) ?? 0) + Number(m.monto));
+    }
+    if (m.direccion === "pago" && m.factura_compra_id) {
+      pagadoPorFC.set(m.factura_compra_id, (pagadoPorFC.get(m.factura_compra_id) ?? 0) + Number(m.monto));
+    }
+  }
+  const echeqsEnCartera = mv
+    .filter((m) => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")
+    .reduce((a, m) => a + Number(m.monto), 0);
+
+  const vsEff = vs.map((x: any) => {
+    const pagado = cobradoPorFV.get(x.id) ?? 0;
+    const estado = x.estado === "cobrada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "cobrada" : x.estado;
+    return { ...x, estado };
+  }) as FV[];
+  const csEff = cs.map((x: any) => {
+    const pagado = pagadoPorFC.get(x.id) ?? 0;
+    const estado = x.estado === "pagada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "pagada" : x.estado;
+    return { ...x, estado };
+  }) as FC[];
+
+  const ventasCobradas = vsEff.filter((x) => x.estado === "cobrada");
+  const ventasPendientes = vsEff.filter((x) => x.estado === "pendiente");
+  const comprasPagadas = csEff.filter((x) => x.estado === "pagada");
+  const comprasPendientes = csEff.filter((x) => x.estado === "pendiente");
 
   const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0);
   const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0);
@@ -70,7 +102,7 @@ async function loadKPIs(userId: string, anio: number) {
   return {
     ingresosCobrados, porCobrar, egresosPagados, deudasPendientes, neto,
     countCobradas: ventasCobradas.length, countPendVenta: ventasPendientes.length,
-    mensual, pendCobro, pendPago,
+    mensual, pendCobro, pendPago, echeqsEnCartera,
   };
 }
 
