@@ -18,18 +18,21 @@ type SU = { sueldo_bruto: number | null; cargas_sociales: number | null };
 type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brutos: number | null; ganancias_estimadas: number | null };
 
 async function loadKPIs(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, movs] = await Promise.all([
     supabase.from("fema_facturas_venta")
-      .select("mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
+      .select("id,mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("sueldo_bruto,cargas_sociales,periodo")
       .eq("user_id", userId).like("periodo", `${anio}-%`),
     supabase.from("fema_impuestos")
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
+      .eq("user_id", userId).eq("anio", anio),
+    supabase.from("fema_movimientos_pago")
+      .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio")
       .eq("user_id", userId).eq("anio", anio),
   ]);
   if (ventas.error) throw ventas.error;
@@ -40,11 +43,40 @@ async function loadKPIs(userId: string, anio: number) {
   const cs = (compras.data ?? []) as unknown as FC[];
   const su = (sueldos.data ?? []) as SU[];
   const im = (impuestos.data ?? []) as IM[];
+  const mv = (movs.data ?? []) as any[];
 
-  const ventasCobradas = vs.filter((x) => x.estado === "cobrada");
-  const ventasPendientes = vs.filter((x) => x.estado === "pendiente");
-  const comprasPagadas = cs.filter((x) => x.estado === "pagada");
-  const comprasPendientes = cs.filter((x) => x.estado === "pendiente");
+  // Sumar cobros/pagos por factura. Echeq/cheque "en cartera" = cobrado.
+  const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
+  const cobradoPorFV = new Map<string, number>();
+  const pagadoPorFC = new Map<string, number>();
+  for (const m of mv) {
+    if (!ACTIVOS.has(m.estado)) continue;
+    if (m.direccion === "cobro" && m.factura_venta_id) {
+      cobradoPorFV.set(m.factura_venta_id, (cobradoPorFV.get(m.factura_venta_id) ?? 0) + Number(m.monto));
+    }
+    if (m.direccion === "pago" && m.factura_compra_id) {
+      pagadoPorFC.set(m.factura_compra_id, (pagadoPorFC.get(m.factura_compra_id) ?? 0) + Number(m.monto));
+    }
+  }
+  const echeqsEnCartera = mv
+    .filter((m) => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")
+    .reduce((a, m) => a + Number(m.monto), 0);
+
+  const vsEff = vs.map((x: any) => {
+    const pagado = cobradoPorFV.get(x.id) ?? 0;
+    const estado = x.estado === "cobrada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "cobrada" : x.estado;
+    return { ...x, estado };
+  }) as FV[];
+  const csEff = cs.map((x: any) => {
+    const pagado = pagadoPorFC.get(x.id) ?? 0;
+    const estado = x.estado === "pagada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "pagada" : x.estado;
+    return { ...x, estado };
+  }) as FC[];
+
+  const ventasCobradas = vsEff.filter((x) => x.estado === "cobrada");
+  const ventasPendientes = vsEff.filter((x) => x.estado === "pendiente");
+  const comprasPagadas = csEff.filter((x) => x.estado === "pagada");
+  const comprasPendientes = csEff.filter((x) => x.estado === "pendiente");
 
   const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0);
   const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0);
@@ -70,7 +102,7 @@ async function loadKPIs(userId: string, anio: number) {
   return {
     ingresosCobrados, porCobrar, egresosPagados, deudasPendientes, neto,
     countCobradas: ventasCobradas.length, countPendVenta: ventasPendientes.length,
-    mensual, pendCobro, pendPago,
+    mensual, pendCobro, pendPago, echeqsEnCartera,
   };
 }
 
@@ -87,7 +119,7 @@ function Dashboard() {
   const kpis = [
     { label: "Ingresos cobrados", value: data?.ingresosCobrados ?? 0, sub: `${data?.countCobradas ?? 0} facturas`, icon: TrendingUp, color: "text-primary" },
     { label: "Por cobrar", value: data?.porCobrar ?? 0, sub: `${data?.countPendVenta ?? 0} pendientes`, icon: Clock, color: "text-accent" },
-    { label: "Echeqs en cartera", value: 0, sub: "próximamente", icon: FileText, color: "text-muted-foreground" },
+    { label: "Echeqs en cartera", value: data?.echeqsEnCartera ?? 0, sub: "cobrados, pendientes de acreditar", icon: FileText, color: "text-blue-400" },
     { label: "Egresos pagados", value: data?.egresosPagados ?? 0, sub: "compras + sueldos + imp.", icon: TrendingDown, color: "text-destructive" },
     { label: "Neto del año", value: neto, sub: "cobrado − pagado", icon: Wallet, color: neto >= 0 ? "text-primary" : "text-destructive" },
     { label: "Deudas pendientes", value: data?.deudasPendientes ?? 0, sub: "proveedores", icon: Landmark, color: "text-destructive" },
