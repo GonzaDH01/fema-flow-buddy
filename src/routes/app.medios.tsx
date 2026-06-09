@@ -103,6 +103,22 @@ function Page() {
 
   const movs = movsQ.data ?? [];
 
+  // Facturas ya cubiertas (suma de movimientos activos >= total) deben ocultarse del selector.
+  const ACTIVOS_FAC = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
+  const cubiertoFV = new Map<string, number>();
+  const cubiertoFC = new Map<string, number>();
+  for (const m of movs) {
+    if (!ACTIVOS_FAC.has(m.estado)) continue;
+    if (m.direccion === "cobro" && m.factura_venta_id) {
+      cubiertoFV.set(m.factura_venta_id, (cubiertoFV.get(m.factura_venta_id) ?? 0) + Number(m.monto));
+    }
+    if (m.direccion === "pago" && m.factura_compra_id) {
+      cubiertoFC.set(m.factura_compra_id, (cubiertoFC.get(m.factura_compra_id) ?? 0) + Number(m.monto));
+    }
+  }
+  const facturasVentaPend = (facturasVentaQ.data ?? []).filter((f: any) => (cubiertoFV.get(f.id) ?? 0) < Number(f.total) - 0.01);
+  const facturasCompraPend = (facturasCompraQ.data ?? []).filter((f: any) => (cubiertoFC.get(f.id) ?? 0) < Number(f.total) - 0.01);
+
   const totalCobros = useMemo(
     () => movs.filter(m => m.direccion === "cobro").reduce((a, m) => a + Number(m.monto), 0),
     [movs]);
@@ -262,8 +278,8 @@ function Page() {
           <MovimientoDialog
             initial={editMov}
             userId={user!.id} year={year}
-            facturasVenta={facturasVentaQ.data ?? []}
-            facturasCompra={facturasCompraQ.data ?? []}
+            facturasVenta={facturasVentaPend}
+            facturasCompra={facturasCompraPend}
             echeqsCartera={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
             onClose={() => { setOpenMov(false); setEditMov(null); }}
             onSaved={() => { qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] }); setOpenMov(false); setEditMov(null); }}
