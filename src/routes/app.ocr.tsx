@@ -84,6 +84,35 @@ function Page() {
     try {
       const letra = (result.letra ?? "B").toUpperCase();
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
+      // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
+      const terceroNombre = (kind === "compra" ? result.emisor : (result.receptor ?? result.emisor))?.trim() || null;
+
+      // Buscar o crear proveedor/cliente
+      let terceroId: string | null = null;
+      if (terceroNombre) {
+        const tabla = kind === "compra" ? "fema_proveedores" : "fema_clientes";
+        const { data: existente } = await supabase
+          .from(tabla)
+          .select("id")
+          .eq("user_id", user.id)
+          .ilike("nombre", terceroNombre)
+          .maybeSingle();
+        if (existente?.id) {
+          terceroId = existente.id;
+        } else {
+          const nuevo: any = { user_id: user.id, nombre: terceroNombre };
+          if (kind === "compra") nuevo.categoria = (result.categoria_sugerida as any) ?? "Otro";
+          const { data: creado, error: errC } = await supabase
+            .from(tabla)
+            .insert(nuevo)
+            .select("id")
+            .single();
+          if (errC) throw errC;
+          terceroId = creado?.id ?? null;
+          toast.message(`${kind === "compra" ? "Proveedor" : "Cliente"} "${terceroNombre}" creado`);
+        }
+      }
+
       const base = {
         user_id: user.id,
         fecha: result.fecha ?? new Date().toISOString().slice(0, 10),
@@ -100,6 +129,7 @@ function Page() {
       if (kind === "compra") {
         const { error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
+          proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? "Otro",
           descripcion: result.descripcion ?? result.emisor ?? null,
           otros_impuestos: result.otros_impuestos ?? 0,
@@ -112,6 +142,7 @@ function Page() {
       } else {
         const { error } = await supabase.from("fema_facturas_venta").insert({
           ...base,
+          cliente_id: terceroId,
           trabajo: result.descripcion ?? null,
         });
         if (error) throw error;
