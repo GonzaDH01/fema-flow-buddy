@@ -76,7 +76,7 @@ const titleByPath: Record<string, string> = {
   "/app/presupuestos": "Presupuestos",
   "/app/medios": "Medios de Pago",
   "/app/ocr": "OCR de Facturas",
-  "/app/auditoria": "Auditoría",
+  "/app/auditoria": "Auditoría / Reportes Contables",
 };
 
 export function AppShell() {
