@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -209,6 +209,17 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
   };
 
+  const toggleCobrada = async (r: Row) => {
+    const nuevo = r.estado === "cobrada" ? "pendiente" : "cobrada";
+    const patch: any = { estado: nuevo };
+    if (nuevo === "cobrada" && !r.fecha_cobro) patch.fecha_cobro = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("fema_facturas_venta").update(patch).eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(nuevo === "cobrada" ? "Marcada como cobrada" : "Marcada como pendiente");
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
   const exportarExcel = async () => {
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows.map((r) => ({
@@ -326,6 +337,15 @@ function Page() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title={r.estado === "cobrada" ? "Marcar como pendiente" : "Marcar como cobrada"}
+                        className={r.estado === "cobrada" ? "text-muted-foreground" : "text-primary hover:text-primary"}
+                        onClick={() => toggleCobrada(r)}
+                      >
+                        {r.estado === "cobrada" ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => { setEdit(r); setOpen(true); }}>
                         <Pencil className="h-4 w-4" />
                       </Button>
