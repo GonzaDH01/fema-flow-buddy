@@ -20,10 +20,10 @@ type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brut
 async function loadKPIs(userId: string, anio: number) {
   const [ventas, compras, sueldos, impuestos, movs] = await Promise.all([
     supabase.from("fema_facturas_venta")
-      .select("mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
+      .select("id,mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("sueldo_bruto,cargas_sociales,periodo")
@@ -119,7 +119,7 @@ function Dashboard() {
   const kpis = [
     { label: "Ingresos cobrados", value: data?.ingresosCobrados ?? 0, sub: `${data?.countCobradas ?? 0} facturas`, icon: TrendingUp, color: "text-primary" },
     { label: "Por cobrar", value: data?.porCobrar ?? 0, sub: `${data?.countPendVenta ?? 0} pendientes`, icon: Clock, color: "text-accent" },
-    { label: "Echeqs en cartera", value: 0, sub: "próximamente", icon: FileText, color: "text-muted-foreground" },
+    { label: "Echeqs en cartera", value: data?.echeqsEnCartera ?? 0, sub: "cobrados, pendientes de acreditar", icon: FileText, color: "text-blue-400" },
     { label: "Egresos pagados", value: data?.egresosPagados ?? 0, sub: "compras + sueldos + imp.", icon: TrendingDown, color: "text-destructive" },
     { label: "Neto del año", value: neto, sub: "cobrado − pagado", icon: Wallet, color: neto >= 0 ? "text-primary" : "text-destructive" },
     { label: "Deudas pendientes", value: data?.deudasPendientes ?? 0, sub: "proveedores", icon: Landmark, color: "text-destructive" },
