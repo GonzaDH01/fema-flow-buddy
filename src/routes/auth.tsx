@@ -25,6 +25,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/app" });
@@ -52,6 +53,22 @@ function AuthPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Cuenta creada. Ya puedes iniciar sesión.");
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      toast.error("Ingresá tu correo electrónico para recuperar la contraseña.");
+      return;
+    }
+
+    setResetBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetBusy(false);
+
+    if (error) return toast.error(error.message);
+    toast.success("Te enviamos un enlace para crear una nueva contraseña.");
   };
 
   return (
@@ -90,6 +107,11 @@ function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Contraseña</Label>
                   <Input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="button" variant="link" className="h-auto px-0 py-0" disabled={resetBusy} onClick={handlePasswordReset}>
+                    {resetBusy ? "Enviando..." : "¿Olvidaste tu contraseña?"}
+                  </Button>
                 </div>
                 <Button type="submit" className="w-full" disabled={busy}>
                   {busy ? "Ingresando..." : "Ingresar"}
