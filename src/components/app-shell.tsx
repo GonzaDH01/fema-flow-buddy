@@ -218,7 +218,7 @@ export function AppShell() {
         </div>
       )}
       <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur md:gap-3 md:px-6">
           <Button
             size="icon"
             variant="ghost"
@@ -227,10 +227,10 @@ export function AppShell() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-base font-semibold text-foreground">{title}</h1>
-          <div className="ml-auto flex items-center gap-2">
+          <h1 className="truncate text-sm font-semibold text-foreground md:text-base">{title}</h1>
+          <div className="ml-auto flex items-center gap-1.5 md:gap-2">
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="h-9 w-24">
+              <SelectTrigger className="h-9 w-20 md:w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -240,8 +240,8 @@ export function AppShell() {
               </SelectContent>
             </Select>
             <Button size="sm" onClick={handleExport} disabled={exporting}>
-              <Download className="mr-1.5 h-4 w-4" />
-              Excel
+              <Download className="h-4 w-4 md:mr-1.5" />
+              <span className="hidden md:inline">Excel</span>
             </Button>
           </div>
         </header>

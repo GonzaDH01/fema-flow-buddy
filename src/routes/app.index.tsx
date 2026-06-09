@@ -94,30 +94,30 @@ function Dashboard() {
   ];
 
   return (
-    <div className="p-6">
-      <header className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Resumen {year}</h2>
+    <div className="p-4 md:p-6">
+      <header className="mb-4 md:mb-6">
+        <h2 className="text-xl font-bold tracking-tight md:text-2xl">Resumen {year}</h2>
         <p className="mt-1 text-sm text-muted-foreground">Indicadores y flujo mensual.</p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map((k) => (
-          <div key={k.label} className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
+          <div key={k.label} className="rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-sm)] md:p-4">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
               <span>{k.label}</span>
               <k.icon className={`h-4 w-4 ${k.color}`} />
             </div>
-            <div className={`mt-2 text-xl font-bold ${k.color}`}>
+            <div className={`mt-2 text-base font-bold md:text-xl ${k.color}`}>
               {isLoading ? "—" : formatPesos(k.value)}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{k.sub}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground md:text-xs">{k.sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+      <div className="mt-6 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-sm)] md:p-5">
         <h3 className="mb-4 text-sm font-semibold">Ingresos vs Egresos — {year}</h3>
-        <div className="h-[320px]">
+        <div className="h-[240px] md:h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data?.mensual ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -137,7 +137,7 @@ function Dashboard() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-sm)] md:p-5">
           <h3 className="mb-3 text-sm font-semibold">Facturas pendientes de cobro</h3>
           <Table>
             <TableHeader>
@@ -161,7 +161,7 @@ function Dashboard() {
           </Table>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-sm)] md:p-5">
           <h3 className="mb-3 text-sm font-semibold">Pagos pendientes a proveedores</h3>
           <Table>
             <TableHeader>
