@@ -2,10 +2,11 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TrendingUp, FileText, Target, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Shield, LogOut,
-  Download, Menu, ScanLine,
+  Download, Menu, ScanLine, UserCog,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,50 +15,56 @@ import {
 import { toast } from "sonner";
 import { exportarExcelCompleto } from "@/lib/exportar-excel";
 
-type NavItem = { to: string; label: string; icon: any; exact?: boolean };
+type NavItem = { to: string; label: string; icon: any; exact?: boolean; key: string };
 const sections: { title: string; items: NavItem[] }[] = [
   {
     title: "Principal",
     items: [
-      { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-      { to: "/app/cashflow", label: "Cash Flow", icon: TrendingUp },
+      { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true, key: "dashboard" },
+      { to: "/app/cashflow", label: "Cash Flow", icon: TrendingUp, key: "cashflow" },
     ],
   },
   {
     title: "Ingresos",
     items: [
-      { to: "/app/facturas", label: "Facturas", icon: FileText },
-      { to: "/app/estimaciones", label: "Estimaciones", icon: Target },
-      { to: "/app/clientes", label: "Clientes", icon: Users },
+      { to: "/app/facturas", label: "Facturas", icon: FileText, key: "facturas" },
+      { to: "/app/estimaciones", label: "Estimaciones", icon: Target, key: "estimaciones" },
+      { to: "/app/clientes", label: "Clientes", icon: Users, key: "clientes" },
     ],
   },
   {
     title: "Egresos",
     items: [
-      { to: "/app/compras", label: "Compras", icon: ShoppingCart },
-      { to: "/app/combustible", label: "Combustible", icon: Fuel },
-      { to: "/app/proveedores", label: "Proveedores", icon: Truck },
+      { to: "/app/compras", label: "Compras", icon: ShoppingCart, key: "compras" },
+      { to: "/app/combustible", label: "Combustible", icon: Fuel, key: "combustible" },
+      { to: "/app/proveedores", label: "Proveedores", icon: Truck, key: "proveedores" },
     ],
   },
   {
     title: "RRHH",
     items: [
-      { to: "/app/empleados", label: "Empleados", icon: UserCheck },
-      { to: "/app/impuestos", label: "Impuestos", icon: Calculator },
+      { to: "/app/empleados", label: "Empleados", icon: UserCheck, key: "empleados" },
+      { to: "/app/impuestos", label: "Impuestos", icon: Calculator, key: "impuestos" },
     ],
   },
   {
     title: "Ventas",
     items: [
-      { to: "/app/presupuestos", label: "Presupuestos", icon: ClipboardList },
-      { to: "/app/medios", label: "Medios de Pago", icon: CreditCard },
+      { to: "/app/presupuestos", label: "Presupuestos", icon: ClipboardList, key: "presupuestos" },
+      { to: "/app/medios", label: "Medios de Pago", icon: CreditCard, key: "medios" },
     ],
   },
   {
     title: "Herramientas",
     items: [
-      { to: "/app/ocr", label: "OCR Facturas", icon: ScanLine },
-      { to: "/app/auditoria", label: "Auditoría", icon: Shield },
+      { to: "/app/ocr", label: "OCR Facturas", icon: ScanLine, key: "ocr" },
+      { to: "/app/auditoria", label: "Auditoría", icon: Shield, key: "auditoria" },
+    ],
+  },
+  {
+    title: "Administración",
+    items: [
+      { to: "/app/usuarios", label: "Usuarios", icon: UserCog, key: "usuarios" },
     ],
   },
 ];
@@ -77,10 +84,12 @@ const titleByPath: Record<string, string> = {
   "/app/medios": "Medios de Pago",
   "/app/ocr": "OCR de Facturas",
   "/app/auditoria": "Auditoría / Reportes Contables",
+  "/app/usuarios": "Gestión de Usuarios",
 };
 
 export function AppShell() {
   const { user, signOut } = useAuth();
+  const { profile, loading: loadingProfile } = useProfile();
   const { year, setYear, years } = useYear();
   const navigate = useNavigate();
   const loc = useLocation();
@@ -102,6 +111,16 @@ export function AppShell() {
     }
   };
 
+  const allowed = (key: string) => {
+    if (!profile) return false;
+    if (profile.isAdmin) return true;
+    return profile.modulos_permitidos.includes(key);
+  };
+
+  const visibleSections = sections
+    .map((s) => ({ ...s, items: s.items.filter((i) => allowed(i.key)) }))
+    .filter((s) => s.items.length > 0);
+
   const Sidebar = (
     <aside className="flex h-full w-[220px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -114,7 +133,7 @@ export function AppShell() {
         </div>
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
-        {sections.map((s) => (
+        {visibleSections.map((s) => (
           <div key={s.title}>
             <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
               {s.title}
@@ -159,6 +178,33 @@ export function AppShell() {
       </div>
     </aside>
   );
+
+  if (!loadingProfile && profile && !profile.aprobado) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-muted">
+            <Shield className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">Cuenta pendiente de aprobación</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Tu cuenta ({user?.email}) fue creada correctamente. Un administrador debe aprobarla y asignarte los módulos antes de poder ingresar.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-6"
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/auth" });
+            }}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

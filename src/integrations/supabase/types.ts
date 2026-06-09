@@ -1542,24 +1542,30 @@ export type Database = {
       }
       profiles: {
         Row: {
+          aprobado: boolean
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          modulos_permitidos: string[]
           updated_at: string
         }
         Insert: {
+          aprobado?: boolean
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          modulos_permitidos?: string[]
           updated_at?: string
         }
         Update: {
+          aprobado?: boolean
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          modulos_permitidos?: string[]
           updated_at?: string
         }
         Relationships: []

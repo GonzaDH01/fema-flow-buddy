@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
 import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
 import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
 import { Route as AppOcrRouteImport } from './routes/app.ocr'
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsuariosRoute = AppUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProveedoresRoute = AppProveedoresRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/usuarios': typeof AppUsuariosRoute
   '/app': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/usuarios'
     | '/app/'
     | '/api/public/ocr-factura'
   fileRoutesByTo: FileRoutesByTo
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/usuarios'
     | '/app'
     | '/api/public/ocr-factura'
   id:
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/usuarios'
     | '/app/'
     | '/api/public/ocr-factura'
   fileRoutesById: FileRoutesById
@@ -296,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/usuarios': {
+      id: '/app/usuarios'
+      path: '/usuarios'
+      fullPath: '/app/usuarios'
+      preLoaderRoute: typeof AppUsuariosRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/proveedores': {
@@ -413,6 +432,7 @@ interface AppRouteChildren {
   AppOcrRoute: typeof AppOcrRoute
   AppPresupuestosRoute: typeof AppPresupuestosRoute
   AppProveedoresRoute: typeof AppProveedoresRoute
+  AppUsuariosRoute: typeof AppUsuariosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -430,6 +450,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOcrRoute: AppOcrRoute,
   AppPresupuestosRoute: AppPresupuestosRoute,
   AppProveedoresRoute: AppProveedoresRoute,
+  AppUsuariosRoute: AppUsuariosRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
