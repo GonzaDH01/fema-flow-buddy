@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -20,12 +22,17 @@ type OCRResult = {
   producto_combustible?: string | null; moneda?: string;
 };
 
+type DocKind = "compra" | "venta";
+
 function Page() {
+  const { user } = useAuth();
   const [preview, setPreview] = useState<string | null>(null);
   const [b64, setB64] = useState<string | null>(null);
   const [mime, setMime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<OCRResult | null>(null);
+  const [kind, setKind] = useState<DocKind>("compra");
+  const [saving, setSaving] = useState(false);
 
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
@@ -71,12 +78,87 @@ function Page() {
 
   const confianzaOk = result && (result.total ?? 0) > 0 && !!result.fecha;
 
+  const guardar = async () => {
+    if (!result || !user) return toast.error("Sin datos o sesión");
+    setSaving(true);
+    try {
+      const letra = (result.letra ?? "B").toUpperCase();
+      const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
+      const base = {
+        user_id: user.id,
+        fecha: result.fecha ?? new Date().toISOString().slice(0, 10),
+        numero: result.numero ?? null,
+        tipo,
+        neto: result.neto ?? 0,
+        iva_21: result.iva_21 ?? 0,
+        iva_105: result.iva_105 ?? 0,
+        percepciones: result.percepciones ?? 0,
+        total: result.total ?? 0,
+        tipo_comprobante: result.tipo ?? "Factura",
+        observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
+      };
+      if (kind === "compra") {
+        const { error } = await supabase.from("fema_facturas_compra").insert({
+          ...base,
+          categoria: (result.categoria_sugerida as any) ?? "Otro",
+          descripcion: result.descripcion ?? result.emisor ?? null,
+          otros_impuestos: result.otros_impuestos ?? 0,
+          impuestos_internos: (result.itc_combustible ?? 0) + (result.co2_combustible ?? 0),
+          litros: result.litros ?? 0,
+          producto: result.producto_combustible ?? null,
+        });
+        if (error) throw error;
+        toast.success("Factura de compra guardada");
+      } else {
+        const { error } = await supabase.from("fema_facturas_venta").insert({
+          ...base,
+          trabajo: result.descripcion ?? null,
+        });
+        if (error) throw error;
+        toast.success("Factura de venta guardada");
+      }
+      setResult(null);
+      setPreview(null);
+      setB64(null);
+      setMime(null);
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <header className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight">OCR de Facturas</h2>
         <p className="mt-1 text-sm text-muted-foreground">Subí una imagen o PDF para extraer datos automáticamente con IA.</p>
       </header>
+
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+        <Label className="text-sm font-medium">Tipo de comprobante:</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={kind === "compra" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setKind("compra")}
+          >
+            <ShoppingCart className="mr-1.5 h-4 w-4" /> Factura de compra
+          </Button>
+          <Button
+            type="button"
+            variant={kind === "venta" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setKind("venta")}
+          >
+            <Receipt className="mr-1.5 h-4 w-4" /> Factura de venta / servicio
+          </Button>
+        </div>
+        <p className="ml-auto text-xs text-muted-foreground">
+          {kind === "compra" ? "Se cargará en Compras" : "Se cargará en Facturas (ventas)"}
+        </p>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -142,6 +224,14 @@ function Page() {
                   <Input value={String(v ?? "")} readOnly className="mt-1 h-8 text-sm" />
                 </div>
               ))}
+            </div>
+          )}
+          {result && (
+            <div className="mt-4 flex justify-end">
+              <Button onClick={guardar} disabled={saving}>
+                {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                Guardar como {kind === "compra" ? "compra" : "venta"}
+              </Button>
             </div>
           )}
         </div>
