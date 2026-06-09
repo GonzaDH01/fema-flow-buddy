@@ -19,12 +19,12 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs] = await Promise.all([
     supabase.from("fema_facturas_venta")
-      .select("mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
+      .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("mes,total,estado,numero,categoria,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,numero,categoria,proveedor:fema_proveedores(nombre)")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("periodo,sueldo_bruto,cargas_sociales,empleado:fema_empleados(nombre)")
@@ -35,30 +35,115 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_combustible")
       .select("fecha,total")
       .eq("user_id", userId).gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
+    supabase.from("fema_movimientos_pago")
+      .select("instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
+      .eq("user_id", userId),
   ]);
+
+  const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
+  const movsByFV = new Map<string, any[]>();
+  const movsByFC = new Map<string, any[]>();
+  for (const m of (movs.data ?? []) as any[]) {
+    if (!ACTIVOS.has(m.estado)) continue;
+    if (m.direccion === "cobro" && m.factura_venta_id) {
+      if (!movsByFV.has(m.factura_venta_id)) movsByFV.set(m.factura_venta_id, []);
+      movsByFV.get(m.factura_venta_id)!.push(m);
+    }
+    if (m.direccion === "pago" && m.factura_compra_id) {
+      if (!movsByFC.has(m.factura_compra_id)) movsByFC.set(m.factura_compra_id, []);
+      movsByFC.get(m.factura_compra_id)!.push(m);
+    }
+  }
+
+  function mesDe(m: any): number {
+    const fecha = m.vencimiento ?? m.fecha_emision;
+    if (fecha) {
+      const [y, mo] = String(fecha).split("-").map(Number);
+      if (y === anio && mo >= 1 && mo <= 12) return mo;
+      if (y !== anio) return 0; // fuera del año en vista
+    }
+    return Number(m.mes) || 0;
+  }
+  function instrLabel(ins: string) {
+    return ins === "echeq" ? "echeq" : ins === "cheque_fisico" ? "cheque" : ins === "cesion" ? "echeq cedido" : ins === "transferencia" ? "transf." : ins;
+  }
+  function distribuirMovs(linked: any[], total: number, facturaMes: number) {
+    const values = empty12();
+    let cubierto = 0;
+    const detalle: string[] = [];
+    for (const m of linked) {
+      const mes = mesDe(m);
+      const monto = Number(m.monto);
+      cubierto += monto;
+      if (mes >= 1 && mes <= 12) {
+        values[mes - 1] += monto;
+        detalle.push(`${instrLabel(m.instrumento)} ${MESES[mes - 1]} ${formatPesos(monto)}`);
+      } else {
+        detalle.push(`${instrLabel(m.instrumento)} fuera de ${anio} ${formatPesos(monto)}`);
+      }
+    }
+    const resto = Math.max(0, total - cubierto);
+    if (resto > 0.01 && facturaMes >= 1 && facturaMes <= 12) {
+      values[facturaMes - 1] += resto;
+      detalle.push(`saldo ${MESES[facturaMes - 1]} ${formatPesos(resto)}`);
+    }
+    return { values, cubierto, detalle };
+  }
 
   const ingCobrados: Row[] = [];
   const ingPendientes: Row[] = [];
   for (const v of (ventas.data ?? []) as any[]) {
+    const linked = movsByFV.get(v.id) ?? [];
+    const total = Number(v.total);
+    const facturaMes = Number(v.mes);
+    let values: number[];
+    let sub: string;
+    let cobrada: boolean;
+    if (linked.length > 0) {
+      const d = distribuirMovs(linked, total, facturaMes);
+      values = d.values;
+      cobrada = v.estado === "cobrada" || d.cubierto >= total - 0.01;
+      sub = `Factura ${v.numero ?? "—"} · ${d.detalle.join(" + ")}`;
+    } else {
+      values = placeAt(facturaMes, total);
+      cobrada = v.estado === "cobrada";
+      sub = `Factura ${v.numero ?? "—"}${v.condicion_pago ? " · " + v.condicion_pago : ""}`;
+    }
     const r: Row = {
       label: v.cliente?.nombre ?? "Sin cliente",
-      sub: `Factura ${v.numero ?? "—"}${v.condicion_pago ? " · " + v.condicion_pago : ""}`,
-      values: placeAt(Number(v.mes), Number(v.total)),
+      sub,
+      values,
       sign: "+",
     };
-    (v.estado === "cobrada" ? ingCobrados : ingPendientes).push(r);
+    (cobrada ? ingCobrados : ingPendientes).push(r);
   }
 
   const egPagados: Row[] = [];
   const egPendientes: Row[] = [];
   for (const c of (compras.data ?? []) as any[]) {
+    const linked = movsByFC.get(c.id) ?? [];
+    const total = Number(c.total);
+    const facturaMes = Number(c.mes);
+    let values: number[];
+    let sub: string;
+    let pagada: boolean;
+    if (linked.length > 0) {
+      const d = distribuirMovs(linked, total, facturaMes);
+      values = d.values;
+      pagada = c.estado === "pagada" || d.cubierto >= total - 0.01;
+      sub = `Comprobante ${c.numero ?? "—"} · ${d.detalle.join(" + ")}`;
+    } else {
+      values = placeAt(facturaMes, total);
+      pagada = c.estado === "pagada";
+      sub = c.numero ? `Comprobante ${c.numero}` : undefined as any;
+    }
     const r: Row = {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
-      sub: c.numero ? `Comprobante ${c.numero}` : undefined,
-      values: placeAt(Number(c.mes), Number(c.total)),
+      sub,
+      values,
       sign: "-",
     };
-    (c.estado === "pagada" ? egPagados : egPendientes).push(r);
+    (pagada ? egPagados : egPendientes).push(r);
   }
 
   for (const s of (sueldos.data ?? []) as any[]) {
