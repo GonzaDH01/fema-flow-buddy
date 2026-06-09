@@ -82,22 +82,49 @@ function Page() {
     queryKey: ["fema_facturas_venta_pendientes", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await sb.from("fema_facturas_venta")
+      const { data, error } = await sb.from("fema_facturas_venta")
         .select("id,numero,fecha,total,cliente_id,trabajo,estado")
         .eq("user_id", user!.id).eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
-      return (data ?? []) as any[];
+      if (error) throw error;
+      const clienteIds = [...new Set((data ?? []).map((f: any) => f.cliente_id).filter(Boolean))];
+      const clientesPorId = new Map<string, string>();
+      if (clienteIds.length > 0) {
+        const { data: clientes, error: clientesError } = await sb.from("fema_clientes")
+          .select("id,nombre")
+          .in("id", clienteIds);
+        if (clientesError) throw clientesError;
+        for (const c of clientes ?? []) clientesPorId.set(c.id, c.nombre);
+      }
+      return (data ?? []).map((f: any) => ({
+        ...f,
+        proveedor: clientesPorId.get(f.cliente_id) ?? "Cliente",
+      })) as any[];
     },
   });
   const facturasCompraQ = useQuery({
     queryKey: ["fema_facturas_compra_pendientes", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await sb.from("fema_facturas_compra")
-        .select("id,numero,fecha,total,proveedor,estado")
+      const { data, error } = await sb.from("fema_facturas_compra")
+        .select("id,numero,fecha,total,proveedor_id,descripcion,producto,estado")
         .eq("user_id", user!.id).eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
-      return (data ?? []) as any[];
+      if (error) throw error;
+      const proveedorIds = [...new Set((data ?? []).map((f: any) => f.proveedor_id).filter(Boolean))];
+      const proveedoresPorId = new Map<string, string>();
+      if (proveedorIds.length > 0) {
+        const { data: proveedores, error: proveedoresError } = await sb.from("fema_proveedores")
+          .select("id,nombre")
+          .in("id", proveedorIds);
+        if (proveedoresError) throw proveedoresError;
+        for (const p of proveedores ?? []) proveedoresPorId.set(p.id, p.nombre);
+      }
+      return (data ?? []).map((f: any) => ({
+        ...f,
+        proveedor: proveedoresPorId.get(f.proveedor_id) ?? "Proveedor",
+        trabajo: f.descripcion ?? f.producto ?? "",
+      })) as any[];
     },
   });
 
@@ -282,7 +309,12 @@ function Page() {
             facturasCompra={facturasCompraPend}
             echeqsCartera={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
             onClose={() => { setOpenMov(false); setEditMov(null); }}
-            onSaved={() => { qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] }); setOpenMov(false); setEditMov(null); }}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
+              setOpenMov(false); setEditMov(null);
+            }}
           />
         )}
       </Dialog>
