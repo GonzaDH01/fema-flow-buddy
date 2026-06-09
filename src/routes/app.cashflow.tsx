@@ -7,7 +7,14 @@ import { formatPesos, MESES } from "@/lib/format";
 
 export const Route = createFileRoute("/app/cashflow")({ component: Page });
 
-type Row = { label: string; sub?: string; values: number[]; sign: "+" | "-" };
+type Row = {
+  label: string;
+  sub?: string;
+  badge?: string;
+  values: number[];
+  sign: "+" | "-";
+  tooltips?: (string | undefined)[];
+};
 
 const empty12 = () => Array(12).fill(0) as number[];
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
@@ -65,18 +72,22 @@ async function loadCashflow(userId: string, anio: number) {
     return Number(m.mes) || 0;
   }
   function instrLabel(ins: string) {
-    return ins === "echeq" ? "echeq" : ins === "cheque_fisico" ? "cheque" : ins === "cesion" ? "echeq cedido" : ins === "transferencia" ? "transf." : ins;
+    return ins === "echeq" ? "Echeq propio" : ins === "cheque_fisico" ? "Cheque físico" : ins === "cesion" ? "Echeq cedido" : ins === "transferencia" ? "Transferencia" : ins;
   }
   function distribuirMovs(linked: any[], total: number, facturaMes: number) {
     const values = empty12();
+    const tooltips: string[][] = Array.from({ length: 12 }, () => []);
     let cubierto = 0;
     const detalle: string[] = [];
     for (const m of linked) {
       const mes = mesDe(m);
       const monto = Number(m.monto);
       cubierto += monto;
+      const extra = [m.numero ? `Nº ${m.numero}` : null, m.banco].filter(Boolean).join(" · ");
+      const tipMes = `${instrLabel(m.instrumento)}${extra ? ` (${extra})` : ""}: ${formatPesos(monto)}`;
       if (mes >= 1 && mes <= 12) {
         values[mes - 1] += monto;
+        tooltips[mes - 1].push(tipMes);
         detalle.push(`${instrLabel(m.instrumento)} ${MESES[mes - 1]} ${formatPesos(monto)}`);
       } else {
         detalle.push(`${instrLabel(m.instrumento)} fuera de ${anio} ${formatPesos(monto)}`);
@@ -85,9 +96,31 @@ async function loadCashflow(userId: string, anio: number) {
     const resto = Math.max(0, total - cubierto);
     if (resto > 0.01 && facturaMes >= 1 && facturaMes <= 12) {
       values[facturaMes - 1] += resto;
+      tooltips[facturaMes - 1].push(`Saldo pendiente: ${formatPesos(resto)}`);
       detalle.push(`saldo ${MESES[facturaMes - 1]} ${formatPesos(resto)}`);
     }
-    return { values, cubierto, detalle };
+    return {
+      values,
+      cubierto,
+      detalle,
+      tooltips: tooltips.map((arr) => (arr.length ? arr.join("\n") : undefined)),
+    };
+  }
+
+  function planBadge(linked: any[], condicionPago: string | null, total: number) {
+    if (linked.length === 0) {
+      const c = (condicionPago ?? "").toLowerCase();
+      if (c.includes("contado")) return "Contado";
+      if (c) return condicionPago!;
+      return null;
+    }
+    const cubierto = linked.reduce((a, m) => a + Number(m.monto), 0);
+    const completo = cubierto >= total - 0.01;
+    if (linked.length === 1) {
+      return `${completo ? "Pago único" : "Pago parcial"} · ${instrLabel(linked[0].instrumento)}`;
+    }
+    const tipos = Array.from(new Set(linked.map((m) => instrLabel(m.instrumento))));
+    return `Plan ${linked.length} cuotas · ${tipos.join(" + ")}`;
   }
 
   const ingCobrados: Row[] = [];
@@ -98,21 +131,25 @@ async function loadCashflow(userId: string, anio: number) {
     const facturaMes = Number(v.mes);
     let values: number[];
     let sub: string;
+    let tooltips: (string | undefined)[] | undefined;
     let cobrada: boolean;
     if (linked.length > 0) {
       const d = distribuirMovs(linked, total, facturaMes);
       values = d.values;
+      tooltips = d.tooltips;
       cobrada = v.estado === "cobrada" || d.cubierto >= total - 0.01;
-      sub = `Factura ${v.numero ?? "—"} · ${d.detalle.join(" + ")}`;
+      sub = `Factura ${v.numero ?? "—"}`;
     } else {
       values = placeAt(facturaMes, total);
       cobrada = v.estado === "cobrada";
-      sub = `Factura ${v.numero ?? "—"}${v.condicion_pago ? " · " + v.condicion_pago : ""}`;
+      sub = `Factura ${v.numero ?? "—"}`;
     }
     const r: Row = {
       label: v.cliente?.nombre ?? "Sin cliente",
       sub,
+      badge: planBadge(linked, v.condicion_pago, total) ?? undefined,
       values,
+      tooltips,
       sign: "+",
     };
     (cobrada ? ingCobrados : ingPendientes).push(r);
@@ -126,12 +163,14 @@ async function loadCashflow(userId: string, anio: number) {
     const facturaMes = Number(c.mes);
     let values: number[];
     let sub: string;
+    let tooltips: (string | undefined)[] | undefined;
     let pagada: boolean;
     if (linked.length > 0) {
       const d = distribuirMovs(linked, total, facturaMes);
       values = d.values;
+      tooltips = d.tooltips;
       pagada = c.estado === "pagada" || d.cubierto >= total - 0.01;
-      sub = `Comprobante ${c.numero ?? "—"} · ${d.detalle.join(" + ")}`;
+      sub = `Comprobante ${c.numero ?? "—"}`;
     } else {
       values = placeAt(facturaMes, total);
       pagada = c.estado === "pagada";
@@ -140,7 +179,9 @@ async function loadCashflow(userId: string, anio: number) {
     const r: Row = {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
       sub,
+      badge: planBadge(linked, null, total) ?? undefined,
       values,
+      tooltips,
       sign: "-",
     };
     (pagada ? egPagados : egPendientes).push(r);
@@ -278,11 +319,27 @@ function DataRow({ row }: { row: Row }) {
     <tr className="border-t border-border/40 hover:bg-muted/20">
       <td className="sticky left-0 z-10 bg-card px-3 py-2">
         <div className="font-medium">{row.label}</div>
+        {row.badge && (
+          <div className="mt-0.5">
+            <span className="inline-block rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+              {row.badge}
+            </span>
+          </div>
+        )}
         {row.sub && <div className="text-[10px] text-muted-foreground">{row.sub}</div>}
       </td>
-      {row.values.map((v, i) => (
-        <td key={i} className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : color}`}>{cell(v)}</td>
-      ))}
+      {row.values.map((v, i) => {
+        const tip = row.tooltips?.[i];
+        return (
+          <td
+            key={i}
+            title={tip}
+            className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : color} ${tip ? "cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4" : ""}`}
+          >
+            {cell(v)}
+          </td>
+        );
+      })}
       <td className={`px-3 py-2 text-right font-semibold tabular-nums ${color}`}>{cell(total)}</td>
     </tr>
   );
