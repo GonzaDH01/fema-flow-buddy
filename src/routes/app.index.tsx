@@ -32,7 +32,7 @@ async function loadKPIs(userId: string, anio: number) {
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
       .eq("user_id", userId).eq("anio", anio),
     supabase.from("fema_movimientos_pago")
-      .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio")
+      .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio,mes,vencimiento,fecha_emision")
       .eq("user_id", userId).eq("anio", anio),
   ]);
   if (ventas.error) throw ventas.error;
@@ -90,10 +90,63 @@ async function loadKPIs(userId: string, anio: number) {
   const deudasPendientes = comprasPendientes.reduce((a, x) => a + Number(x.total), 0);
   const neto = ingresosCobrados - egresosPagados;
 
+  // Distribuir cobrado/pagado por mes de vencimiento de cada movimiento.
+  const ingresosMes = new Array(12).fill(0) as number[];
+  const egresosMes = new Array(12).fill(0) as number[];
+  const movsPorFV = new Map<string, any[]>();
+  const movsPorFC = new Map<string, any[]>();
+  for (const m of mv) {
+    if (!ACTIVOS.has(m.estado)) continue;
+    if (m.direccion === "cobro" && m.factura_venta_id) {
+      const arr = movsPorFV.get(m.factura_venta_id) ?? [];
+      arr.push(m); movsPorFV.set(m.factura_venta_id, arr);
+    }
+    if (m.direccion === "pago" && m.factura_compra_id) {
+      const arr = movsPorFC.get(m.factura_compra_id) ?? [];
+      arr.push(m); movsPorFC.set(m.factura_compra_id, arr);
+    }
+  }
+  const mesDeMov = (m: any, fallback: number): number => {
+    const s = m.vencimiento ?? m.fecha_emision;
+    if (s) {
+      const d = new Date(s);
+      if (d.getFullYear() === anio) return d.getMonth();
+    }
+    if (m.mes && m.anio === anio) return m.mes - 1;
+    return fallback;
+  };
+  for (const v of vsEff as any[]) {
+    const movs = movsPorFV.get(v.id) ?? [];
+    let cubierto = 0;
+    const fallback = Math.max(0, Math.min(11, (v.mes ?? 1) - 1));
+    for (const m of movs) {
+      const idx = mesDeMov(m, fallback);
+      ingresosMes[idx] += Number(m.monto);
+      cubierto += Number(m.monto);
+    }
+    if (v.estado === "cobrada") {
+      const resto = Number(v.total) - cubierto;
+      if (resto > 0.01) ingresosMes[fallback] += resto;
+    }
+  }
+  for (const c of csEff as any[]) {
+    const movs = movsPorFC.get(c.id) ?? [];
+    let cubierto = 0;
+    const fallback = Math.max(0, Math.min(11, (c.mes ?? 1) - 1));
+    for (const m of movs) {
+      const idx = mesDeMov(m, fallback);
+      egresosMes[idx] += Number(m.monto);
+      cubierto += Number(m.monto);
+    }
+    if (c.estado === "pagada") {
+      const resto = Number(c.total) - cubierto;
+      if (resto > 0.01) egresosMes[fallback] += resto;
+    }
+  }
   const mensual = Array.from({ length: 12 }, (_, i) => ({
     mes: MESES[i],
-    "Ingresos cobrados": ventasCobradas.filter((x) => x.mes === i + 1).reduce((a, x) => a + Number(x.total), 0),
-    "Egresos pagados": comprasPagadas.filter((x) => x.mes === i + 1).reduce((a, x) => a + Number(x.total), 0),
+    "Ingresos cobrados": ingresosMes[i],
+    "Egresos pagados": egresosMes[i],
   }));
 
   const pendCobro = [...ventasPendientes].sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 6);
