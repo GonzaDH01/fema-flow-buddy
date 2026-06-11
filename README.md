@@ -1,14 +1,14 @@
 # FEMA — Sistema de Gestión Agropecuaria
 
-Plataforma integral de gestión para operaciones agropecuarias FEMA construida sobre Lovable Cloud.
+Plataforma integral de gestión para operaciones agropecuarias FEMA 
 
 ## Stack
 - **Frontend**: TanStack Start v1 + React 19 + TypeScript estricto + Vite 7
 - **Estilos**: Tailwind v4 con tokens semánticos `oklch` (tema dark con primario verde) en `src/styles.css`
 - **UI**: shadcn/ui + Lucide icons + Sonner toasts
 - **Datos**: TanStack Query + react-hook-form + zod
-- **Backend**: Lovable Cloud (Supabase) con RLS por usuario
-- **IA**: Lovable AI Gateway (Google Gemini 2.5 Flash) para OCR de facturas
+- **Backend**:  (Supabase) con RLS por usuario
+- **IA**:  (Google Gemini 2.5 Flash) para OCR de facturas
 - **Exportación**: SheetJS (xlsx)
 
 ## Módulos
@@ -45,5 +45,3 @@ bun install
 bun run dev
 ```
 
-## Despliegue
-Publicación desde la UI de Lovable. URL estable de preview/prod: `project--{id}.lovable.app`.
