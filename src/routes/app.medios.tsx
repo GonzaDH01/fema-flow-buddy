@@ -976,9 +976,9 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
         <DialogDescription>Comprobante para entregar al {esCobro ? "cliente" : "proveedor"}.</DialogDescription>
       </DialogHeader>
 
-      <div className="recibo-print relative bg-white text-black p-6 text-[10.5px]" style={{ minHeight: "260mm" }}>
+      <div className="recibo-print relative bg-white text-black p-6 text-[10.5px] flex flex-col" style={{ minHeight: "273mm" }}>
         <FemaWatermark />
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col flex-1">
           <FemaDocHeader
             title={tituloDoc}
             meta={[
@@ -1023,6 +1023,7 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
             </tbody>
           </table>
 
+          <div className="flex-1" />
           <div className="mt-4 grid grid-cols-[1fr_260px] gap-3">
             <div className="border-2 border-black p-2 text-[10.5px]">
               <div className="italic font-bold underline">OBSERVACIONES:</div>
@@ -1043,7 +1044,7 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-16 pt-16">
+          <div className="grid grid-cols-2 gap-16 pt-12">
             <div className="border-t border-black pt-1 text-center text-[10.5px]">Firma del emisor</div>
             <div className="border-t border-black pt-1 text-center text-[10.5px]">Firma {esCobro ? "del cliente" : "del proveedor"}</div>
           </div>
