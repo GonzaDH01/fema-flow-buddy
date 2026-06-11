@@ -171,11 +171,8 @@ function Page() {
                   <TableRow>
                     <TableHead>N°</TableHead>
                     <TableHead>Fecha</TableHead>
-                    <TableHead>Vto.</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Descripción</TableHead>
-                    <TableHead className="text-right">Neto</TableHead>
-                    <TableHead className="text-right">IVA</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
@@ -183,18 +180,15 @@ function Page() {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
                   ) : filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="py-12 text-center text-muted-foreground">No hay presupuestos</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos</TableCell></TableRow>
                   ) : filtered.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
                       <TableCell>{formatFecha(p.fecha)}</TableCell>
-                      <TableCell>{p.fecha_vencimiento ? formatFecha(p.fecha_vencimiento) : "—"}</TableCell>
                       <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
                       <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">{p.descripcion ?? "—"}</TableCell>
-                      <TableCell className="text-right">{formatPesos(p.neto)}</TableCell>
-                      <TableCell className="text-right">{formatPesos((p.iva_21 ?? 0) + (p.iva_105 ?? 0))}</TableCell>
                       <TableCell className="text-right font-semibold">{formatPesos(p.total)}</TableCell>
                       <TableCell>
                         <Badge variant={p.estado === "Aprobado" ? "default" : p.estado === "Facturado" ? "secondary" : "outline"}>
