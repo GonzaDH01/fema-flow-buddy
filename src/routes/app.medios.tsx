@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Send, Edit3 } from "lucide-react";
+import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Send, Edit3, Receipt, Printer } from "lucide-react";
 import { Sparkles, X as XIcon } from "lucide-react";
 
 export const Route = createFileRoute("/app/medios")({ component: Page });
@@ -65,6 +65,7 @@ function Page() {
   const [busqueda, setBusqueda] = useState("");
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
+  const [reciboMov, setReciboMov] = useState<Mov | null>(null);
 
   const movsQ = useQuery({
     queryKey: ["fema_movimientos_pago", user?.id, year],
@@ -283,7 +284,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} />
+                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -315,6 +316,19 @@ function Page() {
               qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
               setOpenMov(false); setEditMov(null);
             }}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!reciboMov} onOpenChange={(v) => { if (!v) setReciboMov(null); }}>
+        {reciboMov && (
+          <ReciboDialog
+            mov={reciboMov}
+            allMovs={movs}
+            facturasVenta={facturasVentaQ.data ?? []}
+            facturasCompra={facturasCompraQ.data ?? []}
+            emisor={user?.email ?? ""}
+            onClose={() => setReciboMov(null)}
           />
         )}
       </Dialog>
