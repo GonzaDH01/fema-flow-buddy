@@ -621,7 +621,7 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
 }
 
 function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex justify-between border-b border-gray-300 px-2 py-0.5"><span>{k}</span><span>{v}</span></div>;
+  return <div className="flex justify-between border-b border-gray-300 px-2 py-0.5"><span className="font-semibold">{k}</span><span>{v}</span></div>;
 }
 
 // ============ Print existing record ============
@@ -642,65 +642,58 @@ async function printPresupuesto(id: string) {
 function renderPrintHTML(p: Presupuesto, items: any[]) {
   const fmt = (n: number) => formatPesos(n);
   const fdate = (d: string | null) => d ? formatFecha(d) : "—";
+  const logo = absoluteAssetUrl(femaLogoUrl);
+  const wm = absoluteAssetUrl(femaWatermarkUrl);
+  const rowsHTML = items.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:#888;padding:12px">Sin ítems</td></tr>`
+    : items.map((i) => `<tr>
+        <td>${i.codigo ?? ""}</td>
+        <td>${i.descripcion ?? ""}</td>
+        <td class="right">${i.cantidad}</td>
+        <td class="right">${fmt(Number(i.precio_unitario))}</td>
+        <td class="right">${fmt(Number(i.subtotal))}</td>
+      </tr>`).join("");
+  const obs = [(p.observaciones ?? "").trim(), (p.condicion_pago ?? "").trim(), (p.consideraciones ?? "").trim()]
+    .filter(Boolean).join("\n").replace(/\n/g, "<br>") || "—";
   return `<!doctype html><html><head><meta charset="utf-8"><title>${p.numero ?? "Presupuesto"}</title>
-<style>
-  body { font-family: Arial, sans-serif; color: #000; margin: 24px; font-size: 12px; }
-  .hdr { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px; }
-  .hdr h1 { margin: 0; font-size: 16px; }
-  .box { border: 1px solid #000; padding: 6px; margin-top: 10px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-  th, td { border: 1px solid #888; padding: 4px 6px; }
-  th { background: #eee; text-align: left; }
-  .right { text-align: right; }
-  .totals { width: 240px; float: right; margin-top: 10px; border: 1px solid #000; font-size: 11px; }
-  .totals .r { display: flex; justify-content: space-between; padding: 3px 6px; border-bottom: 1px solid #ccc; }
-  .totals .t { font-weight: bold; background: #eee; border-top: 2px solid #000; border-bottom: none; }
-  .obs { border: 1px solid #000; padding: 6px; margin-top: 10px; font-size: 11px; max-width: 460px; }
-  .quote { border: 1px solid #000; padding: 6px 12px; text-align: center; }
-</style></head><body>
-<div class="hdr">
-  <div>
-    <h1>FEMA AGRONEGOCIOS S.A.S.</h1>
-    <div>Belgrano 135 — San Guillermo — CP 2347 · 0356 252-5255</div>
-    <div>femaagronegocios@gmail.com</div>
-    <div>RESPONSABLE INSCRIPTO</div>
-  </div>
-  <div class="quote">
-    <div style="font-weight:bold">PRESUPUESTO</div>
-    <div style="text-align:left;margin-top:6px">
-      <div><b>N°:</b> ${p.numero ?? "—"}</div>
-      <div><b>Fecha:</b> ${fdate(p.fecha)}</div>
-      <div><b>Vto.:</b> ${fdate(p.fecha_vencimiento)}</div>
+<style>${femaPrintCSS}</style></head><body>
+<div class="fema-page">
+  ${femaWatermarkHTML(wm)}
+  <div class="fema-content">
+    ${femaHeaderHTML("PRESUPUESTO", [
+      { label: "Nº:", value: p.numero ?? "—" },
+      { label: "Fecha:", value: fdate(p.fecha) },
+      { label: "Fecha Vto:", value: fdate(p.fecha_vencimiento) },
+    ], logo)}
+    ${femaClientHTML([
+      { label: "Cliente:", value: p.cliente_nombre ?? "" },
+      { label: "CUIT:", value: p.cliente_cuit ?? "" },
+      { label: "Domicilio:", value: p.cliente_domicilio ?? "" },
+      { label: "Cond. IVA:", value: p.cliente_cond_iva ?? "" },
+      { label: "Localidad:", value: p.cliente_localidad ?? "" },
+      { label: "", value: "" },
+    ])}
+    <table class="fema">
+      <thead><tr>
+        <th>Codigo</th><th>Descripción</th>
+        <th class="right">Cant.</th><th class="right">Pcio. Unit.</th><th class="right">Total</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div class="fema-bottom">
+      <div class="fema-obs">
+        <div class="t">OBSERVACIONES:</div>
+        ${obs}
+      </div>
+      <div class="fema-tot">
+        <div class="row"><span>% Desc:</span><span>${Number(p.descuento_pct ?? 0).toFixed(2)} %</span></div>
+        <div class="row"><span>Descuento:</span><span>${fmt(Number(p.descuento_monto ?? 0))}</span></div>
+        <div class="row"><span>T. Neto:</span><span>${fmt(Number(p.neto ?? 0))}</span></div>
+        <div class="row"><span>I.V.A. 21%:</span><span>${fmt(Number(p.iva_21 ?? 0))}</span></div>
+        <div class="row"><span>I.V.A. 10,5%:</span><span>${fmt(Number(p.iva_105 ?? 0))}</span></div>
+        <div class="row total"><span>Total</span><span>${fmt(Number(p.total ?? 0))}</span></div>
+      </div>
     </div>
-  </div>
-</div>
-<div class="box">
-  <div><b>Cliente:</b> ${p.cliente_nombre ?? "—"}</div>
-  <div><b>Domicilio:</b> ${p.cliente_domicilio ?? "—"}</div>
-  <div><b>Localidad:</b> ${p.cliente_localidad ?? "—"}</div>
-  <div><b>CUIT:</b> ${p.cliente_cuit ?? "—"} &nbsp;&nbsp; <b>Cond. IVA:</b> ${p.cliente_cond_iva ?? "—"}</div>
-</div>
-<table>
-  <thead><tr><th>Cód.</th><th>Descripción</th><th class="right">Cant.</th><th class="right">P. Unit.</th><th class="right">Total</th></tr></thead>
-  <tbody>
-    ${items.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:#888">Sin ítems</td></tr>` :
-      items.map((i) => `<tr><td>${i.codigo ?? ""}</td><td>${i.descripcion}</td><td class="right">${i.cantidad}</td><td class="right">${fmt(Number(i.precio_unitario))}</td><td class="right">${fmt(Number(i.subtotal))}</td></tr>`).join("")}
-  </tbody>
-</table>
-<div style="overflow:hidden">
-  <div class="totals">
-    <div class="r"><span>% Desc:</span><span>${Number(p.descuento_pct ?? 0).toFixed(2)}%</span></div>
-    <div class="r"><span>Descuento:</span><span>${fmt(Number(p.descuento_monto ?? 0))}</span></div>
-    <div class="r"><span>T. Neto:</span><span>${fmt(Number(p.neto ?? 0))}</span></div>
-    <div class="r"><span>I.V.A. 21%:</span><span>${fmt(Number(p.iva_21 ?? 0))}</span></div>
-    <div class="r"><span>I.V.A. 10,5%:</span><span>${fmt(Number(p.iva_105 ?? 0))}</span></div>
-    <div class="r t"><span>Total:</span><span>${fmt(Number(p.total ?? 0))}</span></div>
-  </div>
-  <div class="obs">
-    <b>OBSERVACIONES:</b><br>
-    ${(p.observaciones ?? "—").replace(/\n/g, "<br>")}<br>
-    ${p.condicion_pago ?? ""}<br>
-    ${p.consideraciones ?? ""}
   </div>
 </div>
 </body></html>`;
