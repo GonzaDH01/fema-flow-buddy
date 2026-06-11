@@ -246,12 +246,24 @@ function Page() {
       </header>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
-        <table className="w-full min-w-[1100px] text-xs">
-          <thead>
-            <tr className="border-b border-border text-[10px] uppercase tracking-wide text-muted-foreground">
-              <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left">Concepto</th>
-              {MESES.map((m) => <th key={m} className="px-2 py-2 text-right font-medium">{m}</th>)}
-              <th className="px-3 py-2 text-right font-semibold">Total</th>
+        <table className="w-full min-w-[1200px] border-collapse text-xs [&_td]:border-r [&_td]:border-border/40 [&_th]:border-r [&_th]:border-border/60 [&_td:last-child]:border-r-0 [&_th:last-child]:border-r-0">
+          <colgroup>
+            <col style={{ width: "220px" }} />
+            {MESES.map((m) => <col key={m} style={{ width: "78px" }} />)}
+            <col style={{ width: "100px" }} />
+          </colgroup>
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b-2 border-border bg-muted/70 text-[10px] uppercase tracking-wide text-foreground">
+              <th className="sticky left-0 z-30 bg-muted/70 px-3 py-2 text-left">Concepto</th>
+              {MESES.map((m, i) => (
+                <th
+                  key={m}
+                  className={`px-2 py-2 text-right font-semibold ${i % 2 === 1 ? "bg-muted/40" : ""}`}
+                >
+                  {m}
+                </th>
+              ))}
+              <th className="px-3 py-2 text-right font-bold">Total</th>
             </tr>
           </thead>
           <tbody>
