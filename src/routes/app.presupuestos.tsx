@@ -551,75 +551,68 @@ type PdfData = {
 
 function PresupuestoPDF({ data }: { data: PdfData }) {
   return (
-    <div className="bg-white p-6 text-[11px] text-black" style={{ minHeight: "auto" }}>
-      <div className="flex items-start justify-between border-b-2 border-black pb-3">
-        <div>
-          <div className="text-lg font-bold">FEMA AGRONEGOCIOS S.A.S.</div>
-          <div className="text-[10px] leading-tight">
-            Belgrano 135 — San Guillermo — CP 2347 · 0356 252-5255<br />
-            femaagronegocios@gmail.com<br />
-            RESPONSABLE INSCRIPTO
-          </div>
-        </div>
-        <div className="ml-4 border border-black px-4 py-2 text-center">
-          <div className="text-sm font-bold">PRESUPUESTO</div>
-          <div className="mt-1 text-[10px] text-left">
-            <div><span className="font-semibold">N°:</span> {data.numero}</div>
-            <div><span className="font-semibold">Fecha:</span> {formatFecha(data.fecha)}</div>
-            <div><span className="font-semibold">Vto.:</span> {data.fechaVto ? formatFecha(data.fechaVto) : "—"}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 border border-black p-2 text-[10px]">
-        <div className="grid grid-cols-[80px_1fr] gap-x-2">
-          <span className="font-semibold">Cliente:</span><span>{data.clienteNombre || "—"}</span>
-          <span className="font-semibold">Domicilio:</span><span>{data.domicilio || "—"}</span>
-          <span className="font-semibold">Localidad:</span><span>{data.localidad || "—"}</span>
-          <span className="font-semibold">CUIT:</span><span>{data.cuit || "—"} &nbsp;&nbsp; <span className="font-semibold">Cond. IVA:</span> {data.condIva || "—"}</span>
-        </div>
-      </div>
-
-      <table className="mt-3 w-full border-collapse text-[10px]">
-        <thead>
-          <tr className="border-b border-black bg-gray-100">
-            <th className="border-r border-black px-2 py-1 text-left">CÓD.</th>
-            <th className="border-r border-black px-2 py-1 text-left">DESCRIPCIÓN</th>
-            <th className="border-r border-black px-2 py-1 text-right">CANT.</th>
-            <th className="border-r border-black px-2 py-1 text-right">P. UNIT.</th>
-            <th className="px-2 py-1 text-right">TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.items.length === 0 ? (
-            <tr><td colSpan={5} className="px-2 py-3 text-center text-gray-500">Sin ítems</td></tr>
-          ) : data.items.map((it, i) => (
-            <tr key={i} className="border-b border-gray-300">
-              <td className="border-r border-gray-300 px-2 py-1">{it.codigo}</td>
-              <td className="border-r border-gray-300 px-2 py-1">{it.descripcion}</td>
-              <td className="border-r border-gray-300 px-2 py-1 text-right">{it.cantidad}</td>
-              <td className="border-r border-gray-300 px-2 py-1 text-right">{formatPesos(it.precio_unitario)}</td>
-              <td className="px-2 py-1 text-right">{formatPesos(it.subtotal)}</td>
+    <div className="relative bg-white p-6 text-[11px] text-black" style={{ minHeight: "260mm" }}>
+      <FemaWatermark />
+      <div className="relative z-10">
+        <FemaDocHeader
+          title="PRESUPUESTO"
+          meta={[
+            { label: "Nº:", value: data.numero || "—" },
+            { label: "Fecha:", value: data.fecha ? formatFecha(data.fecha) : "—" },
+            { label: "Fecha Vto:", value: data.fechaVto ? formatFecha(data.fechaVto) : "—" },
+          ]}
+        />
+        <FemaClientBox
+          rows={[
+            { label: "Cliente:", value: data.clienteNombre },
+            { label: "CUIT:", value: data.cuit },
+            { label: "Domicilio:", value: data.domicilio },
+            { label: "Cond. IVA:", value: data.condIva },
+            { label: "Localidad:", value: data.localidad },
+            { label: "", value: "" },
+          ]}
+        />
+        <table className="mt-3 w-full border-collapse text-[10.5px]">
+          <thead>
+            <tr>
+              <th className="border-y-2 border-black px-2 py-1 text-left">Codigo</th>
+              <th className="border-y-2 border-black px-2 py-1 text-left">Descripción</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Cant.</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Pcio. Unit.</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.items.length === 0 ? (
+              <tr><td colSpan={5} className="px-2 py-3 text-center text-gray-500">Sin ítems</td></tr>
+            ) : data.items.map((it, i) => (
+              <tr key={i} className="border-b border-gray-300">
+                <td className="px-2 py-1">{it.codigo}</td>
+                <td className="px-2 py-1">{it.descripcion}</td>
+                <td className="px-2 py-1 text-right">{it.cantidad}</td>
+                <td className="px-2 py-1 text-right">{formatPesos(it.precio_unitario)}</td>
+                <td className="px-2 py-1 text-right">{formatPesos(it.subtotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <div className="mt-3 grid grid-cols-[1fr_220px] gap-3">
-        <div className="border border-black p-2 text-[10px]">
-          <div className="font-semibold">OBSERVACIONES:</div>
-          <div className="whitespace-pre-wrap">{data.observaciones || "—"}</div>
-          {data.condicionPago && <div className="mt-1">{data.condicionPago}</div>}
-          {data.consideraciones && <div className="mt-1">{data.consideraciones}</div>}
-        </div>
-        <div className="border border-black text-[10px]">
-          <Row k="% Desc:" v={`${data.descuentoPct.toFixed(2)}%`} />
-          <Row k="Descuento:" v={formatPesos(data.descuentoMonto)} />
-          <Row k="T. Neto:" v={formatPesos(data.neto)} />
-          <Row k="I.V.A. 21%:" v={formatPesos(data.iva21)} />
-          <Row k="I.V.A. 10,5%:" v={formatPesos(data.iva105)} />
-          <div className="flex justify-between border-t-2 border-black bg-gray-100 px-2 py-1 font-bold">
-            <span>Total:</span><span>{formatPesos(data.total)}</span>
+        <div className="mt-4 grid grid-cols-[1fr_260px] gap-3">
+          <div className="border-2 border-black p-2 text-[10.5px]">
+            <div className="italic font-bold underline">OBSERVACIONES:</div>
+            <div className="whitespace-pre-wrap mt-1">{data.observaciones || "—"}</div>
+            {data.condicionPago && <div className="mt-1">{data.condicionPago}</div>}
+            {data.consideraciones && <div className="mt-1">{data.consideraciones}</div>}
+          </div>
+          <div className="text-[10.5px]">
+            <Row k="% Desc:" v={`${data.descuentoPct.toFixed(2)} %`} />
+            <Row k="Descuento:" v={formatPesos(data.descuentoMonto)} />
+            <Row k="T. Neto:" v={formatPesos(data.neto)} />
+            <Row k="I.V.A. 21%:" v={formatPesos(data.iva21)} />
+            <Row k="I.V.A. 10,5%:" v={formatPesos(data.iva105)} />
+            <div className="flex justify-between border-t border-black px-2 py-1.5 font-bold text-[13px]">
+              <span>Total</span><span>{formatPesos(data.total)}</span>
+            </div>
           </div>
         </div>
       </div>
