@@ -918,3 +918,137 @@ function TipoBtn({ icon, label, sub, active, onClick }: { icon: React.ReactNode;
     </button>
   );
 }
+
+function numeroALetras(n: number): string {
+  // simple, suficiente para recibos
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
+}
+
+function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onClose }: {
+  mov: Mov;
+  allMovs: Mov[];
+  facturasVenta: any[];
+  facturasCompra: any[];
+  emisor: string;
+  onClose: () => void;
+}) {
+  const esCobro = mov.direccion === "cobro";
+  const facturaId = esCobro ? mov.factura_venta_id : mov.factura_compra_id;
+  const factura = facturaId
+    ? (esCobro ? facturasVenta : facturasCompra).find((f: any) => f.id === facturaId)
+    : null;
+
+  // Si está vinculado a una factura, agrupamos TODOS los movimientos de esa factura.
+  const items = facturaId
+    ? allMovs.filter(m =>
+        (esCobro ? m.factura_venta_id : m.factura_compra_id) === facturaId
+      )
+    : [mov];
+
+  const total = items.reduce((a, m) => a + Number(m.monto), 0);
+  const reciboNro = `R-${new Date().getFullYear()}-${mov.id.slice(0, 8).toUpperCase()}`;
+  const hoy = new Date().toISOString().split("T")[0];
+  const contraparte = mov.contraparte ?? factura?.proveedor ?? "—";
+
+  const imprimir = () => window.print();
+
+  return (
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-0">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .recibo-print, .recibo-print * { visibility: visible; }
+          .recibo-print { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
+          .recibo-print .no-print { display: none !important; }
+        }
+      `}</style>
+      <DialogHeader className="no-print">
+        <DialogTitle>Recibo de {esCobro ? "cobro" : "pago"}</DialogTitle>
+        <DialogDescription>Comprobante para entregar al {esCobro ? "cliente" : "proveedor"}.</DialogDescription>
+      </DialogHeader>
+
+      <div className="recibo-print bg-white text-black rounded-md border p-6 space-y-4 text-sm">
+        <div className="flex justify-between items-start border-b pb-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500">Emisor</div>
+            <div className="font-bold text-base">{emisor || "Empresa"}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-bold uppercase">Recibo {esCobro ? "de cobro" : "de pago"}</div>
+            <div className="text-xs">Nº {reciboNro}</div>
+            <div className="text-xs">Fecha: {formatFecha(hoy)}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500">{esCobro ? "Recibido de" : "Pagado a"}</div>
+            <div className="font-semibold">{contraparte}</div>
+          </div>
+          {factura && (
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500">Factura aplicada</div>
+              <div className="font-semibold">Nº {factura.numero ?? "s/n"} — {formatFecha(factura.fecha)}</div>
+              <div className="text-xs text-gray-600">Total factura: {formatPesos(factura.total)}</div>
+              {factura.trabajo && <div className="text-xs text-gray-600">{factura.trabajo}</div>}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Detalle de medios de pago</div>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-gray-300">
+                <th className="text-left py-1 px-2">Medio</th>
+                <th className="text-left py-1 px-2">Nº / Ref.</th>
+                <th className="text-left py-1 px-2">Banco</th>
+                <th className="text-left py-1 px-2">Fecha emisión</th>
+                <th className="text-left py-1 px-2">Vencimiento</th>
+                <th className="text-right py-1 px-2">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(m => (
+                <tr key={m.id} className="border-b border-gray-200">
+                  <td className="py-1 px-2">{INSTRUMENT_LABEL[m.instrumento]}</td>
+                  <td className="py-1 px-2">{m.numero ?? "—"}</td>
+                  <td className="py-1 px-2">{m.banco ?? "—"}</td>
+                  <td className="py-1 px-2">{formatFecha(m.fecha_emision)}</td>
+                  <td className="py-1 px-2">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</td>
+                  <td className="py-1 px-2 text-right font-mono">{formatPesos(m.monto)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5} className="py-2 px-2 text-right font-semibold">TOTAL</td>
+                <td className="py-2 px-2 text-right font-mono font-bold text-base">{formatPesos(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div className="text-xs italic text-gray-700 border-t pt-2">
+          Son: <span className="font-semibold">{numeroALetras(total)}</span>
+          {factura && Number(factura.total) - total > 0.01 && (
+            <div className="mt-1 text-amber-700">
+              Saldo pendiente de la factura: {formatPesos(Number(factura.total) - total)}
+            </div>
+          )}
+          {mov.observaciones && <div className="mt-1">Obs.: {mov.observaciones}</div>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 pt-12">
+          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma del emisor</div>
+          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma {esCobro ? "del cliente" : "del proveedor"}</div>
+        </div>
+      </div>
+
+      <DialogFooter className="no-print">
+        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        <Button onClick={imprimir}><Printer className="w-4 h-4 mr-2" />Imprimir / Guardar PDF</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
