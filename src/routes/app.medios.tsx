@@ -953,13 +953,18 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
   const imprimir = () => window.print();
 
   return (
-    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-0">
+    <DialogContent className="recibo-dialog-content max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-0">
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .recibo-print, .recibo-print * { visibility: visible; }
-          .recibo-print { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
-          .recibo-print .no-print { display: none !important; }
+          @page { size: A4 portrait; margin: 10mm; }
+          html, body { width: 210mm !important; min-height: 297mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
+          body * { visibility: hidden !important; }
+          body *, body *::before, body *::after { background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+          .recibo-dialog-content { position: static !important; inset: auto !important; width: auto !important; max-width: none !important; max-height: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; transform: none !important; }
+          .recibo-print, .recibo-print * { visibility: visible !important; }
+          .recibo-print { position: fixed !important; left: 0 !important; top: 0 !important; width: 190mm !important; min-height: auto !important; margin: 0 !important; padding: 8mm !important; color: #000 !important; background: #fff !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; font-size: 10px !important; line-height: 1.35 !important; }
+          .recibo-print table { page-break-inside: avoid; break-inside: avoid; }
+          .recibo-print .no-print, .no-print { display: none !important; }
         }
       `}</style>
       <DialogHeader className="no-print">
