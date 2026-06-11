@@ -950,6 +950,8 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
   const reciboNro = `R-${new Date().getFullYear()}-${mov.id.slice(0, 8).toUpperCase()}`;
   const hoy = new Date().toISOString().split("T")[0];
   const contraparte = mov.contraparte ?? factura?.proveedor ?? "—";
+  const tituloDoc = esCobro ? "RECIBO DE COBRO" : "RECIBO DE PAGO";
+  const saldo = factura ? Number(factura.total) - total : 0;
 
   const imprimir = () => window.print();
 
@@ -963,9 +965,10 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
           body *, body *::before, body *::after { background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
           .recibo-dialog-content { position: static !important; inset: auto !important; width: auto !important; max-width: none !important; max-height: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; transform: none !important; }
           .recibo-print, .recibo-print * { visibility: visible !important; }
-          .recibo-print { position: fixed !important; left: 0 !important; top: 0 !important; width: 190mm !important; min-height: auto !important; margin: 0 !important; padding: 8mm !important; color: #000 !important; background: #fff !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; font-size: 10px !important; line-height: 1.35 !important; }
+          .recibo-print { position: fixed !important; left: 0 !important; top: 0 !important; width: 190mm !important; min-height: auto !important; margin: 0 !important; padding: 8mm !important; color: #000 !important; background: #fff !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; font-size: 10.5px !important; line-height: 1.35 !important; }
           .recibo-print table { page-break-inside: avoid; break-inside: avoid; }
           .recibo-print .no-print, .no-print { display: none !important; }
+          .recibo-print img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
       <DialogHeader className="no-print">
@@ -973,81 +976,77 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
         <DialogDescription>Comprobante para entregar al {esCobro ? "cliente" : "proveedor"}.</DialogDescription>
       </DialogHeader>
 
-      <div className="recibo-print bg-white text-black rounded-md border p-6 space-y-4 text-sm">
-        <div className="flex justify-between items-start border-b pb-3">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-gray-500">Emisor</div>
-            <div className="font-bold text-base">{emisor || "Empresa"}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-xl font-bold uppercase">Recibo {esCobro ? "de cobro" : "de pago"}</div>
-            <div className="text-xs">Nº {reciboNro}</div>
-            <div className="text-xs">Fecha: {formatFecha(hoy)}</div>
-          </div>
-        </div>
+      <div className="recibo-print relative bg-white text-black p-6 text-[10.5px]" style={{ minHeight: "260mm" }}>
+        <FemaWatermark />
+        <div className="relative z-10">
+          <FemaDocHeader
+            title={tituloDoc}
+            meta={[
+              { label: "Nº:", value: reciboNro },
+              { label: "Fecha:", value: formatFecha(hoy) },
+              ...(factura ? [{ label: "Factura:", value: factura.numero ?? "s/n" }] : []),
+            ]}
+          />
+          <FemaClientBox
+            rows={[
+              { label: esCobro ? "Cliente:" : "Proveedor:", value: contraparte },
+              { label: "Concepto:", value: factura?.trabajo || (esCobro ? "Cobro" : "Pago") },
+              ...(factura ? [
+                { label: "Factura Nº:", value: `${factura.numero ?? "s/n"} — ${formatFecha(factura.fecha)}` },
+                { label: "Total factura:", value: formatPesos(factura.total) },
+              ] : [{ label: "", value: "" }, { label: "", value: "" }]),
+            ]}
+          />
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-gray-500">{esCobro ? "Recibido de" : "Pagado a"}</div>
-            <div className="font-semibold">{contraparte}</div>
-          </div>
-          {factura && (
-            <div>
-              <div className="text-xs uppercase tracking-wider text-gray-500">Factura aplicada</div>
-              <div className="font-semibold">Nº {factura.numero ?? "s/n"} — {formatFecha(factura.fecha)}</div>
-              <div className="text-xs text-gray-600">Total factura: {formatPesos(factura.total)}</div>
-              {factura.trabajo && <div className="text-xs text-gray-600">{factura.trabajo}</div>}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Detalle de medios de pago</div>
-          <table className="w-full border-collapse text-xs">
+          <table className="fema mt-3 w-full border-collapse text-[10.5px]">
             <thead>
-              <tr className="border-b border-gray-300">
-                <th className="text-left py-1 px-2">Medio</th>
-                <th className="text-left py-1 px-2">Nº / Ref.</th>
-                <th className="text-left py-1 px-2">Banco</th>
-                <th className="text-left py-1 px-2">Fecha emisión</th>
-                <th className="text-left py-1 px-2">Vencimiento</th>
-                <th className="text-right py-1 px-2">Monto</th>
+              <tr>
+                <th className="border-y-2 border-black px-2 py-1 text-left">Medio</th>
+                <th className="border-y-2 border-black px-2 py-1 text-left">Nº / Ref.</th>
+                <th className="border-y-2 border-black px-2 py-1 text-left">Banco</th>
+                <th className="border-y-2 border-black px-2 py-1 text-left">Fecha emisión</th>
+                <th className="border-y-2 border-black px-2 py-1 text-left">Vencimiento</th>
+                <th className="border-y-2 border-black px-2 py-1 text-right">Monto</th>
               </tr>
             </thead>
             <tbody>
               {items.map(m => (
-                <tr key={m.id} className="border-b border-gray-200">
-                  <td className="py-1 px-2">{INSTRUMENT_LABEL[m.instrumento]}</td>
-                  <td className="py-1 px-2">{m.numero ?? "—"}</td>
-                  <td className="py-1 px-2">{m.banco ?? "—"}</td>
-                  <td className="py-1 px-2">{formatFecha(m.fecha_emision)}</td>
-                  <td className="py-1 px-2">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</td>
-                  <td className="py-1 px-2 text-right font-mono">{formatPesos(m.monto)}</td>
+                <tr key={m.id} className="border-b border-gray-300">
+                  <td className="px-2 py-1">{INSTRUMENT_LABEL[m.instrumento]}</td>
+                  <td className="px-2 py-1">{m.numero ?? "—"}</td>
+                  <td className="px-2 py-1">{m.banco ?? "—"}</td>
+                  <td className="px-2 py-1">{formatFecha(m.fecha_emision)}</td>
+                  <td className="px-2 py-1">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</td>
+                  <td className="px-2 py-1 text-right font-mono">{formatPesos(m.monto)}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={5} className="py-2 px-2 text-right font-semibold">TOTAL</td>
-                <td className="py-2 px-2 text-right font-mono font-bold text-base">{formatPesos(total)}</td>
-              </tr>
-            </tfoot>
           </table>
-        </div>
 
-        <div className="text-xs italic text-gray-700 border-t pt-2">
-          Son: <span className="font-semibold">{numeroALetras(total)}</span>
-          {factura && Number(factura.total) - total > 0.01 && (
-            <div className="mt-1 text-amber-700">
-              Saldo pendiente de la factura: {formatPesos(Number(factura.total) - total)}
+          <div className="mt-4 grid grid-cols-[1fr_260px] gap-3">
+            <div className="border-2 border-black p-2 text-[10.5px]">
+              <div className="italic font-bold underline">OBSERVACIONES:</div>
+              <div className="mt-1">
+                Son: <span className="font-semibold">{numeroALetras(total)}</span>
+              </div>
+              {factura && saldo > 0.01 && (
+                <div className="mt-1">Saldo pendiente de la factura: <b>{formatPesos(saldo)}</b></div>
+              )}
+              {mov.observaciones && <div className="mt-1 whitespace-pre-wrap">{mov.observaciones}</div>}
             </div>
-          )}
-          {mov.observaciones && <div className="mt-1">Obs.: {mov.observaciones}</div>}
-        </div>
+            <div className="text-[10.5px]">
+              <div className="flex justify-between border-b border-gray-400 px-2 py-1"><span className="font-semibold">Cantidad de valores:</span><span>{items.length}</span></div>
+              <div className="flex justify-between border-b border-gray-400 px-2 py-1"><span className="font-semibold">Subtotal:</span><span>{formatPesos(total)}</span></div>
+              <div className="flex justify-between border-t border-black px-2 py-1.5 font-bold text-[13px]">
+                <span>Total</span><span>{formatPesos(total)}</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-2 gap-8 pt-12">
-          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma del emisor</div>
-          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma {esCobro ? "del cliente" : "del proveedor"}</div>
+          <div className="grid grid-cols-2 gap-16 pt-16">
+            <div className="border-t border-black pt-1 text-center text-[10.5px]">Firma del emisor</div>
+            <div className="border-t border-black pt-1 text-center text-[10.5px]">Firma {esCobro ? "del cliente" : "del proveedor"}</div>
+          </div>
         </div>
       </div>
 
