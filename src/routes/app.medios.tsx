@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Send, Edit3 } from "lucide-react";
+import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Send, Edit3, Receipt, Printer } from "lucide-react";
 import { Sparkles, X as XIcon } from "lucide-react";
 
 export const Route = createFileRoute("/app/medios")({ component: Page });
@@ -65,6 +65,7 @@ function Page() {
   const [busqueda, setBusqueda] = useState("");
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
+  const [reciboMov, setReciboMov] = useState<Mov | null>(null);
 
   const movsQ = useQuery({
     queryKey: ["fema_movimientos_pago", user?.id, year],
@@ -283,7 +284,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} />
+                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -318,6 +319,19 @@ function Page() {
           />
         )}
       </Dialog>
+
+      <Dialog open={!!reciboMov} onOpenChange={(v) => { if (!v) setReciboMov(null); }}>
+        {reciboMov && (
+          <ReciboDialog
+            mov={reciboMov}
+            allMovs={movs}
+            facturasVenta={facturasVentaQ.data ?? []}
+            facturasCompra={facturasCompraQ.data ?? []}
+            emisor={user?.email ?? ""}
+            onClose={() => setReciboMov(null)}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
@@ -337,9 +351,9 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
   );
 }
 
-function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete }: {
+function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
-  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
+  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void; onRecibo: (m: Mov) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -389,6 +403,11 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete }: {
                 {m.estado === "en_cartera" && (
                   <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
                     <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "cobro" ? "Cobrar" : "Pagar"}
+                  </Button>
+                )}
+                {(m.estado === "cobrado" || m.estado === "pagado" || m.estado === "en_cartera") && (
+                  <Button size="sm" variant="outline" onClick={() => onRecibo(m)} className="border-primary/40 text-primary">
+                    <Receipt className="w-3 h-3 mr-1" />Recibo
                   </Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => onEdit(m)}><Pencil className="w-3 h-3" /></Button>
@@ -897,5 +916,139 @@ function TipoBtn({ icon, label, sub, active, onClick }: { icon: React.ReactNode;
       <div className="flex items-center gap-2 font-medium text-sm">{icon}{label}</div>
       <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>
     </button>
+  );
+}
+
+function numeroALetras(n: number): string {
+  // simple, suficiente para recibos
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
+}
+
+function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onClose }: {
+  mov: Mov;
+  allMovs: Mov[];
+  facturasVenta: any[];
+  facturasCompra: any[];
+  emisor: string;
+  onClose: () => void;
+}) {
+  const esCobro = mov.direccion === "cobro";
+  const facturaId = esCobro ? mov.factura_venta_id : mov.factura_compra_id;
+  const factura = facturaId
+    ? (esCobro ? facturasVenta : facturasCompra).find((f: any) => f.id === facturaId)
+    : null;
+
+  // Si está vinculado a una factura, agrupamos TODOS los movimientos de esa factura.
+  const items = facturaId
+    ? allMovs.filter(m =>
+        (esCobro ? m.factura_venta_id : m.factura_compra_id) === facturaId
+      )
+    : [mov];
+
+  const total = items.reduce((a, m) => a + Number(m.monto), 0);
+  const reciboNro = `R-${new Date().getFullYear()}-${mov.id.slice(0, 8).toUpperCase()}`;
+  const hoy = new Date().toISOString().split("T")[0];
+  const contraparte = mov.contraparte ?? factura?.proveedor ?? "—";
+
+  const imprimir = () => window.print();
+
+  return (
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-0">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .recibo-print, .recibo-print * { visibility: visible; }
+          .recibo-print { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
+          .recibo-print .no-print { display: none !important; }
+        }
+      `}</style>
+      <DialogHeader className="no-print">
+        <DialogTitle>Recibo de {esCobro ? "cobro" : "pago"}</DialogTitle>
+        <DialogDescription>Comprobante para entregar al {esCobro ? "cliente" : "proveedor"}.</DialogDescription>
+      </DialogHeader>
+
+      <div className="recibo-print bg-white text-black rounded-md border p-6 space-y-4 text-sm">
+        <div className="flex justify-between items-start border-b pb-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500">Emisor</div>
+            <div className="font-bold text-base">{emisor || "Empresa"}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-bold uppercase">Recibo {esCobro ? "de cobro" : "de pago"}</div>
+            <div className="text-xs">Nº {reciboNro}</div>
+            <div className="text-xs">Fecha: {formatFecha(hoy)}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500">{esCobro ? "Recibido de" : "Pagado a"}</div>
+            <div className="font-semibold">{contraparte}</div>
+          </div>
+          {factura && (
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500">Factura aplicada</div>
+              <div className="font-semibold">Nº {factura.numero ?? "s/n"} — {formatFecha(factura.fecha)}</div>
+              <div className="text-xs text-gray-600">Total factura: {formatPesos(factura.total)}</div>
+              {factura.trabajo && <div className="text-xs text-gray-600">{factura.trabajo}</div>}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Detalle de medios de pago</div>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-gray-300">
+                <th className="text-left py-1 px-2">Medio</th>
+                <th className="text-left py-1 px-2">Nº / Ref.</th>
+                <th className="text-left py-1 px-2">Banco</th>
+                <th className="text-left py-1 px-2">Fecha emisión</th>
+                <th className="text-left py-1 px-2">Vencimiento</th>
+                <th className="text-right py-1 px-2">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(m => (
+                <tr key={m.id} className="border-b border-gray-200">
+                  <td className="py-1 px-2">{INSTRUMENT_LABEL[m.instrumento]}</td>
+                  <td className="py-1 px-2">{m.numero ?? "—"}</td>
+                  <td className="py-1 px-2">{m.banco ?? "—"}</td>
+                  <td className="py-1 px-2">{formatFecha(m.fecha_emision)}</td>
+                  <td className="py-1 px-2">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</td>
+                  <td className="py-1 px-2 text-right font-mono">{formatPesos(m.monto)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={5} className="py-2 px-2 text-right font-semibold">TOTAL</td>
+                <td className="py-2 px-2 text-right font-mono font-bold text-base">{formatPesos(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div className="text-xs italic text-gray-700 border-t pt-2">
+          Son: <span className="font-semibold">{numeroALetras(total)}</span>
+          {factura && Number(factura.total) - total > 0.01 && (
+            <div className="mt-1 text-amber-700">
+              Saldo pendiente de la factura: {formatPesos(Number(factura.total) - total)}
+            </div>
+          )}
+          {mov.observaciones && <div className="mt-1">Obs.: {mov.observaciones}</div>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 pt-12">
+          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma del emisor</div>
+          <div className="border-t border-gray-400 pt-1 text-center text-xs">Firma {esCobro ? "del cliente" : "del proveedor"}</div>
+        </div>
+      </div>
+
+      <DialogFooter className="no-print">
+        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        <Button onClick={imprimir}><Printer className="w-4 h-4 mr-2" />Imprimir / Guardar PDF</Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
