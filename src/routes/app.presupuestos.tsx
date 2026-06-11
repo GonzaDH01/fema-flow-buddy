@@ -551,9 +551,9 @@ type PdfData = {
 
 function PresupuestoPDF({ data }: { data: PdfData }) {
   return (
-    <div className="relative bg-white p-6 text-[11px] text-black" style={{ minHeight: "260mm" }}>
+    <div className="relative bg-white p-6 text-[11px] text-black flex flex-col" style={{ minHeight: "273mm" }}>
       <FemaWatermark />
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col flex-1">
         <FemaDocHeader
           title="PRESUPUESTO"
           meta={[
@@ -597,6 +597,7 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
           </tbody>
         </table>
 
+        <div className="flex-1" />
         <div className="mt-4 grid grid-cols-[1fr_260px] gap-3">
           <div className="border-2 border-black p-2 text-[10.5px]">
             <div className="italic font-bold underline">OBSERVACIONES:</div>
@@ -680,6 +681,7 @@ function renderPrintHTML(p: Presupuesto, items: any[]) {
       </tr></thead>
       <tbody>${rowsHTML}</tbody>
     </table>
+    <div class="fema-spacer"></div>
     <div class="fema-bottom">
       <div class="fema-obs">
         <div class="t">OBSERVACIONES:</div>

@@ -71,10 +71,11 @@ export function FemaWatermark() {
 export const femaPrintCSS = `
   @page { size: A4 portrait; margin: 12mm; }
   body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; font-size: 11px; }
-  .fema-page { position: relative; min-height: 260mm; }
+  .fema-page { position: relative; min-height: 273mm; display: flex; flex-direction: column; }
   .fema-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0.15; z-index: 0; pointer-events: none; }
   .fema-watermark img { width: 55%; max-width: 380px; }
-  .fema-content { position: relative; z-index: 1; }
+  .fema-content { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 273mm; }
+  .fema-spacer { flex: 1 1 auto; }
   .fema-hdr { display: grid; grid-template-columns: 1.4fr auto 1fr; border: 2px solid #000; background: #fff; }
   .fema-hdr .l { padding: 8px; }
   .fema-hdr .l img { height: 50px; display: block; }
