@@ -23,6 +23,11 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  FEMA_INFO, femaLogoUrl, femaWatermarkUrl, absoluteAssetUrl,
+  FemaDocHeader, FemaClientBox, FemaWatermark,
+  femaPrintCSS, femaHeaderHTML, femaClientHTML, femaWatermarkHTML,
+} from "@/lib/fema-doc";
 
 export const Route = createFileRoute("/app/presupuestos")({ component: Page });
 
