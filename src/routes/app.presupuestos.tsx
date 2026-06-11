@@ -23,6 +23,11 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  femaLogoUrl, femaWatermarkUrl, absoluteAssetUrl,
+  FemaDocHeader, FemaClientBox, FemaWatermark,
+  femaPrintCSS, femaHeaderHTML, femaClientHTML, femaWatermarkHTML,
+} from "@/lib/fema-doc";
 
 export const Route = createFileRoute("/app/presupuestos")({ component: Page });
 
@@ -546,75 +551,68 @@ type PdfData = {
 
 function PresupuestoPDF({ data }: { data: PdfData }) {
   return (
-    <div className="bg-white p-6 text-[11px] text-black" style={{ minHeight: "auto" }}>
-      <div className="flex items-start justify-between border-b-2 border-black pb-3">
-        <div>
-          <div className="text-lg font-bold">FEMA AGRONEGOCIOS S.A.S.</div>
-          <div className="text-[10px] leading-tight">
-            Belgrano 135 — San Guillermo — CP 2347 · 0356 252-5255<br />
-            femaagronegocios@gmail.com<br />
-            RESPONSABLE INSCRIPTO
-          </div>
-        </div>
-        <div className="ml-4 border border-black px-4 py-2 text-center">
-          <div className="text-sm font-bold">PRESUPUESTO</div>
-          <div className="mt-1 text-[10px] text-left">
-            <div><span className="font-semibold">N°:</span> {data.numero}</div>
-            <div><span className="font-semibold">Fecha:</span> {formatFecha(data.fecha)}</div>
-            <div><span className="font-semibold">Vto.:</span> {data.fechaVto ? formatFecha(data.fechaVto) : "—"}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 border border-black p-2 text-[10px]">
-        <div className="grid grid-cols-[80px_1fr] gap-x-2">
-          <span className="font-semibold">Cliente:</span><span>{data.clienteNombre || "—"}</span>
-          <span className="font-semibold">Domicilio:</span><span>{data.domicilio || "—"}</span>
-          <span className="font-semibold">Localidad:</span><span>{data.localidad || "—"}</span>
-          <span className="font-semibold">CUIT:</span><span>{data.cuit || "—"} &nbsp;&nbsp; <span className="font-semibold">Cond. IVA:</span> {data.condIva || "—"}</span>
-        </div>
-      </div>
-
-      <table className="mt-3 w-full border-collapse text-[10px]">
-        <thead>
-          <tr className="border-b border-black bg-gray-100">
-            <th className="border-r border-black px-2 py-1 text-left">CÓD.</th>
-            <th className="border-r border-black px-2 py-1 text-left">DESCRIPCIÓN</th>
-            <th className="border-r border-black px-2 py-1 text-right">CANT.</th>
-            <th className="border-r border-black px-2 py-1 text-right">P. UNIT.</th>
-            <th className="px-2 py-1 text-right">TOTAL</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.items.length === 0 ? (
-            <tr><td colSpan={5} className="px-2 py-3 text-center text-gray-500">Sin ítems</td></tr>
-          ) : data.items.map((it, i) => (
-            <tr key={i} className="border-b border-gray-300">
-              <td className="border-r border-gray-300 px-2 py-1">{it.codigo}</td>
-              <td className="border-r border-gray-300 px-2 py-1">{it.descripcion}</td>
-              <td className="border-r border-gray-300 px-2 py-1 text-right">{it.cantidad}</td>
-              <td className="border-r border-gray-300 px-2 py-1 text-right">{formatPesos(it.precio_unitario)}</td>
-              <td className="px-2 py-1 text-right">{formatPesos(it.subtotal)}</td>
+    <div className="relative bg-white p-6 text-[11px] text-black" style={{ minHeight: "260mm" }}>
+      <FemaWatermark />
+      <div className="relative z-10">
+        <FemaDocHeader
+          title="PRESUPUESTO"
+          meta={[
+            { label: "Nº:", value: data.numero || "—" },
+            { label: "Fecha:", value: data.fecha ? formatFecha(data.fecha) : "—" },
+            { label: "Fecha Vto:", value: data.fechaVto ? formatFecha(data.fechaVto) : "—" },
+          ]}
+        />
+        <FemaClientBox
+          rows={[
+            { label: "Cliente:", value: data.clienteNombre },
+            { label: "CUIT:", value: data.cuit },
+            { label: "Domicilio:", value: data.domicilio },
+            { label: "Cond. IVA:", value: data.condIva },
+            { label: "Localidad:", value: data.localidad },
+            { label: "", value: "" },
+          ]}
+        />
+        <table className="mt-3 w-full border-collapse text-[10.5px]">
+          <thead>
+            <tr>
+              <th className="border-y-2 border-black px-2 py-1 text-left">Codigo</th>
+              <th className="border-y-2 border-black px-2 py-1 text-left">Descripción</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Cant.</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Pcio. Unit.</th>
+              <th className="border-y-2 border-black px-2 py-1 text-right">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.items.length === 0 ? (
+              <tr><td colSpan={5} className="px-2 py-3 text-center text-gray-500">Sin ítems</td></tr>
+            ) : data.items.map((it, i) => (
+              <tr key={i} className="border-b border-gray-300">
+                <td className="px-2 py-1">{it.codigo}</td>
+                <td className="px-2 py-1">{it.descripcion}</td>
+                <td className="px-2 py-1 text-right">{it.cantidad}</td>
+                <td className="px-2 py-1 text-right">{formatPesos(it.precio_unitario)}</td>
+                <td className="px-2 py-1 text-right">{formatPesos(it.subtotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      <div className="mt-3 grid grid-cols-[1fr_220px] gap-3">
-        <div className="border border-black p-2 text-[10px]">
-          <div className="font-semibold">OBSERVACIONES:</div>
-          <div className="whitespace-pre-wrap">{data.observaciones || "—"}</div>
-          {data.condicionPago && <div className="mt-1">{data.condicionPago}</div>}
-          {data.consideraciones && <div className="mt-1">{data.consideraciones}</div>}
-        </div>
-        <div className="border border-black text-[10px]">
-          <Row k="% Desc:" v={`${data.descuentoPct.toFixed(2)}%`} />
-          <Row k="Descuento:" v={formatPesos(data.descuentoMonto)} />
-          <Row k="T. Neto:" v={formatPesos(data.neto)} />
-          <Row k="I.V.A. 21%:" v={formatPesos(data.iva21)} />
-          <Row k="I.V.A. 10,5%:" v={formatPesos(data.iva105)} />
-          <div className="flex justify-between border-t-2 border-black bg-gray-100 px-2 py-1 font-bold">
-            <span>Total:</span><span>{formatPesos(data.total)}</span>
+        <div className="mt-4 grid grid-cols-[1fr_260px] gap-3">
+          <div className="border-2 border-black p-2 text-[10.5px]">
+            <div className="italic font-bold underline">OBSERVACIONES:</div>
+            <div className="whitespace-pre-wrap mt-1">{data.observaciones || "—"}</div>
+            {data.condicionPago && <div className="mt-1">{data.condicionPago}</div>}
+            {data.consideraciones && <div className="mt-1">{data.consideraciones}</div>}
+          </div>
+          <div className="text-[10.5px]">
+            <Row k="% Desc:" v={`${data.descuentoPct.toFixed(2)} %`} />
+            <Row k="Descuento:" v={formatPesos(data.descuentoMonto)} />
+            <Row k="T. Neto:" v={formatPesos(data.neto)} />
+            <Row k="I.V.A. 21%:" v={formatPesos(data.iva21)} />
+            <Row k="I.V.A. 10,5%:" v={formatPesos(data.iva105)} />
+            <div className="flex justify-between border-t border-black px-2 py-1.5 font-bold text-[13px]">
+              <span>Total</span><span>{formatPesos(data.total)}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -623,7 +621,7 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
 }
 
 function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex justify-between border-b border-gray-300 px-2 py-0.5"><span>{k}</span><span>{v}</span></div>;
+  return <div className="flex justify-between border-b border-gray-300 px-2 py-0.5"><span className="font-semibold">{k}</span><span>{v}</span></div>;
 }
 
 // ============ Print existing record ============
@@ -644,65 +642,58 @@ async function printPresupuesto(id: string) {
 function renderPrintHTML(p: Presupuesto, items: any[]) {
   const fmt = (n: number) => formatPesos(n);
   const fdate = (d: string | null) => d ? formatFecha(d) : "—";
+  const logo = absoluteAssetUrl(femaLogoUrl);
+  const wm = absoluteAssetUrl(femaWatermarkUrl);
+  const rowsHTML = items.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:#888;padding:12px">Sin ítems</td></tr>`
+    : items.map((i) => `<tr>
+        <td>${i.codigo ?? ""}</td>
+        <td>${i.descripcion ?? ""}</td>
+        <td class="right">${i.cantidad}</td>
+        <td class="right">${fmt(Number(i.precio_unitario))}</td>
+        <td class="right">${fmt(Number(i.subtotal))}</td>
+      </tr>`).join("");
+  const obs = [(p.observaciones ?? "").trim(), (p.condicion_pago ?? "").trim(), (p.consideraciones ?? "").trim()]
+    .filter(Boolean).join("\n").replace(/\n/g, "<br>") || "—";
   return `<!doctype html><html><head><meta charset="utf-8"><title>${p.numero ?? "Presupuesto"}</title>
-<style>
-  body { font-family: Arial, sans-serif; color: #000; margin: 24px; font-size: 12px; }
-  .hdr { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px; }
-  .hdr h1 { margin: 0; font-size: 16px; }
-  .box { border: 1px solid #000; padding: 6px; margin-top: 10px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
-  th, td { border: 1px solid #888; padding: 4px 6px; }
-  th { background: #eee; text-align: left; }
-  .right { text-align: right; }
-  .totals { width: 240px; float: right; margin-top: 10px; border: 1px solid #000; font-size: 11px; }
-  .totals .r { display: flex; justify-content: space-between; padding: 3px 6px; border-bottom: 1px solid #ccc; }
-  .totals .t { font-weight: bold; background: #eee; border-top: 2px solid #000; border-bottom: none; }
-  .obs { border: 1px solid #000; padding: 6px; margin-top: 10px; font-size: 11px; max-width: 460px; }
-  .quote { border: 1px solid #000; padding: 6px 12px; text-align: center; }
-</style></head><body>
-<div class="hdr">
-  <div>
-    <h1>FEMA AGRONEGOCIOS S.A.S.</h1>
-    <div>Belgrano 135 — San Guillermo — CP 2347 · 0356 252-5255</div>
-    <div>femaagronegocios@gmail.com</div>
-    <div>RESPONSABLE INSCRIPTO</div>
-  </div>
-  <div class="quote">
-    <div style="font-weight:bold">PRESUPUESTO</div>
-    <div style="text-align:left;margin-top:6px">
-      <div><b>N°:</b> ${p.numero ?? "—"}</div>
-      <div><b>Fecha:</b> ${fdate(p.fecha)}</div>
-      <div><b>Vto.:</b> ${fdate(p.fecha_vencimiento)}</div>
+<style>${femaPrintCSS}</style></head><body>
+<div class="fema-page">
+  ${femaWatermarkHTML(wm)}
+  <div class="fema-content">
+    ${femaHeaderHTML("PRESUPUESTO", [
+      { label: "Nº:", value: p.numero ?? "—" },
+      { label: "Fecha:", value: fdate(p.fecha) },
+      { label: "Fecha Vto:", value: fdate(p.fecha_vencimiento) },
+    ], logo)}
+    ${femaClientHTML([
+      { label: "Cliente:", value: p.cliente_nombre ?? "" },
+      { label: "CUIT:", value: p.cliente_cuit ?? "" },
+      { label: "Domicilio:", value: p.cliente_domicilio ?? "" },
+      { label: "Cond. IVA:", value: p.cliente_cond_iva ?? "" },
+      { label: "Localidad:", value: p.cliente_localidad ?? "" },
+      { label: "", value: "" },
+    ])}
+    <table class="fema">
+      <thead><tr>
+        <th>Codigo</th><th>Descripción</th>
+        <th class="right">Cant.</th><th class="right">Pcio. Unit.</th><th class="right">Total</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div class="fema-bottom">
+      <div class="fema-obs">
+        <div class="t">OBSERVACIONES:</div>
+        ${obs}
+      </div>
+      <div class="fema-tot">
+        <div class="row"><span>% Desc:</span><span>${Number(p.descuento_pct ?? 0).toFixed(2)} %</span></div>
+        <div class="row"><span>Descuento:</span><span>${fmt(Number(p.descuento_monto ?? 0))}</span></div>
+        <div class="row"><span>T. Neto:</span><span>${fmt(Number(p.neto ?? 0))}</span></div>
+        <div class="row"><span>I.V.A. 21%:</span><span>${fmt(Number(p.iva_21 ?? 0))}</span></div>
+        <div class="row"><span>I.V.A. 10,5%:</span><span>${fmt(Number(p.iva_105 ?? 0))}</span></div>
+        <div class="row total"><span>Total</span><span>${fmt(Number(p.total ?? 0))}</span></div>
+      </div>
     </div>
-  </div>
-</div>
-<div class="box">
-  <div><b>Cliente:</b> ${p.cliente_nombre ?? "—"}</div>
-  <div><b>Domicilio:</b> ${p.cliente_domicilio ?? "—"}</div>
-  <div><b>Localidad:</b> ${p.cliente_localidad ?? "—"}</div>
-  <div><b>CUIT:</b> ${p.cliente_cuit ?? "—"} &nbsp;&nbsp; <b>Cond. IVA:</b> ${p.cliente_cond_iva ?? "—"}</div>
-</div>
-<table>
-  <thead><tr><th>Cód.</th><th>Descripción</th><th class="right">Cant.</th><th class="right">P. Unit.</th><th class="right">Total</th></tr></thead>
-  <tbody>
-    ${items.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:#888">Sin ítems</td></tr>` :
-      items.map((i) => `<tr><td>${i.codigo ?? ""}</td><td>${i.descripcion}</td><td class="right">${i.cantidad}</td><td class="right">${fmt(Number(i.precio_unitario))}</td><td class="right">${fmt(Number(i.subtotal))}</td></tr>`).join("")}
-  </tbody>
-</table>
-<div style="overflow:hidden">
-  <div class="totals">
-    <div class="r"><span>% Desc:</span><span>${Number(p.descuento_pct ?? 0).toFixed(2)}%</span></div>
-    <div class="r"><span>Descuento:</span><span>${fmt(Number(p.descuento_monto ?? 0))}</span></div>
-    <div class="r"><span>T. Neto:</span><span>${fmt(Number(p.neto ?? 0))}</span></div>
-    <div class="r"><span>I.V.A. 21%:</span><span>${fmt(Number(p.iva_21 ?? 0))}</span></div>
-    <div class="r"><span>I.V.A. 10,5%:</span><span>${fmt(Number(p.iva_105 ?? 0))}</span></div>
-    <div class="r t"><span>Total:</span><span>${fmt(Number(p.total ?? 0))}</span></div>
-  </div>
-  <div class="obs">
-    <b>OBSERVACIONES:</b><br>
-    ${(p.observaciones ?? "—").replace(/\n/g, "<br>")}<br>
-    ${p.condicion_pago ?? ""}<br>
-    ${p.consideraciones ?? ""}
   </div>
 </div>
 </body></html>`;
