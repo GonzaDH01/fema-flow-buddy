@@ -18,32 +18,35 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="min-h-screen bg-[image:var(--gradient-subtle)]">
-      <header className="container mx-auto flex items-center justify-between px-6 py-6">
+      <header className="container mx-auto flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground font-bold shadow-[var(--shadow-md)]">
             F
           </div>
           <span className="font-semibold tracking-tight text-foreground">FEMA</span>
         </div>
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2">
           <Link to="/auth">
-            <Button variant="ghost">Iniciar sesión</Button>
+            <Button variant="ghost" size="sm" className="sm:h-10 sm:px-4">Iniciar sesión</Button>
           </Link>
           <Link to="/app">
-            <Button>Entrar al sistema</Button>
+            <Button size="sm" className="sm:h-10 sm:px-4">
+              <span className="sm:hidden">Entrar</span>
+              <span className="hidden sm:inline">Entrar al sistema</span>
+            </Button>
           </Link>
         </nav>
       </header>
 
       <main className="container mx-auto px-6">
-        <section className="mx-auto max-w-3xl py-20 text-center">
+        <section className="mx-auto max-w-3xl px-2 py-12 text-center sm:py-20">
           <span className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-[var(--shadow-sm)]">
             Plataforma interna · v1.0
           </span>
-          <h1 className="mt-6 text-5xl font-bold tracking-tight text-foreground sm:text-6xl">
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
             Sistema de Gestión <span className="bg-[image:var(--gradient-primary)] bg-clip-text text-transparent">FEMA</span>
           </h1>
-          <p className="mt-6 text-lg text-muted-foreground">
+          <p className="mt-6 text-base text-muted-foreground sm:text-lg">
             Centraliza clientes, operaciones y reportes en una sola plataforma moderna, rápida y segura.
           </p>
           <div className="mt-8 flex justify-center gap-3">

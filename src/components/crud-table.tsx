@@ -44,15 +44,15 @@ export function CrudTable<T extends { id: string }>({
 }) {
   return (
     <div className="p-4 md:p-6">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3 md:mb-6">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">{title}</h2>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+      <header className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 md:mb-6 md:flex md:flex-wrap md:justify-between">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-bold tracking-tight sm:text-xl md:text-2xl">{title}</h2>
+          {description && <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="col-span-2 flex flex-wrap items-center gap-2 md:col-auto">
           {extraHeader}
           {!hideAdd && onAdd && (
-            <Button onClick={onAdd}>
+            <Button onClick={onAdd} size="sm" className="md:h-10 md:px-4">
               <Plus className="mr-1.5 h-4 w-4" /> Nuevo
             </Button>
           )}

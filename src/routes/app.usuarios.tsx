@@ -125,7 +125,7 @@ function Page() {
                     {u.isAdmin ? "Todos" : `${u.modulos_permitidos.length} módulos`}
                   </td>
                   <td className="px-4 py-2">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button size="sm" variant={u.aprobado ? "outline" : "default"} onClick={() => toggleAprobado(u)}>
                         {u.aprobado ? "Revocar" : "Aprobar"}
                       </Button>
