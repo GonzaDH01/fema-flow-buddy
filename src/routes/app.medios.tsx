@@ -327,7 +327,7 @@ function Page() {
             allMovs={movs}
             facturasVenta={facturasVentaQ.data ?? []}
             facturasCompra={facturasCompraQ.data ?? []}
-            emisor={user?.email ?? ""}
+            emisor="FEMA — Gestión Agropecuaria"
             onClose={() => setReciboMov(null)}
           />
         )}
