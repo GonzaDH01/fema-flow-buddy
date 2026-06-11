@@ -680,6 +680,7 @@ function renderPrintHTML(p: Presupuesto, items: any[]) {
       </tr></thead>
       <tbody>${rowsHTML}</tbody>
     </table>
+    <div class="fema-spacer"></div>
     <div class="fema-bottom">
       <div class="fema-obs">
         <div class="t">OBSERVACIONES:</div>
