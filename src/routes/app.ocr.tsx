@@ -68,9 +68,19 @@ function Page() {
     setLoading(true);
     setResult(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("Sesión expirada. Iniciá sesión nuevamente.");
+        setLoading(false);
+        return;
+      }
       const res = await fetch("/api/public/ocr-factura", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ image: b64, mimeType: mime }),
       });
       const json = await res.json();

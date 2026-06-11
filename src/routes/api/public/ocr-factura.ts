@@ -2,10 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
-  "Access-Control-Max-Age": "86400",
+  // Same-origin only: el frontend propio llama a este endpoint con cookies/session,
+  // así que no se necesita CORS permisivo. Sin wildcard se evita que sitios de
+  // terceros disparen requests al gateway de IA.
   "Content-Type": "application/json",
 };
 
@@ -42,6 +41,28 @@ export const Route = createFileRoute("/api/public/ocr-factura")({
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
       POST: async ({ request }) => {
         try {
+          // Auth check: require a valid Supabase session bearer token.
+          // This endpoint forwards to a paid AI service, so anonymous access
+          // would let anyone burn the LOVABLE_API_KEY credits.
+          const authHeader = request.headers.get("authorization") ?? request.headers.get("Authorization");
+          const token = authHeader?.toLowerCase().startsWith("bearer ")
+            ? authHeader.slice(7).trim()
+            : null;
+          if (!token) return json(401, { error: "No autenticado" });
+
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseAnon = process.env.SUPABASE_PUBLISHABLE_KEY;
+          if (!supabaseUrl || !supabaseAnon) {
+            return json(500, { error: "Servicio no configurado." });
+          }
+          const sb = createClient(supabaseUrl, supabaseAnon, {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+          const { data: userRes, error: userErr } = await sb.auth.getUser();
+          if (userErr || !userRes?.user) return json(401, { error: "Sesión inválida" });
+
           const raw = await request.json().catch(() => null);
           const parsed = InputSchema.safeParse(raw);
           if (!parsed.success) return json(400, { error: "Datos inválidos", details: parsed.error.format() });
