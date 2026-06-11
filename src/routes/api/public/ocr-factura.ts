@@ -2,10 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
-  "Access-Control-Max-Age": "86400",
+  // Same-origin only: el frontend propio llama a este endpoint con cookies/session,
+  // así que no se necesita CORS permisivo. Sin wildcard se evita que sitios de
+  // terceros disparen requests al gateway de IA.
   "Content-Type": "application/json",
 };
 
