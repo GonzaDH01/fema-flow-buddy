@@ -351,9 +351,9 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
   );
 }
 
-function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete }: {
+function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
-  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
+  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void; onRecibo: (m: Mov) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -403,6 +403,11 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete }: {
                 {m.estado === "en_cartera" && (
                   <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
                     <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "cobro" ? "Cobrar" : "Pagar"}
+                  </Button>
+                )}
+                {(m.estado === "cobrado" || m.estado === "pagado" || m.estado === "en_cartera") && (
+                  <Button size="sm" variant="outline" onClick={() => onRecibo(m)} className="border-primary/40 text-primary">
+                    <Receipt className="w-3 h-3 mr-1" />Recibo
                   </Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => onEdit(m)}><Pencil className="w-3 h-3" /></Button>
