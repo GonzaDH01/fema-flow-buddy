@@ -83,10 +83,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Plataforma de gestión integral FEMA: clientes, operaciones y reportes en un solo lugar." },
       { name: "author", content: "FEMA" },
       { property: "og:title", content: "Sistema de Gestión FEMA" },
-      { property: "og:description", content: "Plataforma de gestión integral FEMA." },
+      { property: "og:description", content: "Plataforma de gestión integral FEMA: clientes, operaciones y reportes en un solo lugar." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Sistema de Gestión FEMA" },
+      { name: "twitter:description", content: "Plataforma de gestión integral FEMA: clientes, operaciones y reportes en un solo lugar." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab72a193-c262-402d-bfb5-339ce52dcfad/id-preview-37a6345d--2a984d3f-c112-4ef5-8c52-60497fa54cd9.lovable.app-1781212205598.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ab72a193-c262-402d-bfb5-339ce52dcfad/id-preview-37a6345d--2a984d3f-c112-4ef5-8c52-60497fa54cd9.lovable.app-1781212205598.png" },
     ],
     links: [
       {
