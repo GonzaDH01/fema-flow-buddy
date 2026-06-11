@@ -246,7 +246,7 @@ function Page() {
       </header>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
-        <table className="w-full min-w-[1200px] border-collapse text-xs [&_td]:border-r [&_td]:border-border/40 [&_th]:border-r [&_th]:border-border/60 [&_td:last-child]:border-r-0 [&_th:last-child]:border-r-0">
+        <table className="w-full min-w-[1200px] border-collapse text-xs [&_td]:border-r [&_td]:border-border/40 [&_th]:border-r [&_th]:border-border/60 [&_td:last-child]:border-r-0 [&_th:last-child]:border-r-0 [&_tbody_tr:not(.no-stripe)_td:nth-child(2n+3)]:bg-muted/10">
           <colgroup>
             <col style={{ width: "220px" }} />
             {MESES.map((m) => <col key={m} style={{ width: "78px" }} />)}
