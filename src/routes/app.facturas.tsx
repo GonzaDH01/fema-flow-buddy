@@ -102,6 +102,7 @@ function Page() {
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados">("todas");
   const [search, setSearch] = useState("");
+  const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -235,6 +236,27 @@ function Page() {
     const { error } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
     if (error) { toast.error(error.message); return; }
     toast.success("Estimación eliminada");
+    qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+  };
+
+  const guardarEstim = async (g: EstimGroup, descripcionBase: string, cliente_id: string | null, cuotas: { vencimiento: string; monto: number }[]) => {
+    // borra las cuotas previas y reinserta con los datos editados (sigue siendo estimado)
+    const { error: delErr } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
+    if (delErr) { toast.error(delErr.message); return; }
+    const total = cuotas.length;
+    const inserts = cuotas.map((c, i) => ({
+      user_id: user!.id,
+      cliente_id: cliente_id || null,
+      fecha_estimada: c.vencimiento,
+      monto: c.monto,
+      descripcion: `${descripcionBase} - Cuota ${i + 1}/${total}`,
+      estado: "estimado",
+    }));
+    const { error: insErr } = await supabase.from("fema_estimaciones").insert(inserts);
+    if (insErr) { toast.error(insErr.message); return; }
+    toast.success("Estimación actualizada");
+    setEditEstim(null);
     qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
     qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
   };
@@ -441,6 +463,9 @@ function Page() {
                   <TableCell><Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">Estimado</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => setEditEstim(g)}>
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                      </Button>
                       <Button size="sm" variant="default" className="h-8" onClick={() => facturarEstim(g)}>
                         <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
                       </Button>
@@ -551,6 +576,17 @@ function Page() {
             prefill={prefill}
             clientes={clientes ?? []}
             year={year}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!editEstim} onOpenChange={(v) => !v && setEditEstim(null)}>
+        {editEstim && (
+          <EditEstimDialog
+            key={editEstim.key}
+            group={editEstim}
+            clientes={clientes ?? []}
+            onSave={guardarEstim}
           />
         )}
       </Dialog>
@@ -922,6 +958,88 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           </Button>
         </DialogFooter>
       </form>
+    </DialogContent>
+  );
+}
+
+function EditEstimDialog({
+  group, clientes, onSave,
+}: {
+  group: EstimGroup;
+  clientes: { id: string; nombre: string }[];
+  onSave: (g: EstimGroup, descripcionBase: string, cliente_id: string | null, cuotas: { vencimiento: string; monto: number }[]) => Promise<void>;
+}) {
+  const [clienteId, setClienteId] = useState<string>(group.cliente_id ?? "");
+  const [descripcion, setDescripcion] = useState<string>(group.descripcionBase ?? "");
+  const [cuotas, setCuotas] = useState(group.cuotas.map((c) => ({ vencimiento: c.vencimiento, monto: c.monto })));
+  const [saving, setSaving] = useState(false);
+
+  const total = cuotas.reduce((a, c) => a + Number(c.monto || 0), 0);
+
+  const updateCuota = (i: number, patch: Partial<{ vencimiento: string; monto: number }>) =>
+    setCuotas((prev) => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c));
+  const addCuota = () => {
+    const last = cuotas[cuotas.length - 1];
+    const next = last ? (() => { const d = new Date(last.vencimiento); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10); })() : new Date().toISOString().slice(0, 10);
+    setCuotas([...cuotas, { vencimiento: next, monto: last?.monto ?? 0 }]);
+  };
+  const removeCuota = (i: number) => setCuotas((prev) => prev.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    if (cuotas.length === 0) { toast.error("Agregá al menos una cuota"); return; }
+    setSaving(true);
+    await onSave(group, descripcion.trim() || "Estimación", clienteId || null, cuotas);
+    setSaving(false);
+  };
+
+  return (
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Editar estimación</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cliente">
+          <Select value={clienteId} onValueChange={setClienteId}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
+            <SelectContent>
+              {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Descripción">
+          <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Ej: Sorgo 15 ha + 120 m bolsa" />
+        </FormField>
+
+        <fieldset className="rounded-lg border border-border p-3">
+          <legend className="px-1 text-xs font-medium">Cuotas estimadas</legend>
+          <div className="mb-2 flex items-center justify-between">
+            <Button type="button" size="sm" variant="outline" onClick={addCuota}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar cuota
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              Total: <span className="font-semibold text-foreground">{formatPesos(total)}</span> · {cuotas.length} cuotas
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {cuotas.map((c, i) => (
+              <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+                <div className="col-span-1 text-center text-xs text-muted-foreground">{i + 1}</div>
+                <Input type="date" className="col-span-5 h-8 text-xs" value={c.vencimiento} onChange={(e) => updateCuota(i, { vencimiento: e.target.value })} />
+                <Input type="number" step="0.01" className="col-span-5 h-8 text-xs text-right" value={c.monto} onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} />
+                <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeCuota(i)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Al guardar, la estimación se mantiene en estado <strong>Estimado</strong> y se actualiza en el Cash Flow.
+          </p>
+        </fieldset>
+      </div>
+      <DialogFooter>
+        <Button onClick={handleSave} disabled={saving}>Guardar cambios</Button>
+      </DialogFooter>
     </DialogContent>
   );
 }
