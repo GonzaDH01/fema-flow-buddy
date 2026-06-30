@@ -26,7 +26,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs, estimaciones] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
@@ -48,6 +48,13 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_estimaciones")
       .select("fecha_estimada,monto,descripcion,estado,cliente:fema_clientes(nombre)")
       .gte("fecha_estimada", `${anio}-01-01`).lte("fecha_estimada", `${anio}-12-31`),
+    supabase.from("fema_gastos_fijos" as any)
+      .select("id,concepto,categoria,monto_mensual,mes_inicio,mes_fin,activo,proveedor:fema_proveedores(nombre)"),
+    supabase.from("fema_gastos_fijos_mov" as any)
+      .select("gasto_fijo_id,anio,mes,monto,pagado").eq("anio", anio),
+    supabase.from("fema_creditos_cuotas" as any)
+      .select("numero_cuota,fecha_vencimiento,monto,estado,credito:fema_creditos(acreedor,descripcion,cantidad_cuotas)")
+      .gte("fecha_vencimiento", `${anio}-01-01`).lte("fecha_vencimiento", `${anio}-12-31`),
   ]);
 
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
@@ -236,11 +243,82 @@ async function loadCashflow(userId: string, anio: number) {
     const ivaSaldo = Math.max(0, Number(i.iva_debito ?? 0) - Number(i.iva_credito ?? 0));
     const total = ivaSaldo + Number(i.ingresos_brutos ?? 0) + Number(i.ganancias_estimadas ?? 0);
     if (total === 0) continue;
-    egPagados.push({
+    egPendientes.push({
       label: `AFIP · ${i.periodo ?? ""}`,
+      sub: "Impuestos",
+      badge: "Impuesto",
       values: placeAt(Number(i.mes), total),
       sign: "-",
     });
+  }
+
+  // Gastos fijos proyectados / pagados
+  const movsMap = new Map<string, { monto: number; pagado: boolean }>();
+  for (const m of (gFijosMov.data ?? []) as any[]) {
+    movsMap.set(`${m.gasto_fijo_id}|${m.mes}`, { monto: Number(m.monto), pagado: !!m.pagado });
+  }
+  for (const g of (gFijos.data ?? []) as any[]) {
+    if (!g.activo) continue;
+    const mIni = new Date(g.mes_inicio);
+    const mFin = g.mes_fin ? new Date(g.mes_fin) : null;
+    const valsPag = empty12();
+    const valsProy = empty12();
+    const tipsPag: (string | undefined)[] = empty12().map(() => undefined);
+    const tipsProy: (string | undefined)[] = empty12().map(() => undefined);
+    let hasPag = false, hasProy = false;
+    for (let mes = 1; mes <= 12; mes++) {
+      const d = new Date(anio, mes - 1, 1);
+      if (d < new Date(mIni.getFullYear(), mIni.getMonth(), 1)) continue;
+      if (mFin && d > new Date(mFin.getFullYear(), mFin.getMonth(), 1)) continue;
+      const ov = movsMap.get(`${g.id}|${mes}`);
+      const monto = ov ? ov.monto : Number(g.monto_mensual);
+      const pagado = ov?.pagado ?? false;
+      if (monto <= 0) continue;
+      if (pagado) {
+        valsPag[mes - 1] = monto;
+        tipsPag[mes - 1] = `${g.concepto} · pagado: ${formatPesos(monto)}`;
+        hasPag = true;
+      } else {
+        valsProy[mes - 1] = monto;
+        tipsProy[mes - 1] = `${g.concepto} · estimado: ${formatPesos(monto)}`;
+        hasProy = true;
+      }
+    }
+    const label = `${g.concepto}${g.proveedor?.nombre ? " · " + g.proveedor.nombre : ""}`;
+    if (hasPag) egPagados.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo", values: valsPag, tooltips: tipsPag, sign: "-" });
+    if (hasProy) egPendientes.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo proyectado", values: valsProy, tooltips: tipsProy, sign: "-" });
+  }
+
+  // Cuotas de créditos
+  const credGroups = new Map<string, { label: string; sub?: string; values: number[]; tooltips: (string | undefined)[]; pagado: boolean[] }>();
+  for (const q of (cuotasCred.data ?? []) as any[]) {
+    const mes = Number((q.fecha_vencimiento ?? "").slice(5, 7));
+    if (mes < 1 || mes > 12) continue;
+    const acreedor = q.credito?.acreedor ?? "Crédito";
+    const desc = q.credito?.descripcion ?? "";
+    const key = `${acreedor}||${desc}`;
+    let g = credGroups.get(key);
+    if (!g) {
+      g = {
+        label: acreedor,
+        sub: desc ? `${desc} (crédito)` : "Crédito",
+        values: empty12(),
+        tooltips: empty12().map(() => undefined),
+        pagado: Array(12).fill(false),
+      };
+      credGroups.set(key, g);
+    }
+    const monto = Number(q.monto);
+    g.values[mes - 1] += monto;
+    const tip = `Cuota ${q.numero_cuota}/${q.credito?.cantidad_cuotas ?? "?"}: ${formatPesos(monto)} (${q.estado})`;
+    g.tooltips[mes - 1] = g.tooltips[mes - 1] ? `${g.tooltips[mes - 1]}\n${tip}` : tip;
+    if (q.estado === "pagada") g.pagado[mes - 1] = true;
+  }
+  for (const g of credGroups.values()) {
+    // Si todas las cuotas del año están pagadas, va a pagados; si no, pendientes
+    const allPag = g.values.every((v, i) => v === 0 || g.pagado[i]);
+    const row: Row = { label: g.label, sub: g.sub, badge: "Cuota crédito", values: g.values, tooltips: g.tooltips, sign: "-" };
+    if (allPag) egPagados.push(row); else egPendientes.push(row);
   }
 
   // Agrupar combustible por mes
