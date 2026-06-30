@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs as OuterTabs, TabsList as OuterTabsList, TabsTrigger as OuterTabsTrigger, TabsContent as OuterTabsContent } from "@/components/ui/tabs";
+import { GastosFijos } from "@/components/gastos-fijos";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -82,6 +84,7 @@ function Page() {
   const [edit, setEdit] = useState<Row | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "pagada">("todas");
   const [search, setSearch] = useState("");
+  const [outerTab, setOuterTab] = useState<"compras" | "fijos">("compras");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
@@ -197,7 +200,16 @@ function Page() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 md:p-6">
+      <OuterTabs value={outerTab} onValueChange={(v) => setOuterTab(v as any)}>
+        <OuterTabsList>
+          <OuterTabsTrigger value="compras">Compras</OuterTabsTrigger>
+          <OuterTabsTrigger value="fijos">Gastos Fijos</OuterTabsTrigger>
+        </OuterTabsList>
+        <OuterTabsContent value="fijos" className="mt-4">
+          <GastosFijos />
+        </OuterTabsContent>
+        <OuterTabsContent value="compras" className="mt-4 space-y-4">
       <div className="flex items-center justify-between">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList>
