@@ -311,6 +311,8 @@ function Page() {
           year={year}
         />
       </Dialog>
+        </OuterTabsContent>
+      </OuterTabs>
     </div>
   );
 }
