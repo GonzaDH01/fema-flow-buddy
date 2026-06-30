@@ -566,7 +566,9 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
   return (
     <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{initial ? "Editar" : "Nueva"} Factura de Servicio</DialogTitle>
+        <DialogTitle>
+          {initial ? "Editar" : "Nuevo"} {tipoComp === "Estimado" ? "Estimado / Plan de cuotas" : "Comprobante de Servicio"}
+        </DialogTitle>
       </DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-4">
         {/* Tipo de comprobante */}
@@ -678,8 +680,71 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
           <Textarea placeholder="Notas adicionales..." rows={2} {...f.register("observaciones")} />
         </FormField>
 
+        {/* Plan de cuotas */}
+        <fieldset className="rounded-md border border-border bg-muted/20 p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Plan de cuotas {tipoComp === "Estimado" ? "(Estimado)" : "(opcional)"}
+          </legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <FormField label="Cantidad">
+              <Input type="number" min={1} value={planQty} onChange={(e) => setPlanQty(Number(e.target.value) || 1)} />
+            </FormField>
+            <FormField label="1° vencimiento">
+              <Input type="date" value={planFirst} onChange={(e) => setPlanFirst(e.target.value)} />
+            </FormField>
+            <FormField label="Periodicidad">
+              <Select value={planPer} onValueChange={(v) => setPlanPer(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PERIODICIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Instrumento">
+              <Select value={planInstr} onValueChange={(v) => setPlanInstr(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{INSTRUMENTOS_PLAN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </FormField>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={generarPlan}>
+              Generar {planQty} cuotas
+            </Button>
+            {cuotas.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Total cuotas: <span className="font-semibold text-foreground">{formatPesos(totalCuotas)}</span>
+                {Math.abs(diff) > 0.5 && <span className="ml-2 text-destructive">Dif: {formatPesos(diff)}</span>}
+              </div>
+            )}
+          </div>
+          {cuotas.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {cuotas.map((c, i) => (
+                <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+                  <div className="col-span-1 text-center text-xs text-muted-foreground">{i + 1}</div>
+                  <Input type="date" className="col-span-3 h-8 text-xs" value={c.vencimiento} onChange={(e) => updateCuota(i, { vencimiento: e.target.value })} />
+                  <Input type="number" step="0.01" className="col-span-2 h-8 text-xs" value={c.monto} onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} />
+                  <Select value={c.instrumento} onValueChange={(v) => updateCuota(i, { instrumento: v as any })}>
+                    <SelectTrigger className="col-span-2 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{INSTRUMENTOS_PLAN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Input placeholder="N°" className="col-span-2 h-8 text-xs" value={c.numero ?? ""} onChange={(e) => updateCuota(i, { numero: e.target.value })} />
+                  <Input placeholder="Banco" className="col-span-1 h-8 text-xs" value={c.banco ?? ""} onChange={(e) => updateCuota(i, { banco: e.target.value })} />
+                  <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeCuota(i)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Al guardar, cada cuota se registra como movimiento de cobro vinculado a este comprobante y aparece en Medios de Pago / Cash Flow.
+          </p>
+        </fieldset>
+
         <DialogFooter>
-          <Button type="submit" disabled={f.formState.isSubmitting}>Guardar factura</Button>
+          <Button type="submit" disabled={f.formState.isSubmitting}>
+            Guardar {tipoComp === "Estimado" ? "estimado" : "factura"}
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>
