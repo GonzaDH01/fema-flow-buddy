@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -195,8 +195,8 @@ function Page() {
                 const pendientes = list.length - pagadas;
                 const isExp = expanded.has(c.id);
                 return (
-                  <>
-                    <TableRow key={c.id}>
+                  <Fragment key={c.id}>
+                    <TableRow>
                       <TableCell>
                         <button onClick={() => toggleExp(c.id)} className="text-muted-foreground hover:text-foreground">
                           {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -236,7 +236,7 @@ function Page() {
                       </TableCell>
                     </TableRow>
                     {isExp && (
-                      <TableRow key={`${c.id}-det`}>
+                      <TableRow>
                         <TableCell colSpan={8} className="bg-muted/20 p-3">
                           <Table>
                             <TableHeader>
@@ -273,7 +273,7 @@ function Page() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
