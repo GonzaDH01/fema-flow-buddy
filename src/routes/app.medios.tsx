@@ -40,6 +40,28 @@ type Mov = {
 
 const sb = supabase as any;
 
+// Reconcilia el estado de una factura (venta/compra) según los movimientos activos asociados.
+// Si la suma cubre el total → marca cobrada/pagada; si no → vuelve a pendiente.
+async function reconciliarFactura(facturaId: string | null | undefined, tipo: "venta" | "compra") {
+  if (!facturaId) return;
+  const tabla = tipo === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
+  const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
+  const estadoOk = tipo === "venta" ? "cobrada" : "pagada";
+  const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
+  if (!fact) return;
+  const { data: movs } = await sb.from("fema_movimientos_pago")
+    .select("monto,estado").eq(col, facturaId);
+  const activos = (movs ?? []).filter((m: any) =>
+    ["cobrado", "pagado", "en_cartera", "cedido"].includes(m.estado)
+  );
+  const cubierto = activos.reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+  const totalFac = Number(fact.total || 0);
+  const nuevo = cubierto >= totalFac - 0.01 && totalFac > 0 ? estadoOk : "pendiente";
+  if (fact.estado !== nuevo) {
+    await sb.from(tabla).update({ estado: nuevo }).eq("id", facturaId);
+  }
+}
+
 const INSTRUMENT_LABEL: Record<string, string> = {
   echeq: "Echeq", cheque_fisico: "Cheque físico", transferencia: "Transferencia",
   cesion: "Cesión echeq", efectivo: "Efectivo", otro: "Otro",
