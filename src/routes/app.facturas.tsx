@@ -108,7 +108,7 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase.from("fema_facturas_venta")
-        .select("*").eq("user_id", user!.id).eq("anio", year)
+        .select("*").eq("anio", year)
         .order("fecha", { ascending: false });
       if (error) throw error;
       return data as Row[];

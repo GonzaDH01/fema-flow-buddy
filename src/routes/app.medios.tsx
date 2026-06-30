@@ -73,7 +73,7 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await sb.from("fema_movimientos_pago")
-        .select("*").eq("user_id", user!.id).eq("anio", year)
+        .select("*").eq("anio", year)
         .order("fecha_emision", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Mov[];
@@ -86,7 +86,7 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await sb.from("fema_facturas_venta")
         .select("id,numero,fecha,total,cliente_id,trabajo,estado")
-        .eq("user_id", user!.id).eq("estado", "pendiente")
+        .eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
       if (error) throw error;
       const clienteIds = [...new Set((data ?? []).map((f: any) => f.cliente_id).filter(Boolean))];
@@ -110,7 +110,7 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await sb.from("fema_facturas_compra")
         .select("id,numero,fecha,total,proveedor_id,descripcion,producto,estado")
-        .eq("user_id", user!.id).eq("estado", "pendiente")
+        .eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
       if (error) throw error;
       const proveedorIds = [...new Set((data ?? []).map((f: any) => f.proveedor_id).filter(Boolean))];
