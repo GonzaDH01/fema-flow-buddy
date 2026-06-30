@@ -169,7 +169,9 @@ async function loadCashflow(userId: string, anio: number) {
       const d = distribuirMovs(linked, total, facturaMes);
       values = d.values;
       tooltips = d.tooltips;
-      cobrada = v.estado === "cobrada" || d.cubierto >= total - 0.01;
+      // El plan de cuotas registrado en la factura no implica cobro:
+      // sólo se considera cobrada cuando Medios de Pago confirma el cobro.
+      cobrada = v.estado === "cobrada";
       sub = `Factura ${v.numero ?? "—"}`;
     } else {
       values = placeAt(facturaMes, total);
@@ -201,7 +203,8 @@ async function loadCashflow(userId: string, anio: number) {
       const d = distribuirMovs(linked, total, facturaMes);
       values = d.values;
       tooltips = d.tooltips;
-      pagada = c.estado === "pagada" || d.cubierto >= total - 0.01;
+      // Igual criterio para compras: sólo el módulo de Pagos marca pagada.
+      pagada = c.estado === "pagada";
       sub = `Comprobante ${c.numero ?? "—"}`;
     } else {
       values = placeAt(facturaMes, total);
