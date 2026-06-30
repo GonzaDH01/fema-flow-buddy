@@ -1057,24 +1057,73 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
   const tituloDoc = esCobro ? "RECIBO DE COBRO" : "RECIBO DE PAGO";
   const saldo = factura ? Number(factura.total) - total : 0;
 
-  const imprimir = () => window.print();
+  const imprimir = () => {
+    const logo = absoluteAssetUrl(femaLogoUrl);
+    const wm = absoluteAssetUrl(femaWatermarkUrl);
+    const rowsHTML = items.map(m => `<tr>
+      <td>${INSTRUMENT_LABEL[m.instrumento] ?? ""}</td>
+      <td>${m.numero ?? "—"}</td>
+      <td>${m.banco ?? "—"}</td>
+      <td>${formatFecha(m.fecha_emision)}</td>
+      <td>${m.vencimiento ? formatFecha(m.vencimiento) : "—"}</td>
+      <td class="right">${formatPesos(Number(m.monto))}</td>
+    </tr>`).join("");
+    const obsParts: string[] = [`Son: <b>${numeroALetras(total)}</b>`];
+    if (factura && saldo > 0.01) obsParts.push(`Saldo pendiente de la factura: <b>${formatPesos(saldo)}</b>`);
+    if (mov.observaciones) obsParts.push(String(mov.observaciones).replace(/\n/g, "<br>"));
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${tituloDoc} ${reciboNro}</title>
+<style>${femaPrintCSS}</style></head><body>
+<div class="fema-page">
+  ${femaWatermarkHTML(wm)}
+  <div class="fema-content">
+    ${femaHeaderHTML(tituloDoc, [
+      { label: "Nº:", value: reciboNro },
+      { label: "Fecha:", value: formatFecha(hoy) },
+      ...(factura ? [{ label: "Factura:", value: factura.numero ?? "s/n" }] : []),
+    ], logo)}
+    ${femaClientHTML([
+      { label: esCobro ? "Cliente:" : "Proveedor:", value: contraparte },
+      { label: "Concepto:", value: factura?.trabajo || (esCobro ? "Cobro" : "Pago") },
+      ...(factura ? [
+        { label: "Factura Nº:", value: `${factura.numero ?? "s/n"} — ${formatFecha(factura.fecha)}` },
+        { label: "Total factura:", value: formatPesos(Number(factura.total)) },
+      ] : [{ label: "", value: "" }, { label: "", value: "" }]),
+    ])}
+    <table class="fema">
+      <thead><tr>
+        <th>Medio</th><th>Nº / Ref.</th><th>Banco</th>
+        <th>Fecha emisión</th><th>Vencimiento</th><th class="right">Monto</th>
+      </tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div class="fema-spacer"></div>
+    <div class="fema-bottom">
+      <div class="fema-obs">
+        <div class="t">OBSERVACIONES:</div>
+        ${obsParts.join("<br>")}
+      </div>
+      <div class="fema-tot">
+        <div class="row"><span>Cantidad de valores:</span><span>${items.length}</span></div>
+        <div class="row"><span>Subtotal:</span><span>${formatPesos(total)}</span></div>
+        <div class="row total"><span>Total</span><span>${formatPesos(total)}</span></div>
+      </div>
+    </div>
+    <div class="fema-sign">
+      <div>Firma del emisor</div>
+      <div>Firma ${esCobro ? "del cliente" : "del proveedor"}</div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+    const w = window.open("", "_blank", "width=900,height=1000");
+    if (!w) { toast.error("Bloqueado por el navegador"); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
 
   return (
-    <DialogContent className="recibo-dialog-content max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-0">
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-          html, body { width: 210mm !important; min-height: 297mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; color: #000 !important; }
-          body * { visibility: hidden !important; }
-          body *, body *::before, body *::after { background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
-          .recibo-dialog-content { position: static !important; inset: auto !important; width: auto !important; max-width: none !important; max-height: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; transform: none !important; }
-          .recibo-print, .recibo-print * { visibility: visible !important; }
-          .recibo-print { position: fixed !important; left: 0 !important; top: 0 !important; width: 190mm !important; min-height: auto !important; margin: 0 !important; padding: 8mm !important; color: #000 !important; background: #fff !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; font-size: 10.5px !important; line-height: 1.35 !important; }
-          .recibo-print table { page-break-inside: avoid; break-inside: avoid; }
-          .recibo-print .no-print, .no-print { display: none !important; }
-          .recibo-print img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        }
-      `}</style>
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader className="no-print">
         <DialogTitle>Recibo de {esCobro ? "cobro" : "pago"}</DialogTitle>
         <DialogDescription>Comprobante para entregar al {esCobro ? "cliente" : "proveedor"}.</DialogDescription>
