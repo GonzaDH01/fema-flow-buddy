@@ -102,6 +102,7 @@ function Page() {
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados">("todas");
   const [search, setSearch] = useState("");
+  const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -235,6 +236,27 @@ function Page() {
     const { error } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
     if (error) { toast.error(error.message); return; }
     toast.success("Estimación eliminada");
+    qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+  };
+
+  const guardarEstim = async (g: EstimGroup, descripcionBase: string, cliente_id: string | null, cuotas: { vencimiento: string; monto: number }[]) => {
+    // borra las cuotas previas y reinserta con los datos editados (sigue siendo estimado)
+    const { error: delErr } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
+    if (delErr) { toast.error(delErr.message); return; }
+    const total = cuotas.length;
+    const inserts = cuotas.map((c, i) => ({
+      user_id: user!.id,
+      cliente_id: cliente_id || null,
+      fecha_estimada: c.vencimiento,
+      monto: c.monto,
+      descripcion: `${descripcionBase} - Cuota ${i + 1}/${total}`,
+      estado: "estimado",
+    }));
+    const { error: insErr } = await supabase.from("fema_estimaciones").insert(inserts);
+    if (insErr) { toast.error(insErr.message); return; }
+    toast.success("Estimación actualizada");
+    setEditEstim(null);
     qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
     qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
   };
@@ -441,6 +463,9 @@ function Page() {
                   <TableCell><Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">Estimado</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" className="h-8" onClick={() => setEditEstim(g)}>
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                      </Button>
                       <Button size="sm" variant="default" className="h-8" onClick={() => facturarEstim(g)}>
                         <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
                       </Button>
@@ -551,6 +576,17 @@ function Page() {
             prefill={prefill}
             clientes={clientes ?? []}
             year={year}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!editEstim} onOpenChange={(v) => !v && setEditEstim(null)}>
+        {editEstim && (
+          <EditEstimDialog
+            key={editEstim.key}
+            group={editEstim}
+            clientes={clientes ?? []}
+            onSave={guardarEstim}
           />
         )}
       </Dialog>
