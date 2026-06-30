@@ -209,6 +209,12 @@ function Page() {
 
   const eliminar = async (m: Mov) => {
     if (!confirm("¿Eliminar movimiento?")) return;
+    // Si es una cesión, devolver el echeq de origen a cartera
+    if (m.instrumento === "cesion" && m.echeq_origen_id) {
+      await sb.from("fema_movimientos_pago")
+        .update({ estado: "en_cartera", observaciones: null })
+        .eq("id", m.echeq_origen_id);
+    }
     await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     toast.success("Eliminado");
