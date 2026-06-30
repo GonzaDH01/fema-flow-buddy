@@ -16,6 +16,7 @@ export const Route = createFileRoute("/app/ocr")({ component: Page });
 type OCRResult = {
   tipo?: string; letra?: string | null; numero?: string | null;
   fecha?: string | null; emisor?: string | null; receptor?: string | null;
+  cuit_emisor?: string | null; cuit_receptor?: string | null;
   descripcion?: string | null; categoria_sugerida?: string;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
@@ -104,21 +105,40 @@ function Page() {
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
       const terceroNombre = (kind === "compra" ? result.emisor : (result.receptor ?? result.emisor))?.trim() || null;
+      const terceroCuitRaw = (kind === "compra" ? result.cuit_emisor : (result.cuit_receptor ?? result.cuit_emisor)) ?? null;
+      const terceroCuit = terceroCuitRaw ? String(terceroCuitRaw).replace(/[^0-9]/g, "") : null;
 
       // Buscar o crear proveedor/cliente
       let terceroId: string | null = null;
-      if (terceroNombre) {
+      if (terceroNombre || terceroCuit) {
         const tabla = kind === "compra" ? "fema_proveedores" : "fema_clientes";
-        const { data: existente } = await supabase
-          .from(tabla)
-          .select("id")
-          .eq("user_id", user.id)
-          .ilike("nombre", terceroNombre)
-          .maybeSingle();
+        let existente: { id: string } | null = null;
+        if (terceroCuit) {
+          const { data } = await supabase
+            .from(tabla)
+            .select("id")
+            .eq("cuit", terceroCuit)
+            .maybeSingle();
+          existente = data ?? null;
+        }
+        if (!existente && terceroNombre) {
+          const { data } = await supabase
+            .from(tabla)
+            .select("id, cuit")
+            .ilike("nombre", terceroNombre)
+            .maybeSingle();
+          if (data) {
+            existente = { id: data.id };
+            // si no tenía CUIT y ahora lo tenemos, lo completamos
+            if (terceroCuit && !data.cuit) {
+              await supabase.from(tabla).update({ cuit: terceroCuit }).eq("id", data.id);
+            }
+          }
+        }
         if (existente?.id) {
           terceroId = existente.id;
         } else {
-          const nuevo: any = { user_id: user.id, nombre: terceroNombre };
+          const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: terceroCuit };
           if (kind === "compra") nuevo.categoria = (result.categoria_sugerida as any) ?? "Otro";
           const { data: creado, error: errC } = await supabase
             .from(tabla)
@@ -127,7 +147,7 @@ function Page() {
             .single();
           if (errC) throw errC;
           terceroId = creado?.id ?? null;
-          toast.message(`${kind === "compra" ? "Proveedor" : "Cliente"} "${terceroNombre}" creado`);
+          toast.message(`${kind === "compra" ? "Proveedor" : "Cliente"} "${nuevo.nombre}" creado${terceroCuit ? ` (CUIT ${terceroCuit})` : ""}`);
         }
       }
 
