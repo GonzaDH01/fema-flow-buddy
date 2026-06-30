@@ -310,7 +310,7 @@ function Page() {
                 {data.ingCobrados.map((r, i) => <DataRow key={`ic-${i}`} row={r} />)}
                 {data.ingCobrados.length === 0 && <EmptyRow />}
 
-                <SectionHeader title="INGRESOS PENDIENTES (estim.)" />
+                <SectionHeader title="INGRESOS PENDIENTES DE COBRO (facturados)" />
                 {data.ingPendientes.map((r, i) => <DataRow key={`ip-${i}`} row={r} />)}
                 {data.ingPendientes.length === 0 && <EmptyRow />}
 
