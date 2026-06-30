@@ -504,8 +504,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [facturaCompraCesion, setFacturaCompraCesion] = useState<string>("");
 
   // multi-cuota / echeqs para cobro_cliente y pago_proveedor
-  type Cuota = { numero: string; banco: string; vencimiento: string; monto: number; obs: string };
+  type Cuota = { id?: string; numero: string; banco: string; vencimiento: string; monto: number; obs: string; estado?: string; instrumento?: string };
   const [cuotas, setCuotas] = useState<Cuota[]>([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]);
+  const [planOriginalIds, setPlanOriginalIds] = useState<string[]>([]);
+  const [planCargado, setPlanCargado] = useState(false);
   const [bancoGlobal, setBancoGlobal] = useState("");
   const [genCuotas, setGenCuotas] = useState(1);
   const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
@@ -556,6 +558,36 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     }
   }, [echeqId, tipo, echeqsCartera]);
 
+  // Cargar plan de cuotas existente al seleccionar una factura (alta nueva)
+  useEffect(() => {
+    if (initial) return; // edición de un único movimiento
+    if (tipo !== "cobro_cliente" && tipo !== "pago_proveedor") return;
+    if (!facturaSel) { setPlanOriginalIds([]); setPlanCargado(false); return; }
+    const col = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+    sb.from("fema_movimientos_pago")
+      .select("id,numero,banco,vencimiento,monto,observaciones,estado,instrumento")
+      .eq(col, facturaSel)
+      .order("vencimiento", { ascending: true })
+      .then(({ data }: { data: any[] | null }) => {
+        if (!data || data.length === 0) { setPlanOriginalIds([]); setPlanCargado(false); return; }
+        setCuotas(data.map((r: any) => ({
+          id: r.id,
+          numero: r.numero ?? "",
+          banco: r.banco ?? "",
+          vencimiento: r.vencimiento ?? "",
+          monto: Number(r.monto),
+          obs: r.observaciones ?? "",
+          estado: r.estado,
+          instrumento: r.instrumento,
+        })));
+        setPlanOriginalIds(data.map((r: any) => r.id));
+        const inst = data[0]?.instrumento;
+        if (inst) setInstrumento(inst);
+        setPlanCargado(true);
+        toast.message(`Plan de ${data.length} cuotas cargado desde la factura. Podés editarlo antes de confirmar.`);
+      });
+  }, [facturaSel, tipo, initial]);
+
   const facturasFiltradas = useMemo(() => {
     const list = tipo === "cobro_cliente" ? facturasVenta : tipo === "pago_proveedor" ? facturasCompra : [];
     if (!busqFact) return list.slice(0, 6);
@@ -603,24 +635,39 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           const { error } = await sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id);
           if (error) throw error;
         } else {
-          const rows = filasValidas.map(c => ({
-            user_id: userId,
-            instrumento: instrumento as any,
-            direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
-            tipo_movimiento: tipo,
-            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-            vencimiento: c.vencimiento || null,
-            numero: c.numero || null,
-            banco: c.banco || bancoGlobal || null,
-            contraparte: contraparte || (fact?.proveedor ?? null),
-            monto: Number(c.monto),
-            estado, observaciones: c.obs || observaciones || null,
-            factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-            factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
-            anio: year, mes,
-          }));
-          const { error } = await sb.from("fema_movimientos_pago").insert(rows);
-          if (error) throw error;
+          // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
+          // Filas sin id → INSERT (nuevas)
+          // ids originales que ya no están → DELETE
+          const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
+          const toDelete = planOriginalIds.filter(id => !keepIds.includes(id));
+          if (toDelete.length > 0) {
+            const { error } = await sb.from("fema_movimientos_pago").delete().in("id", toDelete);
+            if (error) throw error;
+          }
+          for (const c of filasValidas) {
+            const base: any = {
+              instrumento: instrumento as any,
+              direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
+              tipo_movimiento: tipo,
+              fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+              vencimiento: c.vencimiento || null,
+              numero: c.numero || null,
+              banco: c.banco || bancoGlobal || null,
+              contraparte: contraparte || (fact?.proveedor ?? null),
+              monto: Number(c.monto),
+              estado, observaciones: c.obs || observaciones || null,
+              factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
+              factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
+              anio: year, mes,
+            };
+            if (c.id) {
+              const { error } = await sb.from("fema_movimientos_pago").update(base).eq("id", c.id);
+              if (error) throw error;
+            } else {
+              const { error } = await sb.from("fema_movimientos_pago").insert({ ...base, user_id: userId });
+              if (error) throw error;
+            }
+          }
         }
       } else {
         // libre
@@ -763,6 +810,11 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           </div>
 
           <div className="rounded-md border overflow-hidden">
+            {planCargado && (
+              <div className="border-b bg-primary/10 px-3 py-2 text-[11px] text-primary">
+                Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
