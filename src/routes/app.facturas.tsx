@@ -609,6 +609,31 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
     return r.tipo === "A" ? "21%" : "0%";
   };
 
+  // Derivar ha, mts, precios y cultivo desde el estimado precargado
+  const estimDerived = useMemo(() => {
+    if (!prefill) return null;
+    const desc = prefill.group.descripcionBase ?? "";
+    const haMatch = desc.match(/(\d+(?:[.,]\d+)?)\s*ha\b/i);
+    const mtMatch = desc.match(/(\d+(?:[.,]\d+)?)\s*m(?:ts|etros)?\b/i);
+    const ha = haMatch ? Number(haMatch[1].replace(",", ".")) : 0;
+    const mt = mtMatch ? Number(mtMatch[1].replace(",", ".")) : 0;
+    const cultivo = CULTIVOS.find((c) => desc.toLowerCase().includes(c.toLowerCase()));
+    const totalBruto = prefill.group.total;
+    // Asumimos IVA 21% sobre Letra A
+    const neto = +(totalBruto / 1.21).toFixed(2);
+    let pHa = 0, pMt = 0;
+    if (ha > 0 && mt > 0) {
+      const half = neto / 2;
+      pHa = +(half / ha).toFixed(2);
+      pMt = +(half / mt).toFixed(2);
+    } else if (ha > 0) {
+      pHa = +(neto / ha).toFixed(2);
+    } else if (mt > 0) {
+      pMt = +(neto / mt).toFixed(2);
+    }
+    return { ha, mt, pHa, pMt, cultivo: cultivo ?? "Maíz" };
+  }, [prefill]);
+
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -618,12 +643,12 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
       cliente_id: initial?.cliente_id ?? prefill?.group.cliente_id ?? "",
       trabajo: initial?.trabajo ?? prefill?.group.descripcionBase ?? "",
-      cultivo: initial?.cultivo ?? "Maíz",
+      cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
       iva_pct: inferIva(initial),
-      hectareas: Number(initial?.hectareas ?? 0),
-      precio_ha: Number(initial?.precio_ha ?? 0),
-      metros_bolsa: Number(initial?.metros_bolsa ?? 0),
-      precio_metro: Number(initial?.precio_metro ?? 0),
+      hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
+      precio_ha: Number(initial?.precio_ha ?? estimDerived?.pHa ?? 0),
+      metros_bolsa: Number(initial?.metros_bolsa ?? estimDerived?.mt ?? 0),
+      precio_metro: Number(initial?.precio_metro ?? estimDerived?.pMt ?? 0),
       estado: initial?.estado ?? "pendiente",
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
