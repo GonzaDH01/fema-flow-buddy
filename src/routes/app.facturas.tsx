@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -75,13 +75,32 @@ type Row = {
   estado: "pendiente" | "cobrada";
 };
 
+type EstimRow = {
+  id: string; cliente_id: string | null; fecha_estimada: string;
+  monto: number; descripcion: string | null; estado: string;
+};
+type EstimGroup = {
+  key: string;
+  cliente_id: string | null;
+  descripcionBase: string;
+  ids: string[];
+  cuotas: { id: string; vencimiento: string; monto: number; descripcion: string | null }[];
+  total: number;
+  primerVenc: string;
+  ultimoVenc: string;
+};
+type PrefillEstim = {
+  group: EstimGroup;
+};
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada">("todas");
+  const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
+  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados">("todas");
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -104,6 +123,42 @@ function Page() {
       return data as { id: string; nombre: string }[];
     },
   });
+
+  const { data: estimaciones } = useQuery({
+    queryKey: ["fema_estimaciones_facturas", year],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_estimaciones")
+        .select("id,cliente_id,fecha_estimada,monto,descripcion,estado")
+        .eq("estado", "estimado")
+        .gte("fecha_estimada", `${year}-01-01`).lte("fecha_estimada", `${year + 1}-12-31`)
+        .order("fecha_estimada");
+      if (error) throw error;
+      return data as EstimRow[];
+    },
+  });
+
+  const estimGroups = useMemo<EstimGroup[]>(() => {
+    const map = new Map<string, EstimGroup>();
+    for (const e of estimaciones ?? []) {
+      const base = (e.descripcion ?? "").replace(/\s*-\s*Cuota\s*\d+\/\d+\s*$/i, "").trim();
+      const key = `${e.cliente_id ?? "x"}||${base}`;
+      let g = map.get(key);
+      if (!g) {
+        g = {
+          key, cliente_id: e.cliente_id, descripcionBase: base, ids: [],
+          cuotas: [], total: 0, primerVenc: e.fecha_estimada, ultimoVenc: e.fecha_estimada,
+        };
+        map.set(key, g);
+      }
+      g.ids.push(e.id);
+      g.cuotas.push({ id: e.id, vencimiento: e.fecha_estimada, monto: Number(e.monto), descripcion: e.descripcion });
+      g.total += Number(e.monto);
+      if (e.fecha_estimada < g.primerVenc) g.primerVenc = e.fecha_estimada;
+      if (e.fecha_estimada > g.ultimoVenc) g.ultimoVenc = e.fecha_estimada;
+    }
+    for (const g of map.values()) g.cuotas.sort((a, b) => a.vencimiento.localeCompare(b.vencimiento));
+    return Array.from(map.values()).sort((a, b) => a.primerVenc.localeCompare(b.primerVenc));
+  }, [estimaciones]);
 
   const clientesMap = useMemo(
     () => Object.fromEntries((clientes ?? []).map((c) => [c.id, c.nombre])),
@@ -168,7 +223,21 @@ function Page() {
     return list;
   }, [rows, tab, search, clientesMap]);
 
-  const close = () => { setOpen(false); setEdit(null); };
+  const close = () => { setOpen(false); setEdit(null); setPrefill(null); };
+
+  const facturarEstim = (g: EstimGroup) => {
+    setEdit(null);
+    setPrefill({ group: g });
+    setOpen(true);
+  };
+
+  const eliminarEstim = async (g: EstimGroup) => {
+    const { error } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Estimación eliminada");
+    qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+  };
 
   const onSubmit = async (v: FormVals) => {
     // calc
@@ -231,9 +300,17 @@ function Page() {
       if (errMov) toast.error(`Plan de cuotas: ${errMov.message}`);
     }
     toast.success(edit ? "Factura actualizada" : "Comprobante creado");
+    // Si venía de un estimado → marcarlo como facturado eliminando las cuotas estimadas
+    if (!edit && prefill) {
+      const { error: errEst } = await supabase.from("fema_estimaciones")
+        .delete().in("id", prefill.group.ids);
+      if (errEst) toast.error(`Estimación: ${errEst.message}`);
+      qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
+    }
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
     close();
   };
 
