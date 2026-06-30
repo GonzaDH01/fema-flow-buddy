@@ -404,6 +404,7 @@ function Page() {
               <TabsTrigger value="todas">Todas</TabsTrigger>
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
+              <TabsTrigger value="estimados">Estimados ({estimGroups.length})</TabsTrigger>
             </TabsList>
           </Tabs>
           <Input
@@ -414,6 +415,59 @@ function Page() {
           />
         </div>
 
+        {tab === "estimados" ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Descripción</TableHead>
+                <TableHead className="text-right">Cuotas</TableHead>
+                <TableHead>Período</TableHead>
+                <TableHead className="text-right">Total estimado</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-28 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {estimGroups.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay estimaciones cargadas</TableCell></TableRow>
+              ) : estimGroups.map((g) => (
+                <TableRow key={g.key}>
+                  <TableCell className="font-medium">{g.cliente_id ? clientesMap[g.cliente_id] ?? "—" : "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{g.descripcionBase || "—"}</TableCell>
+                  <TableCell className="text-right">{g.cuotas.length}</TableCell>
+                  <TableCell className="text-xs">{formatFecha(g.primerVenc)} → {formatFecha(g.ultimoVenc)}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(g.total)}</TableCell>
+                  <TableCell><Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">Estimado</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="default" className="h-8" onClick={() => facturarEstim(g)}>
+                        <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar estimación?</AlertDialogTitle>
+                            <AlertDialogDescription>Se eliminarán las {g.cuotas.length} cuotas estimadas de este grupo.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => eliminarEstim(g)}>Eliminar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -485,10 +539,11 @@ function Page() {
             })}
           </TableBody>
         </Table>
+        )}
       </section>
 
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
-        <FormDialog onSubmit={onSubmit} initial={edit} clientes={clientes ?? []} year={year} />
+        <FormDialog onSubmit={onSubmit} initial={edit} prefill={prefill} clientes={clientes ?? []} year={year} />
       </Dialog>
     </div>
   );
