@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -52,6 +53,18 @@ function addMonths(iso: string, n: number): string {
   d.setMonth(d.getMonth() + n);
   return d.toISOString().slice(0, 10);
 }
+
+const FRECUENCIAS: Record<string, { label: string; step: number }> = {
+  mensual: { label: "Mensual", step: 1 },
+  bimestral: { label: "Bimestral (cada 2 meses)", step: 2 },
+  trimestral: { label: "Trimestral (cada 3 meses)", step: 3 },
+  cuatrimestral: { label: "Cuatrimestral (cada 4 meses)", step: 4 },
+  semestral: { label: "Semestral (cada 6 meses)", step: 6 },
+  anual: { label: "Anual (cada 12 meses)", step: 12 },
+  personalizado: { label: "Personalizado (editar cada cuota)", step: 0 },
+};
+
+type CuotaDraft = { numero: number; fecha: string; monto: number };
 
 function Page() {
   const { user } = useAuth();
@@ -117,13 +130,15 @@ function Page() {
       const { data, error } = await supabase.from("fema_creditos" as any).insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
       credId = (data as any).id;
-      // generar cuotas
-      const cuotasGen = Array.from({ length: v.cantidad_cuotas }, (_, i) => ({
+      const cronograma: CuotaDraft[] = (v as any).__cronograma ?? [];
+      const cuotasGen = (cronograma.length ? cronograma : Array.from({ length: v.cantidad_cuotas }, (_, i) => ({
+        numero: i + 1, fecha: addMonths(v.fecha_primera_cuota, i), monto: v.valor_cuota,
+      }))).map((c) => ({
         user_id: user!.id,
         credito_id: credId,
-        numero_cuota: i + 1,
-        fecha_vencimiento: addMonths(v.fecha_primera_cuota, i),
-        monto: v.valor_cuota,
+        numero_cuota: c.numero,
+        fecha_vencimiento: c.fecha,
+        monto: c.monto,
         estado: "pendiente",
       }));
       const { error: cErr } = await supabase.from("fema_creditos_cuotas" as any).insert(cuotasGen);
@@ -306,11 +321,41 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
   // autocalcular valor cuota si cambia total y cuotas
   const total = Number(f.watch("monto_total") || 0);
   const ncuot = Number(f.watch("cantidad_cuotas") || 1);
+  const fechaPrim = f.watch("fecha_primera_cuota");
+  const valorCuota = Number(f.watch("valor_cuota") || 0);
+
+  const [frecuencia, setFrecuencia] = useState<string>("mensual");
+  const [cronograma, setCronograma] = useState<CuotaDraft[]>([]);
+
+  useEffect(() => {
+    if (initial) return;
+    if (frecuencia === "personalizado") {
+      setCronograma((prev) => {
+        const next: CuotaDraft[] = [];
+        for (let i = 0; i < ncuot; i++) {
+          next.push(prev[i] ?? { numero: i + 1, fecha: addMonths(fechaPrim, i), monto: valorCuota });
+        }
+        return next;
+      });
+      return;
+    }
+    const step = FRECUENCIAS[frecuencia].step;
+    setCronograma(Array.from({ length: ncuot }, (_, i) => ({
+      numero: i + 1, fecha: addMonths(fechaPrim, i * step), monto: valorCuota,
+    })));
+  }, [frecuencia, ncuot, fechaPrim, valorCuota, initial]);
+
+  const updateCuota = (idx: number, patch: Partial<CuotaDraft>) =>
+    setCronograma((prev) => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+
+  const sumaCronograma = cronograma.reduce((a, c) => a + Number(c.monto || 0), 0);
+
+  const handleSubmit = (v: Vals) => onSubmit({ ...v, __cronograma: cronograma } as any);
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>{initial ? "Editar" : "Nuevo"} crédito / financiación</DialogTitle></DialogHeader>
-      <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
+      <form onSubmit={f.handleSubmit(handleSubmit)} className="space-y-3">
         <FormField label="Acreedor / Entidad" required>
           <Input placeholder="Ej: Banco Nación, John Deere Credit" {...f.register("acreedor")} />
         </FormField>
@@ -331,9 +376,23 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
             <Input type="number" step="0.01" {...f.register("tasa")} />
           </FormField>
         </div>
-        <FormField label="Fecha primera cuota" required>
-          <Input type="date" {...f.register("fecha_primera_cuota")} />
-        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Fecha primera cuota" required>
+            <Input type="date" {...f.register("fecha_primera_cuota")} />
+          </FormField>
+          {!initial && (
+            <FormField label="Frecuencia de pago">
+              <Select value={frecuencia} onValueChange={setFrecuencia}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(FRECUENCIAS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => f.setValue("valor_cuota", Number((total / ncuot).toFixed(2)))}
@@ -341,12 +400,48 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
         >
           Calcular cuota = total / cantidad ({formatPesos(total / Math.max(1, ncuot))})
         </button>
+
+        {!initial && cronograma.length > 0 && (
+          <div className="rounded border border-border">
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border">
+              <span className="text-xs font-medium">Cronograma de cuotas (editable)</span>
+              <span className="text-xs tabular-nums">Σ {formatPesos(sumaCronograma)}</span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Vencimiento</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cronograma.map((c, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="py-1">{c.numero}</TableCell>
+                      <TableCell className="py-1">
+                        <Input type="date" value={c.fecha}
+                          onChange={(e) => updateCuota(i, { fecha: e.target.value })} className="h-8" />
+                      </TableCell>
+                      <TableCell className="py-1">
+                        <Input type="number" step="0.01" value={c.monto}
+                          onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} className="h-8 text-right" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
         <FormField label="Observaciones">
           <Textarea rows={2} {...f.register("observaciones")} />
         </FormField>
         {!initial && (
           <p className="text-xs text-muted-foreground">
-            Al guardar se generará automáticamente el plan de {ncuot} cuotas mensuales que se reflejará en el Cash Flow.
+            Al guardar se generará el plan según el cronograma de arriba y se reflejará en el Cash Flow.
           </p>
         )}
         <DialogFooter>
