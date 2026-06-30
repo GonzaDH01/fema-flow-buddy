@@ -129,14 +129,31 @@ async function loadCashflow(userId: string, anio: number) {
   const ingCobrados: Row[] = [];
   const ingPendientes: Row[] = [];
   const ingEstimados: Row[] = [];
+  // Agrupar estimaciones por cliente (+ descripción) en una sola línea con cuotas por mes
+  const estimGroups = new Map<string, { label: string; sub?: string; values: number[]; tooltips: string[][] }>();
   for (const e of (estimaciones.data ?? []) as any[]) {
     if (e.estado === "cobrado") continue;
     const mes = Number((e.fecha_estimada ?? "").slice(5, 7));
+    if (mes < 1 || mes > 12) continue;
+    const label = e.cliente?.nombre ?? "Estimación";
+    const desc = (e.descripcion ?? "").replace(/\s*-\s*Cuota\s*\d+\/\d+\s*$/i, "").trim();
+    const key = `${label}||${desc}`;
+    let g = estimGroups.get(key);
+    if (!g) {
+      g = { label, sub: desc || undefined, values: empty12(), tooltips: Array.from({ length: 12 }, () => []) };
+      estimGroups.set(key, g);
+    }
+    const monto = Number(e.monto);
+    g.values[mes - 1] += monto;
+    g.tooltips[mes - 1].push(`${e.descripcion ?? "Cuota"}: ${formatPesos(monto)}`);
+  }
+  for (const g of estimGroups.values()) {
     ingEstimados.push({
-      label: e.cliente?.nombre ?? "Estimación",
-      sub: e.descripcion ?? undefined,
+      label: g.label,
+      sub: g.sub,
       badge: "Estimado",
-      values: placeAt(mes, Number(e.monto)),
+      values: g.values,
+      tooltips: g.tooltips.map((t) => (t.length ? t.join("\n") : undefined)),
       sign: "+",
     });
   }
