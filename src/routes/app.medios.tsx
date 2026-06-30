@@ -19,7 +19,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Send, Edit3, Receipt, Printer } from "lucide-react";
 import { Sparkles, X as XIcon } from "lucide-react";
-import { FemaDocHeader, FemaClientBox, FemaWatermark } from "@/lib/fema-doc";
+import {
+  FemaDocHeader, FemaClientBox, FemaWatermark,
+  femaPrintCSS, femaHeaderHTML, femaClientHTML, femaWatermarkHTML,
+  absoluteAssetUrl, femaLogoUrl, femaWatermarkUrl,
+} from "@/lib/fema-doc";
 
 export const Route = createFileRoute("/app/medios")({ component: Page });
 
