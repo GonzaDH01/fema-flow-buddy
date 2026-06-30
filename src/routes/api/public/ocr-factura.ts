@@ -22,6 +22,8 @@ Analizá la imagen y devolvé SOLO un JSON con estos campos exactos (sin texto a
   "fecha": "YYYY-MM-DD|null",
   "emisor": "string|null",
   "receptor": "string|null",
+  "cuit_emisor": "string|null",
+  "cuit_receptor": "string|null",
   "descripcion": "string|null",
   "categoria_sugerida": "Repuestos_JD|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Otro",
   "es_combustible": false,
