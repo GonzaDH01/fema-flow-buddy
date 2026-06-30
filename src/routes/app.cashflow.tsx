@@ -26,7 +26,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, estimaciones] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("user_id", userId).eq("anio", anio),
@@ -45,6 +45,9 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
       .eq("user_id", userId),
+    supabase.from("fema_estimaciones")
+      .select("fecha_estimada,monto,descripcion,estado,cliente:fema_clientes(nombre)")
+      .gte("fecha_estimada", `${anio}-01-01`).lte("fecha_estimada", `${anio}-12-31`),
   ]);
 
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
@@ -125,6 +128,18 @@ async function loadCashflow(userId: string, anio: number) {
 
   const ingCobrados: Row[] = [];
   const ingPendientes: Row[] = [];
+  const ingEstimados: Row[] = [];
+  for (const e of (estimaciones.data ?? []) as any[]) {
+    if (e.estado === "cobrado") continue;
+    const mes = Number((e.fecha_estimada ?? "").slice(5, 7));
+    ingEstimados.push({
+      label: e.cliente?.nombre ?? "Estimación",
+      sub: e.descripcion ?? undefined,
+      badge: "Estimado",
+      values: placeAt(mes, Number(e.monto)),
+      sign: "+",
+    });
+  }
   for (const v of (ventas.data ?? []) as any[]) {
     const linked = movsByFV.get(v.id) ?? [];
     const total = Number(v.total);
@@ -218,13 +233,13 @@ async function loadCashflow(userId: string, anio: number) {
     egPagados.push({ label: "Combustible", values: combPorMes, sign: "-" });
   }
 
-  const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes].map((r) => r.values[i])));
+  const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
   const neto = totalIng.map((v, i) => v - totalEg[i]);
   const acumulado: number[] = [];
   neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, 0);
 
-  return { ingCobrados, ingPendientes, egPagados, egPendientes, totalIng, totalEg, neto, acumulado };
+  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, totalIng, totalEg, neto, acumulado };
 }
 
 function Page() {
@@ -278,6 +293,10 @@ function Page() {
                 <SectionHeader title="INGRESOS PENDIENTES (estim.)" />
                 {data.ingPendientes.map((r, i) => <DataRow key={`ip-${i}`} row={r} />)}
                 {data.ingPendientes.length === 0 && <EmptyRow />}
+
+                <SectionHeader title="INGRESOS ESTIMADOS (proyección)" />
+                {data.ingEstimados.map((r, i) => <DataRow key={`ie-${i}`} row={r} />)}
+                {data.ingEstimados.length === 0 && <EmptyRow />}
 
                 <TotalRow label="TOTAL INGRESOS" values={data.totalIng} positive />
 
