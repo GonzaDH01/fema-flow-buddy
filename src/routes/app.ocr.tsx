@@ -296,6 +296,7 @@ function Page() {
                 ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
                 ["Emisor", result.emisor ?? "—"], ["Receptor", result.receptor ?? "—"],
+                ["CUIT Emisor", result.cuit_emisor ?? "—"], ["CUIT Receptor", result.cuit_receptor ?? "—"],
                 ["Categoría sugerida", result.categoria_sugerida ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
