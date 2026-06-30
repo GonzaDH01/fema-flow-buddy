@@ -810,6 +810,11 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           </div>
 
           <div className="rounded-md border overflow-hidden">
+            {planCargado && (
+              <div className="border-b bg-primary/10 px-3 py-2 text-[11px] text-primary">
+                Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
