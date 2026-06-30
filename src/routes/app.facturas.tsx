@@ -495,11 +495,24 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      plan_cuotas: [],
     },
   });
 
   const tipo = f.watch("tipo");
   const ivaPctStr = f.watch("iva_pct");
+  const tipoComp = f.watch("tipo_comprobante");
+  const cuotas = f.watch("plan_cuotas") ?? [];
+
+  // Plan controls
+  const [planQty, setPlanQty] = useState(6);
+  const [planFirst, setPlanFirst] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [planPer, setPlanPer] = useState<typeof PERIODICIDADES[number]>("mensual");
+  const [planInstr, setPlanInstr] = useState<typeof INSTRUMENTOS_PLAN[number]>("echeq");
+
   const has = Number(f.watch("hectareas") || 0);
   const pHa = Number(f.watch("precio_ha") || 0);
   const mts = Number(f.watch("metros_bolsa") || 0);
@@ -511,6 +524,38 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
   const ivaPct = ivaPctStr === "21%" ? 0.21 : ivaPctStr === "10.5%" ? 0.105 : ivaPctStr === "27%" ? 0.27 : 0;
   const ivaMonto = tipo === "A" ? neto * ivaPct : 0;
   const total = neto + ivaMonto;
+
+  const generarPlan = () => {
+    if (planQty < 1 || total <= 0) return;
+    const cuota = +(total / planQty).toFixed(2);
+    const arr = Array.from({ length: planQty }).map((_, i) => {
+      const d = new Date(planFirst);
+      if (planPer === "semanal") d.setDate(d.getDate() + i * 7);
+      else if (planPer === "quincenal") d.setDate(d.getDate() + i * 15);
+      else d.setMonth(d.getMonth() + i);
+      // Ajustar última cuota por redondeo
+      const monto = i === planQty - 1 ? +(total - cuota * (planQty - 1)).toFixed(2) : cuota;
+      return {
+        vencimiento: d.toISOString().slice(0, 10),
+        monto,
+        instrumento: planInstr,
+        numero: "",
+        banco: "",
+      };
+    });
+    f.setValue("plan_cuotas", arr, { shouldDirty: true });
+  };
+
+  const updateCuota = (i: number, patch: Partial<NonNullable<FormVals["plan_cuotas"]>[number]>) => {
+    const arr = [...cuotas];
+    arr[i] = { ...arr[i], ...patch };
+    f.setValue("plan_cuotas", arr, { shouldDirty: true });
+  };
+  const removeCuota = (i: number) => {
+    f.setValue("plan_cuotas", cuotas.filter((_, idx) => idx !== i), { shouldDirty: true });
+  };
+  const totalCuotas = cuotas.reduce((a, c) => a + Number(c.monto || 0), 0);
+  const diff = +(total - totalCuotas).toFixed(2);
 
   useEffect(() => {
     if (!initial) {
