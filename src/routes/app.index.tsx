@@ -17,23 +17,23 @@ type FC = { mes: number; total: number; estado: string; fecha: string; numero: s
 type SU = { sueldo_bruto: number | null; cargas_sociales: number | null };
 type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brutos: number | null; ganancias_estimadas: number | null };
 
-async function loadKPIs(userId: string, anio: number) {
+async function loadKPIs(_userId: string, anio: number) {
   const [ventas, compras, sueldos, impuestos, movs] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_facturas_compra")
       .select("id,mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("sueldo_bruto,cargas_sociales,periodo")
-      .eq("user_id", userId).like("periodo", `${anio}-%`),
+      .like("periodo", `${anio}-%`),
     supabase.from("fema_impuestos")
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio,mes,vencimiento,fecha_emision")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
   ]);
   if (ventas.error) throw ventas.error;
   if (compras.error) throw compras.error;
