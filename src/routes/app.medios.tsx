@@ -568,7 +568,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       .select("id,numero,banco,vencimiento,monto,observaciones,estado,instrumento")
       .eq(col, facturaSel)
       .order("vencimiento", { ascending: true })
-      .then(({ data }) => {
+      .then(({ data }: { data: any[] | null }) => {
         if (!data || data.length === 0) { setPlanOriginalIds([]); setPlanCargado(false); return; }
         setCuotas(data.map((r: any) => ({
           id: r.id,
