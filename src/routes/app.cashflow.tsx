@@ -29,22 +29,22 @@ async function loadCashflow(userId: string, anio: number) {
   const [ventas, compras, sueldos, impuestos, combustible, movs, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_facturas_compra")
       .select("id,mes,total,estado,numero,categoria,proveedor:fema_proveedores(nombre)")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("periodo,sueldo_bruto,cargas_sociales,empleado:fema_empleados(nombre)")
-      .eq("user_id", userId).like("periodo", `${anio}-%`),
+      .like("periodo", `${anio}-%`),
     supabase.from("fema_impuestos")
       .select("mes,periodo,iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
-      .eq("user_id", userId).eq("anio", anio),
+      .eq("anio", anio),
     supabase.from("fema_combustible")
       .select("fecha,total")
-      .eq("user_id", userId).gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
-      .eq("user_id", userId),
+      ,
     supabase.from("fema_estimaciones")
       .select("fecha_estimada,monto,descripcion,estado,cliente:fema_clientes(nombre)")
       .gte("fecha_estimada", `${anio}-01-01`).lte("fecha_estimada", `${anio}-12-31`),
