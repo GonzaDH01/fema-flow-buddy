@@ -595,9 +595,10 @@ function SummaryTable({ title, col1, rows }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, clientes, year }: {
+function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
   onSubmit: (v: FormVals) => Promise<void>;
   initial: Row | null;
+  prefill: PrefillEstim | null;
   clientes: { id: string; nombre: string }[];
   year: number;
 }) {
@@ -614,9 +615,9 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
       tipo_comprobante: (initial?.tipo_comprobante as typeof TIPOS_COMPROBANTE[number]) ?? "Factura",
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      fecha: initial?.fecha ?? new Date(`${year}-01-01`).toISOString().slice(0, 10),
-      cliente_id: initial?.cliente_id ?? "",
-      trabajo: initial?.trabajo ?? "",
+      fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
+      cliente_id: initial?.cliente_id ?? prefill?.group.cliente_id ?? "",
+      trabajo: initial?.trabajo ?? prefill?.group.descripcionBase ?? "",
       cultivo: initial?.cultivo ?? "Maíz",
       iva_pct: inferIva(initial),
       hectareas: Number(initial?.hectareas ?? 0),
@@ -627,7 +628,15 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
-      plan_cuotas: [],
+      plan_cuotas: prefill
+        ? prefill.group.cuotas.map((c) => ({
+            vencimiento: c.vencimiento,
+            monto: c.monto,
+            instrumento: "echeq" as const,
+            numero: "",
+            banco: "",
+          }))
+        : [],
     },
   });
 
