@@ -393,6 +393,104 @@ export type Database = {
           },
         ]
       }
+      fema_creditos: {
+        Row: {
+          acreedor: string
+          cantidad_cuotas: number
+          created_at: string
+          descripcion: string | null
+          fecha_primera_cuota: string
+          id: string
+          monto_total: number
+          observaciones: string | null
+          tasa: number | null
+          updated_at: string
+          user_id: string
+          valor_cuota: number
+        }
+        Insert: {
+          acreedor: string
+          cantidad_cuotas?: number
+          created_at?: string
+          descripcion?: string | null
+          fecha_primera_cuota: string
+          id?: string
+          monto_total?: number
+          observaciones?: string | null
+          tasa?: number | null
+          updated_at?: string
+          user_id: string
+          valor_cuota?: number
+        }
+        Update: {
+          acreedor?: string
+          cantidad_cuotas?: number
+          created_at?: string
+          descripcion?: string | null
+          fecha_primera_cuota?: string
+          id?: string
+          monto_total?: number
+          observaciones?: string | null
+          tasa?: number | null
+          updated_at?: string
+          user_id?: string
+          valor_cuota?: number
+        }
+        Relationships: []
+      }
+      fema_creditos_cuotas: {
+        Row: {
+          created_at: string
+          credito_id: string
+          estado: string
+          fecha_pago: string | null
+          fecha_vencimiento: string
+          forma_pago: string | null
+          id: string
+          monto: number
+          numero_cuota: number
+          observaciones: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credito_id: string
+          estado?: string
+          fecha_pago?: string | null
+          fecha_vencimiento: string
+          forma_pago?: string | null
+          id?: string
+          monto?: number
+          numero_cuota: number
+          observaciones?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credito_id?: string
+          estado?: string
+          fecha_pago?: string | null
+          fecha_vencimiento?: string
+          forma_pago?: string | null
+          id?: string
+          monto?: number
+          numero_cuota?: number
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_creditos_cuotas_credito_id_fkey"
+            columns: ["credito_id"]
+            isOneToOne: false
+            referencedRelation: "fema_creditos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_empleados: {
         Row: {
           activo: boolean | null
@@ -731,6 +829,115 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_gastos_fijos: {
+        Row: {
+          activo: boolean
+          categoria: string
+          concepto: string
+          created_at: string
+          dia_vencimiento: number | null
+          id: string
+          mes_fin: string | null
+          mes_inicio: string
+          monto_mensual: number
+          observaciones: string | null
+          proveedor_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activo?: boolean
+          categoria?: string
+          concepto: string
+          created_at?: string
+          dia_vencimiento?: number | null
+          id?: string
+          mes_fin?: string | null
+          mes_inicio: string
+          monto_mensual?: number
+          observaciones?: string | null
+          proveedor_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string
+          concepto?: string
+          created_at?: string
+          dia_vencimiento?: number | null
+          id?: string
+          mes_fin?: string | null
+          mes_inicio?: string
+          monto_mensual?: number
+          observaciones?: string | null
+          proveedor_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_gastos_fijos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "fema_proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_gastos_fijos_mov: {
+        Row: {
+          anio: number
+          created_at: string
+          fecha_pago: string | null
+          forma_pago: string | null
+          gasto_fijo_id: string
+          id: string
+          mes: number
+          monto: number
+          observaciones: string | null
+          pagado: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          fecha_pago?: string | null
+          forma_pago?: string | null
+          gasto_fijo_id: string
+          id?: string
+          mes: number
+          monto?: number
+          observaciones?: string | null
+          pagado?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          fecha_pago?: string | null
+          forma_pago?: string | null
+          gasto_fijo_id?: string
+          id?: string
+          mes?: number
+          monto?: number
+          observaciones?: string | null
+          pagado?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_gastos_fijos_mov_gasto_fijo_id_fkey"
+            columns: ["gasto_fijo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_gastos_fijos"
             referencedColumns: ["id"]
           },
         ]

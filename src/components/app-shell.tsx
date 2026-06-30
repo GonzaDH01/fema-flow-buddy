@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
-  Truck, UserCheck, Calculator, ClipboardList, CreditCard, Shield, LogOut,
+  Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog,
 } from "lucide-react";
 import { useState } from "react";
@@ -37,6 +37,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app/compras", label: "Compras", icon: ShoppingCart, key: "compras" },
       { to: "/app/combustible", label: "Combustible", icon: Fuel, key: "combustible" },
       { to: "/app/proveedores", label: "Proveedores", icon: Truck, key: "proveedores" },
+      { to: "/app/creditos", label: "Créditos / Financ.", icon: Banknote, key: "creditos" },
     ],
   },
   {
@@ -76,6 +77,7 @@ const titleByPath: Record<string, string> = {
   "/app/compras": "Compras",
   "/app/combustible": "Combustible",
   "/app/proveedores": "Proveedores",
+  "/app/creditos": "Créditos / Financiación",
   "/app/empleados": "Empleados",
   "/app/impuestos": "Impuestos",
   "/app/presupuestos": "Presupuestos",

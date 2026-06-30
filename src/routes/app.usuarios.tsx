@@ -19,6 +19,7 @@ const MODULOS: { key: string; label: string }[] = [
   { key: "compras", label: "Compras" },
   { key: "combustible", label: "Combustible" },
   { key: "proveedores", label: "Proveedores" },
+  { key: "creditos", label: "Créditos / Financiación" },
   { key: "empleados", label: "Empleados" },
   { key: "impuestos", label: "Impuestos" },
   { key: "presupuestos", label: "Presupuestos" },
