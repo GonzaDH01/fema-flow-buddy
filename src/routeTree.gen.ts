@@ -21,7 +21,6 @@ import { Route as AppOcrRouteImport } from './routes/app.ocr'
 import { Route as AppMediosRouteImport } from './routes/app.medios'
 import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
 import { Route as AppFacturasRouteImport } from './routes/app.facturas'
-import { Route as AppEstimacionesRouteImport } from './routes/app.estimaciones'
 import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
 import { Route as AppComprasRouteImport } from './routes/app.compras'
 import { Route as AppCombustibleRouteImport } from './routes/app.combustible'
@@ -90,11 +89,6 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
   path: '/facturas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEstimacionesRoute = AppEstimacionesRouteImport.update({
-  id: '/estimaciones',
-  path: '/estimaciones',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppEmpleadosRoute = AppEmpleadosRouteImport.update({
   id: '/empleados',
   path: '/empleados',
@@ -142,7 +136,6 @@ export interface FileRoutesByFullPath {
   '/app/combustible': typeof AppCombustibleRoute
   '/app/compras': typeof AppComprasRoute
   '/app/empleados': typeof AppEmpleadosRoute
-  '/app/estimaciones': typeof AppEstimacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -163,7 +156,6 @@ export interface FileRoutesByTo {
   '/app/combustible': typeof AppCombustibleRoute
   '/app/compras': typeof AppComprasRoute
   '/app/empleados': typeof AppEmpleadosRoute
-  '/app/estimaciones': typeof AppEstimacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -186,7 +178,6 @@ export interface FileRoutesById {
   '/app/combustible': typeof AppCombustibleRoute
   '/app/compras': typeof AppComprasRoute
   '/app/empleados': typeof AppEmpleadosRoute
-  '/app/estimaciones': typeof AppEstimacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -210,7 +201,6 @@ export interface FileRouteTypes {
     | '/app/combustible'
     | '/app/compras'
     | '/app/empleados'
-    | '/app/estimaciones'
     | '/app/facturas'
     | '/app/impuestos'
     | '/app/medios'
@@ -231,7 +221,6 @@ export interface FileRouteTypes {
     | '/app/combustible'
     | '/app/compras'
     | '/app/empleados'
-    | '/app/estimaciones'
     | '/app/facturas'
     | '/app/impuestos'
     | '/app/medios'
@@ -253,7 +242,6 @@ export interface FileRouteTypes {
     | '/app/combustible'
     | '/app/compras'
     | '/app/empleados'
-    | '/app/estimaciones'
     | '/app/facturas'
     | '/app/impuestos'
     | '/app/medios'
@@ -359,13 +347,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturasRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/estimaciones': {
-      id: '/app/estimaciones'
-      path: '/estimaciones'
-      fullPath: '/app/estimaciones'
-      preLoaderRoute: typeof AppEstimacionesRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/empleados': {
       id: '/app/empleados'
       path: '/empleados'
@@ -425,7 +406,6 @@ interface AppRouteChildren {
   AppCombustibleRoute: typeof AppCombustibleRoute
   AppComprasRoute: typeof AppComprasRoute
   AppEmpleadosRoute: typeof AppEmpleadosRoute
-  AppEstimacionesRoute: typeof AppEstimacionesRoute
   AppFacturasRoute: typeof AppFacturasRoute
   AppImpuestosRoute: typeof AppImpuestosRoute
   AppMediosRoute: typeof AppMediosRoute
@@ -443,7 +423,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppCombustibleRoute: AppCombustibleRoute,
   AppComprasRoute: AppComprasRoute,
   AppEmpleadosRoute: AppEmpleadosRoute,
-  AppEstimacionesRoute: AppEstimacionesRoute,
   AppFacturasRoute: AppFacturasRoute,
   AppImpuestosRoute: AppImpuestosRoute,
   AppMediosRoute: AppMediosRoute,
