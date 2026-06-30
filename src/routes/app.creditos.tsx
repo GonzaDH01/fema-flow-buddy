@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,8 +24,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/app/creditos")({ component: Page });
-
-const FORMAS = ["Transferencia", "Efectivo", "Débito automático", "E-cheq", "Cheque", "Otro"] as const;
 
 const schema = z.object({
   acreedor: z.string().min(1).max(120),
