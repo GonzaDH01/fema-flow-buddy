@@ -201,13 +201,16 @@ function Page() {
       observaciones: v.observaciones || null,
       condicion_pago: periodo,
     };
-    const { error } = edit
-      ? await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_facturas_venta").insert(payload).select("id").single() as any;
-    if (error) { toast.error(error.message); return; }
-    // Si se generó plan de cuotas en alta, insertarlas vinculadas
-    const inserted = !edit ? (error ? null : (await supabase.from("fema_facturas_venta").select("id").eq("user_id", user!.id).eq("fecha", v.fecha).eq("total", total).order("created_at", { ascending: false }).limit(1).maybeSingle()).data) : null;
-    const facturaId = edit ? edit.id : inserted?.id ?? null;
+    let facturaId: string | null = null;
+    if (edit) {
+      const { error } = await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id);
+      if (error) { toast.error(error.message); return; }
+      facturaId = edit.id;
+    } else {
+      const { data: ins, error } = await supabase.from("fema_facturas_venta").insert(payload).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      facturaId = (ins as any)?.id ?? null;
+    }
     if (facturaId && v.plan_cuotas && v.plan_cuotas.length > 0) {
       const movs = v.plan_cuotas.map((c, i) => ({
         user_id: user!.id,
