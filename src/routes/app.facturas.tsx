@@ -543,7 +543,16 @@ function Page() {
       </section>
 
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
-        <FormDialog onSubmit={onSubmit} initial={edit} prefill={prefill} clientes={clientes ?? []} year={year} />
+        {open && (
+          <FormDialog
+            key={prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
+            onSubmit={onSubmit}
+            initial={edit}
+            prefill={prefill}
+            clientes={clientes ?? []}
+            year={year}
+          />
+        )}
       </Dialog>
     </div>
   );
