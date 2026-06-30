@@ -27,11 +27,13 @@ import {
 
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
-const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Estimado"] as const;
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
 const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Otro"] as const;
+const PERIODICIDADES = ["semanal", "quincenal", "mensual"] as const;
+const INSTRUMENTOS_PLAN = ["echeq", "cheque_fisico", "transferencia", "efectivo", "otro"] as const;
 
 const schema = z.object({
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
@@ -194,11 +196,34 @@ function Page() {
     };
     const { error } = edit
       ? await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_facturas_venta").insert(payload);
+      : await supabase.from("fema_facturas_venta").insert(payload).select("id").single() as any;
     if (error) { toast.error(error.message); return; }
-    toast.success(edit ? "Factura actualizada" : "Factura creada");
+    // Si se generó plan de cuotas en alta, insertarlas vinculadas
+    const inserted = !edit ? (error ? null : (await supabase.from("fema_facturas_venta").select("id").eq("user_id", user!.id).eq("fecha", v.fecha).eq("total", total).order("created_at", { ascending: false }).limit(1).maybeSingle()).data) : null;
+    const facturaId = edit ? edit.id : inserted?.id ?? null;
+    if (facturaId && v.plan_cuotas && v.plan_cuotas.length > 0) {
+      const movs = v.plan_cuotas.map((c, i) => ({
+        user_id: user!.id,
+        instrumento: c.instrumento,
+        direccion: "cobro" as const,
+        tipo_movimiento: "cobro_cliente" as const,
+        fecha_emision: v.fecha,
+        vencimiento: c.vencimiento || null,
+        numero: c.numero || null,
+        banco: c.banco || null,
+        contraparte: v.cliente_id ? null : null,
+        monto: c.monto,
+        estado: "en_cartera" as const,
+        factura_venta_id: facturaId,
+        observaciones: `Cuota ${i + 1}/${v.plan_cuotas!.length}${v.tipo_comprobante === "Estimado" ? " (Estimado)" : ""}`,
+      }));
+      const { error: errMov } = await supabase.from("fema_movimientos_pago").insert(movs);
+      if (errMov) toast.error(`Plan de cuotas: ${errMov.message}`);
+    }
+    toast.success(edit ? "Factura actualizada" : "Comprobante creado");
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     close();
   };
 
