@@ -716,6 +716,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       }
       toast.success("Movimiento guardado");
+      // Reconcilia estado de la(s) factura(s) afectada(s)
+      if (tipo === "cobro_cliente") await reconciliarFactura(facturaSel, "venta");
+      if (tipo === "pago_proveedor") await reconciliarFactura(facturaSel, "compra");
+      if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
+      if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
+        await reconciliarFactura(initial.factura_venta_id, "venta");
+      }
+      if (initial?.factura_compra_id && initial.factura_compra_id !== facturaSel) {
+        await reconciliarFactura(initial.factura_compra_id, "compra");
+      }
       onSaved();
     } catch (e: any) {
       toast.error(e.message ?? "Error al guardar");
