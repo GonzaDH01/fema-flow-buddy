@@ -47,13 +47,14 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
   const tabla = tipo === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
   const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
   const estadoOk = tipo === "venta" ? "cobrada" : "pagada";
+  // Solo cuentan como pago confirmado: cobrado (venta) / pagado o cedido (compra).
+  // En_cartera = pendiente de cobro (no marca factura como cobrada).
+  const estadosConfirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
   const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
   if (!fact) return;
   const { data: movs } = await sb.from("fema_movimientos_pago")
     .select("monto,estado").eq(col, facturaId);
-  const activos = (movs ?? []).filter((m: any) =>
-    ["cobrado", "pagado", "en_cartera", "cedido"].includes(m.estado)
-  );
+  const activos = (movs ?? []).filter((m: any) => estadosConfirmados.includes(m.estado));
   const cubierto = activos.reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
   const totalFac = Number(fact.total || 0);
   const nuevo = cubierto >= totalFac - 0.01 && totalFac > 0 ? estadoOk : "pendiente";
