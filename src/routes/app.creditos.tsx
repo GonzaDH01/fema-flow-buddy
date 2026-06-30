@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Check, X, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/lib/form-helpers";
@@ -324,29 +324,41 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
   const fechaPrim = f.watch("fecha_primera_cuota");
   const valorCuota = Number(f.watch("valor_cuota") || 0);
 
-  const [frecuencia, setFrecuencia] = useState<string>("mensual");
+  const [frecuencia, setFrecuencia] = useState<string>("manual");
   const [cronograma, setCronograma] = useState<CuotaDraft[]>([]);
 
+  // Inicializar cronograma vacío en alta; el usuario lo arma manualmente
+  // o aplica una plantilla de frecuencia.
   useEffect(() => {
     if (initial) return;
-    if (frecuencia === "personalizado") {
-      setCronograma((prev) => {
-        const next: CuotaDraft[] = [];
-        for (let i = 0; i < ncuot; i++) {
-          next.push(prev[i] ?? { numero: i + 1, fecha: addMonths(fechaPrim, i), monto: valorCuota });
-        }
-        return next;
-      });
-      return;
+    if (cronograma.length === 0) {
+      setCronograma([{ numero: 1, fecha: fechaPrim, monto: valorCuota }]);
     }
-    const step = FRECUENCIAS[frecuencia].step;
-    setCronograma(Array.from({ length: ncuot }, (_, i) => ({
-      numero: i + 1, fecha: addMonths(fechaPrim, i * step), monto: valorCuota,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  const aplicarPlantilla = () => {
+    if (frecuencia === "manual") return;
+    const step = FRECUENCIAS[frecuencia]?.step ?? 1;
+    const n = Math.max(1, ncuot);
+    setCronograma(Array.from({ length: n }, (_, i) => ({
+      numero: i + 1,
+      fecha: addMonths(fechaPrim, i * step),
+      monto: valorCuota,
     })));
-  }, [frecuencia, ncuot, fechaPrim, valorCuota, initial]);
+  };
 
   const updateCuota = (idx: number, patch: Partial<CuotaDraft>) =>
     setCronograma((prev) => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+
+  const addCuota = () => setCronograma((prev) => {
+    const last = prev[prev.length - 1];
+    const nextFecha = last ? addMonths(last.fecha, 1) : fechaPrim;
+    return [...prev, { numero: prev.length + 1, fecha: nextFecha, monto: last?.monto ?? valorCuota }];
+  });
+
+  const removeCuota = (idx: number) =>
+    setCronograma((prev) => prev.filter((_, i) => i !== idx).map((c, i) => ({ ...c, numero: i + 1 })));
 
   const sumaCronograma = cronograma.reduce((a, c) => a + Number(c.monto || 0), 0);
 
@@ -381,15 +393,22 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
             <Input type="date" {...f.register("fecha_primera_cuota")} />
           </FormField>
           {!initial && (
-            <FormField label="Frecuencia de pago">
-              <Select value={frecuencia} onValueChange={setFrecuencia}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(FRECUENCIAS).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <FormField label="Plantilla rápida (opcional)">
+              <div className="flex gap-2">
+                <Select value={frecuencia} onValueChange={setFrecuencia}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual (sin plantilla)</SelectItem>
+                    {Object.entries(FRECUENCIAS).filter(([k]) => k !== "personalizado").map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" onClick={aplicarPlantilla}
+                  disabled={frecuencia === "manual"}>
+                  <Wand2 className="h-3 w-3" /> Generar
+                </Button>
+              </div>
             </FormField>
           )}
         </div>
@@ -401,11 +420,16 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
           Calcular cuota = total / cantidad ({formatPesos(total / Math.max(1, ncuot))})
         </button>
 
-        {!initial && cronograma.length > 0 && (
+        {!initial && (
           <div className="rounded border border-border">
             <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border">
-              <span className="text-xs font-medium">Cronograma de cuotas (editable)</span>
-              <span className="text-xs tabular-nums">Σ {formatPesos(sumaCronograma)}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Cronograma de cuotas</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Agregá las cuotas con la fecha exacta y el monto de cada una. No necesitan ser meses consecutivos.
+                </span>
+              </div>
+              <span className="text-xs tabular-nums">Σ {formatPesos(sumaCronograma)} · {cronograma.length} cuotas</span>
             </div>
             <div className="max-h-64 overflow-y-auto">
               <Table>
@@ -414,6 +438,7 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Vencimiento</TableHead>
                     <TableHead className="text-right">Monto</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -428,10 +453,21 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
                         <Input type="number" step="0.01" value={c.monto}
                           onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} className="h-8 text-right" />
                       </TableCell>
+                      <TableCell className="py-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => removeCuota(i)} disabled={cronograma.length <= 1}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </div>
+            <div className="px-3 py-2 border-t border-border">
+              <Button type="button" variant="outline" size="sm" onClick={addCuota}>
+                <Plus className="h-3 w-3" /> Agregar cuota
+              </Button>
             </div>
           </div>
         )}
