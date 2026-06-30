@@ -27,11 +27,13 @@ import {
 
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
-const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Estimado"] as const;
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
 const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Otro"] as const;
+const PERIODICIDADES = ["semanal", "quincenal", "mensual"] as const;
+const INSTRUMENTOS_PLAN = ["echeq", "cheque_fisico", "transferencia", "efectivo", "otro"] as const;
 
 const schema = z.object({
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
@@ -50,6 +52,13 @@ const schema = z.object({
   fecha_cobro: z.string().optional().or(z.literal("")),
   forma_cobro: z.string().optional().or(z.literal("")),
   observaciones: z.string().max(500).optional().or(z.literal("")),
+  plan_cuotas: z.array(z.object({
+    vencimiento: z.string().min(1),
+    monto: z.coerce.number().min(0),
+    instrumento: z.enum(INSTRUMENTOS_PLAN),
+    numero: z.string().optional().or(z.literal("")),
+    banco: z.string().optional().or(z.literal("")),
+  })).optional(),
 });
 type FormVals = z.infer<typeof schema>;
 
@@ -192,13 +201,39 @@ function Page() {
       observaciones: v.observaciones || null,
       condicion_pago: periodo,
     };
-    const { error } = edit
-      ? await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_facturas_venta").insert(payload);
-    if (error) { toast.error(error.message); return; }
-    toast.success(edit ? "Factura actualizada" : "Factura creada");
+    let facturaId: string | null = null;
+    if (edit) {
+      const { error } = await supabase.from("fema_facturas_venta").update(payload).eq("id", edit.id);
+      if (error) { toast.error(error.message); return; }
+      facturaId = edit.id;
+    } else {
+      const { data: ins, error } = await supabase.from("fema_facturas_venta").insert(payload).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      facturaId = (ins as any)?.id ?? null;
+    }
+    if (facturaId && v.plan_cuotas && v.plan_cuotas.length > 0) {
+      const movs = v.plan_cuotas.map((c, i) => ({
+        user_id: user!.id,
+        instrumento: c.instrumento,
+        direccion: "cobro" as const,
+        tipo_movimiento: "cobro_cliente" as const,
+        fecha_emision: v.fecha,
+        vencimiento: c.vencimiento || null,
+        numero: c.numero || null,
+        banco: c.banco || null,
+        contraparte: v.cliente_id ? null : null,
+        monto: c.monto,
+        estado: "en_cartera" as const,
+        factura_venta_id: facturaId,
+        observaciones: `Cuota ${i + 1}/${v.plan_cuotas!.length}${v.tipo_comprobante === "Estimado" ? " (Estimado)" : ""}`,
+      }));
+      const { error: errMov } = await supabase.from("fema_movimientos_pago").insert(movs);
+      if (errMov) toast.error(`Plan de cuotas: ${errMov.message}`);
+    }
+    toast.success(edit ? "Factura actualizada" : "Comprobante creado");
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     close();
   };
 
@@ -460,11 +495,24 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      plan_cuotas: [],
     },
   });
 
   const tipo = f.watch("tipo");
   const ivaPctStr = f.watch("iva_pct");
+  const tipoComp = f.watch("tipo_comprobante");
+  const cuotas = f.watch("plan_cuotas") ?? [];
+
+  // Plan controls
+  const [planQty, setPlanQty] = useState(6);
+  const [planFirst, setPlanFirst] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [planPer, setPlanPer] = useState<typeof PERIODICIDADES[number]>("mensual");
+  const [planInstr, setPlanInstr] = useState<typeof INSTRUMENTOS_PLAN[number]>("echeq");
+
   const has = Number(f.watch("hectareas") || 0);
   const pHa = Number(f.watch("precio_ha") || 0);
   const mts = Number(f.watch("metros_bolsa") || 0);
@@ -477,6 +525,38 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
   const ivaMonto = tipo === "A" ? neto * ivaPct : 0;
   const total = neto + ivaMonto;
 
+  const generarPlan = () => {
+    if (planQty < 1 || total <= 0) return;
+    const cuota = +(total / planQty).toFixed(2);
+    const arr = Array.from({ length: planQty }).map((_, i) => {
+      const d = new Date(planFirst);
+      if (planPer === "semanal") d.setDate(d.getDate() + i * 7);
+      else if (planPer === "quincenal") d.setDate(d.getDate() + i * 15);
+      else d.setMonth(d.getMonth() + i);
+      // Ajustar última cuota por redondeo
+      const monto = i === planQty - 1 ? +(total - cuota * (planQty - 1)).toFixed(2) : cuota;
+      return {
+        vencimiento: d.toISOString().slice(0, 10),
+        monto,
+        instrumento: planInstr,
+        numero: "",
+        banco: "",
+      };
+    });
+    f.setValue("plan_cuotas", arr, { shouldDirty: true });
+  };
+
+  const updateCuota = (i: number, patch: Partial<NonNullable<FormVals["plan_cuotas"]>[number]>) => {
+    const arr = [...cuotas];
+    arr[i] = { ...arr[i], ...patch };
+    f.setValue("plan_cuotas", arr, { shouldDirty: true });
+  };
+  const removeCuota = (i: number) => {
+    f.setValue("plan_cuotas", cuotas.filter((_, idx) => idx !== i), { shouldDirty: true });
+  };
+  const totalCuotas = cuotas.reduce((a, c) => a + Number(c.monto || 0), 0);
+  const diff = +(total - totalCuotas).toFixed(2);
+
   useEffect(() => {
     if (!initial) {
       // ensure form rerenders totals via watch — nothing to do
@@ -486,7 +566,9 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
   return (
     <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{initial ? "Editar" : "Nueva"} Factura de Servicio</DialogTitle>
+        <DialogTitle>
+          {initial ? "Editar" : "Nuevo"} {tipoComp === "Estimado" ? "Estimado / Plan de cuotas" : "Comprobante de Servicio"}
+        </DialogTitle>
       </DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-4">
         {/* Tipo de comprobante */}
@@ -598,8 +680,71 @@ function FormDialog({ onSubmit, initial, clientes, year }: {
           <Textarea placeholder="Notas adicionales..." rows={2} {...f.register("observaciones")} />
         </FormField>
 
+        {/* Plan de cuotas */}
+        <fieldset className="rounded-md border border-border bg-muted/20 p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Plan de cuotas {tipoComp === "Estimado" ? "(Estimado)" : "(opcional)"}
+          </legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <FormField label="Cantidad">
+              <Input type="number" min={1} value={planQty} onChange={(e) => setPlanQty(Number(e.target.value) || 1)} />
+            </FormField>
+            <FormField label="1° vencimiento">
+              <Input type="date" value={planFirst} onChange={(e) => setPlanFirst(e.target.value)} />
+            </FormField>
+            <FormField label="Periodicidad">
+              <Select value={planPer} onValueChange={(v) => setPlanPer(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PERIODICIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Instrumento">
+              <Select value={planInstr} onValueChange={(v) => setPlanInstr(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{INSTRUMENTOS_PLAN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </FormField>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={generarPlan}>
+              Generar {planQty} cuotas
+            </Button>
+            {cuotas.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Total cuotas: <span className="font-semibold text-foreground">{formatPesos(totalCuotas)}</span>
+                {Math.abs(diff) > 0.5 && <span className="ml-2 text-destructive">Dif: {formatPesos(diff)}</span>}
+              </div>
+            )}
+          </div>
+          {cuotas.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {cuotas.map((c, i) => (
+                <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+                  <div className="col-span-1 text-center text-xs text-muted-foreground">{i + 1}</div>
+                  <Input type="date" className="col-span-3 h-8 text-xs" value={c.vencimiento} onChange={(e) => updateCuota(i, { vencimiento: e.target.value })} />
+                  <Input type="number" step="0.01" className="col-span-2 h-8 text-xs" value={c.monto} onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} />
+                  <Select value={c.instrumento} onValueChange={(v) => updateCuota(i, { instrumento: v as any })}>
+                    <SelectTrigger className="col-span-2 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{INSTRUMENTOS_PLAN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Input placeholder="N°" className="col-span-2 h-8 text-xs" value={c.numero ?? ""} onChange={(e) => updateCuota(i, { numero: e.target.value })} />
+                  <Input placeholder="Banco" className="col-span-1 h-8 text-xs" value={c.banco ?? ""} onChange={(e) => updateCuota(i, { banco: e.target.value })} />
+                  <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeCuota(i)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Al guardar, cada cuota se registra como movimiento de cobro vinculado a este comprobante y aparece en Medios de Pago / Cash Flow.
+          </p>
+        </fieldset>
+
         <DialogFooter>
-          <Button type="submit" disabled={f.formState.isSubmitting}>Guardar factura</Button>
+          <Button type="submit" disabled={f.formState.isSubmitting}>
+            Guardar {tipoComp === "Estimado" ? "estimado" : "factura"}
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>
