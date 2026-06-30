@@ -208,8 +208,12 @@ function Page() {
     const { error } = await sb.from("fema_movimientos_pago")
       .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado" }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Estado actualizado");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
   const ceder = async (m: Mov) => {
@@ -225,6 +229,7 @@ function Page() {
       monto: m.monto, estado: "pagado", echeq_origen_id: m.id,
       observaciones: `Cesión de echeq Nº ${m.numero ?? ""}`,
     });
+    await reconciliarFactura(m.factura_venta_id, "venta");
     toast.success("Echeq cedido");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
   };
@@ -238,7 +243,11 @@ function Page() {
         .eq("id", m.echeq_origen_id);
     }
     await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
     toast.success("Eliminado");
   };
 
