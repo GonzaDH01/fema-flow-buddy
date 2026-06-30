@@ -52,6 +52,13 @@ const schema = z.object({
   fecha_cobro: z.string().optional().or(z.literal("")),
   forma_cobro: z.string().optional().or(z.literal("")),
   observaciones: z.string().max(500).optional().or(z.literal("")),
+  plan_cuotas: z.array(z.object({
+    vencimiento: z.string().min(1),
+    monto: z.coerce.number().min(0),
+    instrumento: z.enum(INSTRUMENTOS_PLAN),
+    numero: z.string().optional().or(z.literal("")),
+    banco: z.string().optional().or(z.literal("")),
+  })).optional(),
 });
 type FormVals = z.infer<typeof schema>;
 
