@@ -40,6 +40,29 @@ type Mov = {
 
 const sb = supabase as any;
 
+// Reconcilia el estado de una factura (venta/compra) según los movimientos activos asociados.
+// Si la suma cubre el total → marca cobrada/pagada; si no → vuelve a pendiente.
+async function reconciliarFactura(facturaId: string | null | undefined, tipo: "venta" | "compra") {
+  if (!facturaId) return;
+  const tabla = tipo === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
+  const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
+  const estadoOk = tipo === "venta" ? "cobrada" : "pagada";
+  // Solo cuentan como pago confirmado: cobrado (venta) / pagado o cedido (compra).
+  // En_cartera = pendiente de cobro (no marca factura como cobrada).
+  const estadosConfirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
+  const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
+  if (!fact) return;
+  const { data: movs } = await sb.from("fema_movimientos_pago")
+    .select("monto,estado").eq(col, facturaId);
+  const activos = (movs ?? []).filter((m: any) => estadosConfirmados.includes(m.estado));
+  const cubierto = activos.reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+  const totalFac = Number(fact.total || 0);
+  const nuevo = cubierto >= totalFac - 0.01 && totalFac > 0 ? estadoOk : "pendiente";
+  if (fact.estado !== nuevo) {
+    await sb.from(tabla).update({ estado: nuevo }).eq("id", facturaId);
+  }
+}
+
 const INSTRUMENT_LABEL: Record<string, string> = {
   echeq: "Echeq", cheque_fisico: "Cheque físico", transferencia: "Transferencia",
   cesion: "Cesión echeq", efectivo: "Efectivo", otro: "Otro",
@@ -186,8 +209,12 @@ function Page() {
     const { error } = await sb.from("fema_movimientos_pago")
       .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado" }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Estado actualizado");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
   const ceder = async (m: Mov) => {
@@ -203,6 +230,7 @@ function Page() {
       monto: m.monto, estado: "pagado", echeq_origen_id: m.id,
       observaciones: `Cesión de echeq Nº ${m.numero ?? ""}`,
     });
+    await reconciliarFactura(m.factura_venta_id, "venta");
     toast.success("Echeq cedido");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
   };
@@ -216,7 +244,11 @@ function Page() {
         .eq("id", m.echeq_origen_id);
     }
     await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
     toast.success("Eliminado");
   };
 
@@ -685,6 +717,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       }
       toast.success("Movimiento guardado");
+      // Reconcilia estado de la(s) factura(s) afectada(s)
+      if (tipo === "cobro_cliente") await reconciliarFactura(facturaSel, "venta");
+      if (tipo === "pago_proveedor") await reconciliarFactura(facturaSel, "compra");
+      if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
+      if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
+        await reconciliarFactura(initial.factura_venta_id, "venta");
+      }
+      if (initial?.factura_compra_id && initial.factura_compra_id !== facturaSel) {
+        await reconciliarFactura(initial.factura_compra_id, "compra");
+      }
       onSaved();
     } catch (e: any) {
       toast.error(e.message ?? "Error al guardar");
