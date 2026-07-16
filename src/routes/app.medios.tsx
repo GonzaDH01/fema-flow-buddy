@@ -541,7 +541,7 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
           <TableHead>Tipo</TableHead>
           <TableHead>Dirección</TableHead>
           <TableHead>Fecha emisión</TableHead>
-          <TableHead>Vencimiento</TableHead>
+          <TableHead>Fecha de pago</TableHead>
           <TableHead>Origen / Destino</TableHead>
           <TableHead>Nº cheque / CBU / ref.</TableHead>
           <TableHead>Banco</TableHead>
@@ -604,7 +604,7 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
           <TableHead>Nº echeq</TableHead>
           <TableHead>Recibido de</TableHead>
           <TableHead>Banco</TableHead>
-          <TableHead>Vencimiento</TableHead>
+          <TableHead>Fecha de pago</TableHead>
           <TableHead className="text-right">Monto</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
