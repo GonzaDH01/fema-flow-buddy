@@ -1306,3 +1306,82 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
     </DialogContent>
   );
 }
+
+function CuentaBancariaDialog({
+  initial, userId, onClose, onSaved,
+}: {
+  initial: any | null; userId: string;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [banco, setBanco] = useState(initial?.banco ?? "");
+  const [alias, setAlias] = useState(initial?.alias ?? "");
+  const [numeroCuenta, setNumeroCuenta] = useState(initial?.numero_cuenta ?? "");
+  const [cbu, setCbu] = useState(initial?.cbu ?? "");
+  const [saldo, setSaldo] = useState<string>(String(initial?.saldo ?? "0"));
+  const [observaciones, setObservaciones] = useState(initial?.observaciones ?? "");
+  const [activa, setActiva] = useState<boolean>(initial?.activa ?? true);
+  const [saving, setSaving] = useState(false);
+
+  const guardar = async () => {
+    if (!banco.trim()) { toast.error("Ingresá el banco"); return; }
+    setSaving(true);
+    const payload: any = {
+      user_id: userId,
+      banco: banco.trim(),
+      alias: alias.trim() || null,
+      numero_cuenta: numeroCuenta.trim() || null,
+      cbu: cbu.trim() || null,
+      saldo: Number(saldo) || 0,
+      observaciones: observaciones.trim() || null,
+      activa,
+    };
+    const { error } = initial
+      ? await sb.from("fema_cuentas_bancarias").update(payload).eq("id", initial.id)
+      : await sb.from("fema_cuentas_bancarias").insert(payload);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(initial ? "Cuenta actualizada" : "Cuenta creada");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>{initial ? "Editar cuenta bancaria" : "Nueva cuenta bancaria"}</DialogTitle>
+        <DialogDescription>Registrá el saldo disponible para abonar por transferencia.</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Banco *">
+          <Input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder="Ej: BANCO NACION" />
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Alias / Titular">
+            <Input value={alias} onChange={(e) => setAlias(e.target.value)} />
+          </FormField>
+          <FormField label="Saldo disponible">
+            <Input type="number" step="0.01" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Nº de cuenta">
+            <Input value={numeroCuenta} onChange={(e) => setNumeroCuenta(e.target.value)} />
+          </FormField>
+          <FormField label="CBU">
+            <Input value={cbu} onChange={(e) => setCbu(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Observaciones">
+          <Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} />
+        </FormField>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={activa} onChange={(e) => setActiva(e.target.checked)} />
+          Cuenta activa
+        </label>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
