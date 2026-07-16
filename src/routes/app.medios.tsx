@@ -91,6 +91,7 @@ function Page() {
   const [tab, setTab] = useState("todos");
   const [mesFiltro, setMesFiltro] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
+  const [ordenar, setOrdenar] = useState<string>("recientes");
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
@@ -213,7 +214,7 @@ function Page() {
   }, [movs]);
 
   const filtrar = (filtro: (m: Mov) => boolean) => {
-    return movs.filter(m => {
+    const filtrados = movs.filter(m => {
       if (!filtro(m)) return false;
       if (mesFiltro !== "todos" && m.mes !== Number(mesFiltro)) return false;
       if (busqueda) {
@@ -222,6 +223,28 @@ function Page() {
       }
       return true;
     });
+    const hoyStr = new Date().toISOString().split("T")[0];
+    const cmp = (a: string | null | undefined, b: string | null | undefined, asc: boolean) => {
+      const av = a ?? ""; const bv = b ?? "";
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    };
+    if (ordenar === "pago_prox") {
+      return [...filtrados].sort((a, b) => {
+        const av = a.vencimiento ?? "";
+        const bv = b.vencimiento ?? "";
+        const aFut = av && av >= hoyStr ? 0 : 1;
+        const bFut = bv && bv >= hoyStr ? 0 : 1;
+        if (aFut !== bFut) return aFut - bFut;
+        return cmp(av, bv, true);
+      });
+    }
+    if (ordenar === "pago_asc") return [...filtrados].sort((a, b) => cmp(a.vencimiento, b.vencimiento, true));
+    if (ordenar === "pago_desc") return [...filtrados].sort((a, b) => cmp(a.vencimiento, b.vencimiento, false));
+    if (ordenar === "emision_asc") return [...filtrados].sort((a, b) => cmp(a.fecha_emision, b.fecha_emision, true));
+    return [...filtrados].sort((a, b) => cmp(a.fecha_emision, b.fecha_emision, false));
   };
 
   const filas = {
@@ -340,6 +363,16 @@ function Page() {
                       : k === "transferencias" ? "Transferencias" : "Cesiones"}
                   </h3>
                   <div className="flex gap-2">
+                    <Select value={ordenar} onValueChange={setOrdenar}>
+                      <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recientes">Emisión: más recientes</SelectItem>
+                        <SelectItem value="emision_asc">Emisión: más antiguos</SelectItem>
+                        <SelectItem value="pago_prox">Fecha de pago: próximas</SelectItem>
+                        <SelectItem value="pago_asc">Fecha de pago: ascendente</SelectItem>
+                        <SelectItem value="pago_desc">Fecha de pago: descendente</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Select value={mesFiltro} onValueChange={setMesFiltro}>
                       <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -508,7 +541,7 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
           <TableHead>Tipo</TableHead>
           <TableHead>Dirección</TableHead>
           <TableHead>Fecha emisión</TableHead>
-          <TableHead>Vencimiento</TableHead>
+          <TableHead>Fecha de pago</TableHead>
           <TableHead>Origen / Destino</TableHead>
           <TableHead>Nº cheque / CBU / ref.</TableHead>
           <TableHead>Banco</TableHead>
@@ -571,7 +604,7 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
           <TableHead>Nº echeq</TableHead>
           <TableHead>Recibido de</TableHead>
           <TableHead>Banco</TableHead>
-          <TableHead>Vencimiento</TableHead>
+          <TableHead>Fecha de pago</TableHead>
           <TableHead className="text-right">Monto</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
