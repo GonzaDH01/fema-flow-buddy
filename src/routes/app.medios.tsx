@@ -94,6 +94,29 @@ function Page() {
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
+  const [openCta, setOpenCta] = useState(false);
+  const [editCta, setEditCta] = useState<any | null>(null);
+
+  const ctasQ = useQuery({
+    queryKey: ["fema_cuentas_bancarias", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_cuentas_bancarias")
+        .select("*").order("banco", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const cuentas = ctasQ.data ?? [];
+  const totalSaldoBancos = cuentas.reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+
+  const eliminarCta = async (id: string) => {
+    if (!confirm("¿Eliminar cuenta bancaria?")) return;
+    const { error } = await sb.from("fema_cuentas_bancarias").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Cuenta eliminada");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+  };
 
   const movsQ = useQuery({
     queryKey: ["fema_movimientos_pago", user?.id, year],
@@ -343,6 +366,78 @@ function Page() {
           <CarteraEcheqs rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")} onCeder={ceder} />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Saldos bancarios disponibles</h3>
+              <span className="text-xs text-muted-foreground">
+                Saldo total: <b>{formatPesos(totalSaldoBancos)}</b> · Usado para abonar facturas por transferencia
+              </span>
+            </div>
+            <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
+              <Plus className="w-4 h-4 mr-2" />Agregar cuenta
+            </Button>
+          </div>
+          {cuentas.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              Sin cuentas cargadas. Agregá una para llevar el control del saldo disponible.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Banco</TableHead>
+                  <TableHead>Alias / Titular</TableHead>
+                  <TableHead>Nº Cuenta / CBU</TableHead>
+                  <TableHead className="text-right">Saldo disponible</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cuentas.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.banco}</TableCell>
+                    <TableCell>{c.alias || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.numero_cuenta || "—"}
+                      {c.cbu ? <><br /><span className="text-muted-foreground">CBU: {c.cbu}</span></> : null}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">{formatPesos(Number(c.saldo || 0))}</TableCell>
+                    <TableCell>
+                      <Badge variant={c.activa ? "default" : "secondary"}>{c.activa ? "Activa" : "Inactiva"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => { setEditCta(c); setOpenCta(true); }}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => eliminarCta(c.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={openCta} onOpenChange={(v) => { if (!v) { setOpenCta(false); setEditCta(null); } }}>
+        {openCta && (
+          <CuentaBancariaDialog
+            initial={editCta}
+            userId={user!.id}
+            onClose={() => { setOpenCta(false); setEditCta(null); }}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              setOpenCta(false); setEditCta(null);
+            }}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={openMov} onOpenChange={(v) => { if (!v) { setOpenMov(false); setEditMov(null); } }}>
         {openMov && (
