@@ -491,6 +491,48 @@ export type Database = {
           },
         ]
       }
+      fema_cuentas_bancarias: {
+        Row: {
+          activa: boolean
+          alias: string | null
+          banco: string
+          cbu: string | null
+          created_at: string
+          id: string
+          numero_cuenta: string | null
+          observaciones: string | null
+          saldo: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activa?: boolean
+          alias?: string | null
+          banco: string
+          cbu?: string | null
+          created_at?: string
+          id?: string
+          numero_cuenta?: string | null
+          observaciones?: string | null
+          saldo?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activa?: boolean
+          alias?: string | null
+          banco?: string
+          cbu?: string | null
+          created_at?: string
+          id?: string
+          numero_cuenta?: string | null
+          observaciones?: string | null
+          saldo?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fema_empleados: {
         Row: {
           activo: boolean | null
