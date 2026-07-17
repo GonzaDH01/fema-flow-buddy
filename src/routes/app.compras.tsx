@@ -74,6 +74,7 @@ type Row = {
   total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
   fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
+  fema_proveedores?: { nombre: string } | null;
 };
 
 function Page() {
@@ -91,7 +92,7 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase.from("fema_facturas_compra")
-        .select("*").eq("anio", year)
+        .select("*, fema_proveedores(nombre)").eq("anio", year)
         .order("fecha", { ascending: false });
       if (error) throw error;
       return data as Row[];
@@ -105,6 +106,8 @@ function Page() {
       if (error) throw error;
       return data as { id: string; nombre: string }[];
     },
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const provsMap = useMemo(
     () => Object.fromEntries((provs ?? []).map((p) => [p.id, p.nombre])),
