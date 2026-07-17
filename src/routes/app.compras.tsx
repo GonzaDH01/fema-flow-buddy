@@ -120,7 +120,7 @@ function Page() {
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((r) => {
-        const prov = r.proveedor_id ? (provsMap[r.proveedor_id] ?? "") : "";
+        const prov = r.fema_proveedores?.nombre ?? (r.proveedor_id ? (provsMap[r.proveedor_id] ?? "") : "");
         return prov.toLowerCase().includes(q)
           || (r.numero ?? "").toLowerCase().includes(q)
           || (r.descripcion ?? "").toLowerCase().includes(q);
@@ -187,7 +187,7 @@ function Page() {
   const exportXlsx = () => {
     const rows = (data ?? []).map((r) => ({
       "N° Factura": `${r.tipo}-${r.numero ?? ""}`,
-      Proveedor: r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : "",
+      Proveedor: r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : ""),
       Fecha: r.fecha,
       Categoría: labelCat(r.categoria),
       Descripción: r.descripcion ?? "",
@@ -265,7 +265,7 @@ function Page() {
               {filtered.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.tipo}-{r.numero ?? "—"}</TableCell>
-                  <TableCell>{r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—"}</TableCell>
+                  <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
                   <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
