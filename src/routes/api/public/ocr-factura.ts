@@ -42,7 +42,10 @@ Campos exactos:
   "cuit_emisor": "string|null",
   "cuit_receptor": "string|null",
   "descripcion": "string|null",
-  "categoria_sugerida": "Repuestos_JD|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Otro",
+  "categoria_sugerida": "Gasoil_Combustible|Repuestos_JD|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Otro",
+  // Reglas de categoría:
+  // - Si es_combustible=true o el emisor es estación de servicio (YPF, Axion, Shell, Puma, Servicentro, Estación de Servicio, Red Mercosur, FASENA, etc.) o el producto contiene "diesel/gasoil/nafta/v-power/quantium/infinia/euro" → categoria_sugerida="Gasoil_Combustible".
+  // - Nunca uses "Otro" si aplica una categoría específica.
   "es_combustible": false,
   "neto": 0, "iva_21": 0, "iva_105": 0,
   "itc_combustible": 0, "co2_combustible": 0,
