@@ -141,7 +141,7 @@ function Page() {
           terceroId = existente.id;
         } else {
           const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: terceroCuit };
-          if (kind === "compra") nuevo.categoria = (result.categoria_sugerida as any) ?? "Otro";
+          if (kind === "compra") nuevo.categoria = (result.es_combustible ? "Gasoil_Combustible" : (result.categoria_sugerida as any)) ?? "Otro";
           const { data: creado, error: errC } = await supabase
             .from(tabla)
             .insert(nuevo)
@@ -170,7 +170,7 @@ function Page() {
         const { error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
           proveedor_id: terceroId,
-          categoria: (result.categoria_sugerida as any) ?? "Otro",
+          categoria: (result.es_combustible ? "Gasoil_Combustible" : (result.categoria_sugerida as any)) ?? "Otro",
           descripcion: result.descripcion ?? result.emisor ?? null,
           otros_impuestos: result.otros_impuestos ?? 0,
           impuestos_internos: (result.itc_combustible ?? 0) + (result.co2_combustible ?? 0),
