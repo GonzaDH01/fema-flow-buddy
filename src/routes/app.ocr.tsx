@@ -192,6 +192,11 @@ function Page() {
       setPreview(null);
       setB64(null);
       setMime(null);
+      qc.invalidateQueries({ queryKey: ["fema_proveedores_min"] });
+      qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
+      qc.invalidateQueries({ queryKey: ["fema_clientes"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     } catch (e: any) {
       toast.error(e.message ?? "Error al guardar");
     } finally {
