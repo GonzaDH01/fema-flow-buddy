@@ -342,7 +342,66 @@ function Page() {
           hint={formatPesos(vencidosSinCobrar.reduce((a, m) => a + Number(m.monto), 0))} tone="amber" />
       </div>
 
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Saldos bancarios disponibles</h3>
+              <span className="text-xs text-muted-foreground">
+                Saldo total: <b>{formatPesos(totalSaldoBancos)}</b> · Usado para abonar facturas por transferencia
+              </span>
+            </div>
+            <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
+              <Plus className="w-4 h-4 mr-2" />Agregar cuenta
+            </Button>
+          </div>
+          {cuentas.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              Sin cuentas cargadas. Agregá una para llevar el control del saldo disponible.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Banco</TableHead>
+                  <TableHead>Alias / Titular</TableHead>
+                  <TableHead>Nº Cuenta / CBU</TableHead>
+                  <TableHead className="text-right">Saldo disponible</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cuentas.map((c: any) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.banco}</TableCell>
+                    <TableCell>{c.alias || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.numero_cuenta || "—"}
+                      {c.cbu ? <><br /><span className="text-muted-foreground">CBU: {c.cbu}</span></> : null}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">{formatPesos(Number(c.saldo || 0))}</TableCell>
+                    <TableCell>
+                      <Badge variant={c.activa ? "default" : "secondary"}>{c.activa ? "Activa" : "Inactiva"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => { setEditCta(c); setOpenCta(true); }}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => eliminarCta(c.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs value={tab} onValueChange={setTab}>
+
         <TabsList>
           <TabsTrigger value="todos">Todos</TabsTrigger>
           <TabsTrigger value="echeqs">Echeqs</TabsTrigger>
