@@ -342,64 +342,6 @@ function Page() {
           hint={formatPesos(vencidosSinCobrar.reduce((a, m) => a + Number(m.monto), 0))} tone="amber" />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="todos">Todos</TabsTrigger>
-          <TabsTrigger value="echeqs">Echeqs</TabsTrigger>
-          <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
-          <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
-          <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
-        </TabsList>
-
-        {(["todos","echeqs","cheques","transferencias","cesiones"] as const).map(k => (
-          <TabsContent key={k} value={k}>
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">
-                    {k === "todos" ? "Todos los movimientos"
-                      : k === "echeqs" ? "Echeqs"
-                      : k === "cheques" ? "Cheques físicos"
-                      : k === "transferencias" ? "Transferencias" : "Cesiones"}
-                  </h3>
-                  <div className="flex gap-2">
-                    <Select value={ordenar} onValueChange={setOrdenar}>
-                      <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recientes">Emisión: más recientes</SelectItem>
-                        <SelectItem value="emision_asc">Emisión: más antiguos</SelectItem>
-                        <SelectItem value="pago_prox">Fecha de pago: próximas</SelectItem>
-                        <SelectItem value="pago_asc">Fecha de pago: ascendente</SelectItem>
-                        <SelectItem value="pago_desc">Fecha de pago: descendente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={mesFiltro} onValueChange={setMesFiltro}>
-                      <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos">Todos los meses</SelectItem>
-                        {MESES_LARGOS.map((m, i) => <SelectItem key={i} value={String(i+1)}>{m}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
-                  </div>
-                </div>
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Cartera de echeqs disponibles para ceder</h3>
-            <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
-          </div>
-          <CarteraEcheqs rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")} onCeder={ceder} />
-        </CardContent>
-      </Card>
-
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -457,6 +399,66 @@ function Page() {
           )}
         </CardContent>
       </Card>
+
+      <Tabs value={tab} onValueChange={setTab}>
+
+        <TabsList>
+          <TabsTrigger value="todos">Todos</TabsTrigger>
+          <TabsTrigger value="echeqs">Echeqs</TabsTrigger>
+          <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
+          <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
+          <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
+        </TabsList>
+
+        {(["todos","echeqs","cheques","transferencias","cesiones"] as const).map(k => (
+          <TabsContent key={k} value={k}>
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">
+                    {k === "todos" ? "Todos los movimientos"
+                      : k === "echeqs" ? "Echeqs"
+                      : k === "cheques" ? "Cheques físicos"
+                      : k === "transferencias" ? "Transferencias" : "Cesiones"}
+                  </h3>
+                  <div className="flex gap-2">
+                    <Select value={ordenar} onValueChange={setOrdenar}>
+                      <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recientes">Emisión: más recientes</SelectItem>
+                        <SelectItem value="emision_asc">Emisión: más antiguos</SelectItem>
+                        <SelectItem value="pago_prox">Fecha de pago: próximas</SelectItem>
+                        <SelectItem value="pago_asc">Fecha de pago: ascendente</SelectItem>
+                        <SelectItem value="pago_desc">Fecha de pago: descendente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={mesFiltro} onValueChange={setMesFiltro}>
+                      <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos los meses</SelectItem>
+                        {MESES_LARGOS.map((m, i) => <SelectItem key={i} value={String(i+1)}>{m}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
+                  </div>
+                </div>
+                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">Cartera de echeqs disponibles para ceder</h3>
+            <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
+          </div>
+          <CarteraEcheqs rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")} onCeder={ceder} />
+        </CardContent>
+      </Card>
+
 
       <Dialog open={openCta} onOpenChange={(v) => { if (!v) { setOpenCta(false); setEditCta(null); } }}>
         {openCta && (
