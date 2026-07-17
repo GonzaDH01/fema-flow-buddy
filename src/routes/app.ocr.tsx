@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -28,6 +29,7 @@ type DocKind = "compra" | "venta";
 
 function Page() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const isMobile = useIsMobile();
   const [preview, setPreview] = useState<string | null>(null);
   const [b64, setB64] = useState<string | null>(null);
