@@ -74,6 +74,7 @@ type Row = {
   total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
   fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
+  fema_proveedores?: { nombre: string } | null;
 };
 
 function Page() {
@@ -91,7 +92,7 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase.from("fema_facturas_compra")
-        .select("*").eq("anio", year)
+        .select("*, fema_proveedores(nombre)").eq("anio", year)
         .order("fecha", { ascending: false });
       if (error) throw error;
       return data as Row[];
@@ -105,6 +106,8 @@ function Page() {
       if (error) throw error;
       return data as { id: string; nombre: string }[];
     },
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const provsMap = useMemo(
     () => Object.fromEntries((provs ?? []).map((p) => [p.id, p.nombre])),
@@ -117,7 +120,7 @@ function Page() {
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((r) => {
-        const prov = r.proveedor_id ? (provsMap[r.proveedor_id] ?? "") : "";
+        const prov = r.fema_proveedores?.nombre ?? (r.proveedor_id ? (provsMap[r.proveedor_id] ?? "") : "");
         return prov.toLowerCase().includes(q)
           || (r.numero ?? "").toLowerCase().includes(q)
           || (r.descripcion ?? "").toLowerCase().includes(q);
@@ -184,7 +187,7 @@ function Page() {
   const exportXlsx = () => {
     const rows = (data ?? []).map((r) => ({
       "N° Factura": `${r.tipo}-${r.numero ?? ""}`,
-      Proveedor: r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : "",
+      Proveedor: r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : ""),
       Fecha: r.fecha,
       Categoría: labelCat(r.categoria),
       Descripción: r.descripcion ?? "",
@@ -262,7 +265,7 @@ function Page() {
               {filtered.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.tipo}-{r.numero ?? "—"}</TableCell>
-                  <TableCell>{r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—"}</TableCell>
+                  <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
                   <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>

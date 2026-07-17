@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -28,6 +29,7 @@ type DocKind = "compra" | "venta";
 
 function Page() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const isMobile = useIsMobile();
   const [preview, setPreview] = useState<string | null>(null);
   const [b64, setB64] = useState<string | null>(null);
@@ -190,6 +192,11 @@ function Page() {
       setPreview(null);
       setB64(null);
       setMime(null);
+      qc.invalidateQueries({ queryKey: ["fema_proveedores_min"] });
+      qc.invalidateQueries({ queryKey: ["fema_proveedores"] });
+      qc.invalidateQueries({ queryKey: ["fema_clientes"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     } catch (e: any) {
       toast.error(e.message ?? "Error al guardar");
     } finally {
