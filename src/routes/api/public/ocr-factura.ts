@@ -14,7 +14,24 @@ const InputSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `Sos un sistema de extracción de datos de facturas argentinas.
-Analizá la imagen y devolvé SOLO un JSON con estos campos exactos (sin texto adicional):
+Analizá la imagen y devolvé SOLO un JSON con estos campos exactos (sin texto adicional).
+
+Reglas para EMISOR / RECEPTOR (muy importante):
+- "emisor" = razón social de QUIEN EMITE la factura (vendedor / proveedor). Suele estar arriba a la izquierda o al costado del logo, junto al CUIT.
+- "receptor" = razón social de A QUIEN se le factura (cliente). Suele decir "Sr./Sra.", "Cliente", "Razón Social" en el bloque de datos del comprador.
+- "cuit_emisor" y "cuit_receptor" son los CUIT/CUIL correspondientes (solo dígitos, 11 caracteres). NO confundir con Ingresos Brutos ni con nº de factura.
+- Si sólo hay un CUIT visible, asumí que es el del emisor.
+- Siempre completá "emisor" si aparece alguna razón social o nombre de fantasía en el encabezado, aunque no encuentres el CUIT.
+
+Reglas para IMPUESTOS (muy importante):
+- Buscá etiquetas: "Neto Gravado", "Subtotal", "IVA 21%", "IVA 10,5%", "Percepción IIBB", "Percepción IVA", "ITC", "CO2", "Impuestos Internos", "Otros Tributos", "Total".
+- Si la factura es letra "A" o "M": el IVA está discriminado. Cargalo tal cual figura.
+- Si la factura es letra "B" o "C" (consumidor final / monotributo): el IVA NO se discrimina. Dejá iva_21=0, iva_105=0 y usá "total" como total final; "neto" = total.
+- Si ves "IVA Contenido" en una letra B, no lo cargues como iva_21 salvo que esté claramente discriminado.
+- Para tickets de combustible (YPF, Axion, Shell, Puma, etc.): suelen ser letra B con ITC y CO2 discriminados; cargá itc_combustible y co2_combustible, dejá iva_21 en 0 salvo que aparezca literal.
+- Verificá coherencia: neto + iva_21 + iva_105 + otros_impuestos + percepciones ≈ total. Si no cierra, ajustá "otros_impuestos" para cuadrar.
+
+Campos exactos:
 {
   "tipo": "factura|recibo|ticket|otro",
   "letra": "A|B|C|M|E|null",
