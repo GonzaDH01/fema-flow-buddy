@@ -843,6 +843,15 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           </FormField>
         </div>
 
+        <FormField label="Categoría">
+          <Select value={f.watch("categoria") ?? ""} onValueChange={(v) => f.setValue("categoria", v)}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar categoría…" /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIAS_VENTA.map((c) => <SelectItem key={c} value={c}>{labelCatVenta(c)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FormField>
+
         <fieldset className="rounded-md border border-border p-3">
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de picado
