@@ -697,6 +697,7 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
       cliente_id: initial?.cliente_id ?? prefill?.group.cliente_id ?? "",
       trabajo: initial?.trabajo ?? prefill?.group.descripcionBase ?? "",
+      categoria: initial?.categoria ?? "",
       cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
       iva_pct: inferIva(initial),
       hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
