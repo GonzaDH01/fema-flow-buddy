@@ -780,6 +780,7 @@ export type Database = {
       fema_facturas_venta: {
         Row: {
           anio: number | null
+          categoria: string | null
           cliente_id: string | null
           condicion_pago: string | null
           created_at: string
@@ -809,6 +810,7 @@ export type Database = {
         }
         Insert: {
           anio?: number | null
+          categoria?: string | null
           cliente_id?: string | null
           condicion_pago?: string | null
           created_at?: string
@@ -838,6 +840,7 @@ export type Database = {
         }
         Update: {
           anio?: number | null
+          categoria?: string | null
           cliente_id?: string | null
           condicion_pago?: string | null
           created_at?: string
@@ -1992,6 +1995,8 @@ export type Database = {
         | "Herramientas"
         | "Otro"
         | "Gasoil_Combustible"
+        | "Mano_de_Obra"
+        | "Franco_Particular"
       categoria_gasto:
         | "servicios"
         | "alquiler"
@@ -2169,6 +2174,8 @@ export const Constants = {
         "Herramientas",
         "Otro",
         "Gasoil_Combustible",
+        "Mano_de_Obra",
+        "Franco_Particular",
       ],
       categoria_gasto: [
         "servicios",

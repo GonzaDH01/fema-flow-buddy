@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
@@ -26,6 +27,21 @@ type OCRResult = {
 };
 
 type DocKind = "compra" | "venta";
+
+const CATS_COMPRA = [
+  "Gasoil_Combustible", "Repuestos_JD", "Mecanicos", "Gomeria",
+  "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas",
+  "Mano_de_Obra", "Franco_Particular", "Otro",
+] as const;
+const CATS_VENTA = [
+  "Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Franco_Particular", "Otro",
+] as const;
+const labelCat = (c: string) => {
+  if (c === "Gasoil_Combustible") return "Gasoil / Combustible";
+  if (c === "Mano_de_Obra") return "Mano de Obra";
+  if (c === "Franco_Particular") return "Franco Particular";
+  return c.replace(/_/g, " ");
+};
 
 function Page() {
   const { user } = useAuth();
@@ -170,7 +186,7 @@ function Page() {
         const { error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
           proveedor_id: terceroId,
-          categoria: (result.es_combustible ? "Gasoil_Combustible" : (result.categoria_sugerida as any)) ?? "Otro",
+          categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
           descripcion: result.descripcion ?? result.emisor ?? null,
           otros_impuestos: result.otros_impuestos ?? 0,
           impuestos_internos: (result.itc_combustible ?? 0) + (result.co2_combustible ?? 0),
@@ -184,6 +200,7 @@ function Page() {
           ...base,
           cliente_id: terceroId,
           trabajo: result.descripcion ?? null,
+          categoria: (result.categoria_sugerida as any) ?? "Otro",
         });
         if (error) throw error;
         toast.success("Factura de venta guardada");
@@ -299,12 +316,25 @@ function Page() {
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Categoría (editable)</Label>
+                <Select
+                  value={result.categoria_sugerida ?? "Otro"}
+                  onValueChange={(v) => setResult({ ...result, categoria_sugerida: v })}
+                >
+                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(kind === "compra" ? CATS_COMPRA : CATS_VENTA).map((c) => (
+                      <SelectItem key={c} value={c}>{labelCat(c)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {[
                 ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
                 ["Emisor", result.emisor ?? "—"], ["Receptor", result.receptor ?? "—"],
                 ["CUIT Emisor", result.cuit_emisor ?? "—"], ["CUIT Receptor", result.cuit_receptor ?? "—"],
-                ["Categoría sugerida", result.categoria_sugerida ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
                 ["IVA 10.5%", result.iva_105 ?? 0], ["Percepciones", result.percepciones ?? 0],

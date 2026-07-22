@@ -35,11 +35,17 @@ const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Dé
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CATS = [
   "Gasoil_Combustible", "Repuestos_JD", "Mecanicos", "Gomeria",
-  "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas", "Otro",
+  "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas",
+  "Mano_de_Obra", "Franco_Particular", "Otro",
 ] as const;
 const FORMAS_PAGO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Débito automático", "Otro"] as const;
 
-const labelCat = (c: string) => c.replace("_", " / ").replace("Gasoil / Combustible", "Gasoil / Combustible");
+const labelCat = (c: string) => {
+  if (c === "Gasoil_Combustible") return "Gasoil / Combustible";
+  if (c === "Mano_de_Obra") return "Mano de Obra";
+  if (c === "Franco_Particular") return "Franco Particular";
+  return c.replace(/_/g, " ");
+};
 
 const schema = z.object({
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
