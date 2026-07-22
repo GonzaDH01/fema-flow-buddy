@@ -316,12 +316,25 @@ function Page() {
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Categoría (editable)</Label>
+                <Select
+                  value={result.categoria_sugerida ?? "Otro"}
+                  onValueChange={(v) => setResult({ ...result, categoria_sugerida: v })}
+                >
+                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(kind === "compra" ? CATS_COMPRA : CATS_VENTA).map((c) => (
+                      <SelectItem key={c} value={c}>{labelCat(c)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {[
                 ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
                 ["Emisor", result.emisor ?? "—"], ["Receptor", result.receptor ?? "—"],
                 ["CUIT Emisor", result.cuit_emisor ?? "—"], ["CUIT Receptor", result.cuit_receptor ?? "—"],
-                ["Categoría sugerida", result.categoria_sugerida ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
                 ["IVA 10.5%", result.iva_105 ?? 0], ["Percepciones", result.percepciones ?? 0],
