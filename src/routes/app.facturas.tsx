@@ -32,6 +32,12 @@ const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
 const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Otro"] as const;
+const CATEGORIAS_VENTA = ["Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Franco_Particular", "Otro"] as const;
+const labelCatVenta = (c: string) => {
+  if (c === "Mano_de_Obra") return "Mano de Obra";
+  if (c === "Franco_Particular") return "Franco Particular";
+  return c;
+};
 const PERIODICIDADES = ["semanal", "quincenal", "mensual"] as const;
 const INSTRUMENTOS_PLAN = ["echeq", "cheque_fisico", "transferencia", "efectivo", "otro"] as const;
 
@@ -42,6 +48,7 @@ const schema = z.object({
   fecha: z.string().min(1),
   cliente_id: z.string().uuid().optional().or(z.literal("")),
   trabajo: z.string().max(200).optional().or(z.literal("")),
+  categoria: z.string().optional().or(z.literal("")),
   cultivo: z.string().optional().or(z.literal("")),
   iva_pct: z.enum(TIPOS_IVA),
   hectareas: z.coerce.number().min(0),
@@ -66,6 +73,7 @@ type Row = {
   id: string; fecha: string; cliente_id: string | null; numero: string | null;
   tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
   trabajo: string | null; cultivo: string | null;
+  categoria?: string | null;
   hectareas: number | null; precio_ha: number | null;
   metros_bolsa: number | null; precio_metro: number | null;
   neto: number | null; iva_21: number | null; iva_105: number | null;
@@ -280,6 +288,7 @@ function Page() {
       tipo: v.tipo,
       tipo_comprobante: v.tipo_comprobante,
       trabajo: v.trabajo || null,
+      categoria: v.categoria || null,
       cultivo: v.cultivo || null,
       hectareas: v.hectareas,
       precio_ha: v.precio_ha,
