@@ -371,8 +371,13 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
     return neto; // B/C: IVA dentro del precio
   }, [isCombustible, tipo, neto, iva21, impInt, otros]);
 
+  // Solo autocompletar el total desde el desglose cuando el usuario
+  // efectivamente carga algún importe del desglose. Nunca pisar con 0
+  // (esto borraba el total de facturas cargadas por OCR al editarlas).
   useEffect(() => {
-    if (totalCalc !== null) f.setValue("total", Number(totalCalc.toFixed(2)));
+    if (totalCalc === null) return;
+    if (totalCalc <= 0) return;
+    f.setValue("total", Number(totalCalc.toFixed(2)));
   }, [totalCalc, f]);
 
   // Sync mes con fecha
