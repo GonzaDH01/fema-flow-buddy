@@ -409,6 +409,24 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const otros = Number(f.watch("otros_impuestos") || 0);
 
   const isCombustible = categoria === "Gasoil_Combustible";
+
+  // Conversor USD → Pesos (solo al editar, para facturas expresadas en dólares)
+  const [usdOpen, setUsdOpen] = useState(false);
+  const [usdMonto, setUsdMonto] = useState<string>("");
+  const [usdCotiz, setUsdCotiz] = useState<string>("");
+  const aplicarUsd = () => {
+    const u = Number(usdMonto);
+    const c = Number(usdCotiz);
+    if (!u || !c) { toast.error("Ingresá monto USD y cotización"); return; }
+    const netoPesos = Number((u * c).toFixed(2));
+    const iva = tipo === "A" ? Number((netoPesos * 0.21).toFixed(2)) : 0;
+    const total = Number((netoPesos + iva).toFixed(2));
+    f.setValue("neto", netoPesos);
+    f.setValue("iva_21", iva);
+    f.setValue("total", total);
+    toast.success(`Convertido: USD ${u} × ${c} = ${formatPesos(total)}`);
+  };
+
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
     if (tipo === "A") return neto + iva21 + impInt + otros;
