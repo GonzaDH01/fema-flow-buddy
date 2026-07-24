@@ -29,6 +29,18 @@ Reglas para IMPUESTOS (muy importante):
 - Si la factura es letra "B" o "C" (consumidor final / monotributo): el IVA NO se discrimina. Dejá iva_21=0, iva_105=0 y usá "total" como total final; "neto" = total.
 - Si ves "IVA Contenido" en una letra B, no lo cargues como iva_21 salvo que esté claramente discriminado.
 - Para tickets de combustible (YPF, Axion, Shell, Puma, etc.): suelen ser letra B con ITC y CO2 discriminados; cargá itc_combustible y co2_combustible, dejá iva_21 en 0 salvo que aparezca literal.
+
+Reglas ESPECÍFICAS para COMBUSTIBLE (muy importante — hoy se pierden estos importes):
+- Buscá TODAS estas etiquetas y cargalas por separado, no las sumes al neto:
+  * "Imp. Interno ITC nafta", "ITC nafta", "Impuesto s/Naftas" → itc_nafta
+  * "Imp. al Gas Oil", "Impuesto al Gasoil", "ITC Gasoil", "Impuesto s/Gasoil" → itc_gasoil
+  * "Imp. Interno CO2 nafta", "CO2 nafta", "Impuesto CO2 naftas" → co2_nafta
+  * "Imp. Interno CO2 gasoil", "CO2 gasoil", "Impuesto CO2 gasoil" → co2_gasoil
+  * "Tasa Vial", "Tasa Hídrica", "Fondo Hídrico", "Impuestos Internos" (genérico), "Otros Tributos" → otros_impuestos
+  * "Percepción IIBB", "Percepción IVA", "Percepción Ganancias", "SUSS" → percepciones
+- itc_combustible = itc_nafta + itc_gasoil (mantener suma en itc_combustible para compat.)
+- co2_combustible = co2_nafta + co2_gasoil (mantener suma en co2_combustible para compat.)
+- En tickets B/C de estación de servicio: el precio de pizarra ya incluye IVA. neto = total - (itc + co2 + otros + percepciones). Nunca dejes itc/co2 en 0 si el ticket los discrimina en el pie.
 - Verificá coherencia: neto + iva_21 + iva_105 + otros_impuestos + percepciones ≈ total. Si no cierra, ajustá "otros_impuestos" para cuadrar.
 
 Campos exactos:
@@ -53,6 +65,7 @@ Campos exactos:
   "es_combustible": false,
   "neto": 0, "iva_21": 0, "iva_105": 0,
   "itc_combustible": 0, "co2_combustible": 0,
+  "itc_nafta": 0, "itc_gasoil": 0, "co2_nafta": 0, "co2_gasoil": 0,
   "otros_impuestos": 0, "percepciones": 0, "total": 0,
   "litros": null, "producto_combustible": null, "moneda": "ARS"
 }

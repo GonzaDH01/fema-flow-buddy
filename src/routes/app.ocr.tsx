@@ -22,6 +22,7 @@ type OCRResult = {
   descripcion?: string | null; categoria_sugerida?: string;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
+  itc_nafta?: number; itc_gasoil?: number; co2_nafta?: number; co2_gasoil?: number;
   percepciones?: number; total?: number; litros?: number | null;
   producto_combustible?: string | null; moneda?: string;
 };
@@ -201,8 +202,15 @@ function Page() {
           proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
           descripcion: result.descripcion ?? result.emisor ?? null,
-          otros_impuestos: result.otros_impuestos ?? 0,
-          impuestos_internos: (result.itc_combustible ?? 0) + (result.co2_combustible ?? 0),
+          // ITC (nafta + gasoil) va a impuestos_internos.
+          // CO2 (nafta + gasoil) + otros tributos van a otros_impuestos.
+          impuestos_internos:
+            (result.itc_nafta ?? 0) + (result.itc_gasoil ?? 0) +
+            ((result.itc_nafta == null && result.itc_gasoil == null) ? (result.itc_combustible ?? 0) : 0),
+          otros_impuestos:
+            (result.otros_impuestos ?? 0) +
+            (result.co2_nafta ?? 0) + (result.co2_gasoil ?? 0) +
+            ((result.co2_nafta == null && result.co2_gasoil == null) ? (result.co2_combustible ?? 0) : 0),
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
           imagen_path,
