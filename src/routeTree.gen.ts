@@ -20,6 +20,7 @@ import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
 import { Route as AppOcrRouteImport } from './routes/app.ocr'
 import { Route as AppMediosRouteImport } from './routes/app.medios'
 import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
+import { Route as AppImagenesRouteImport } from './routes/app.imagenes'
 import { Route as AppFacturasRouteImport } from './routes/app.facturas'
 import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
 import { Route as AppCreditosRouteImport } from './routes/app.creditos'
@@ -85,6 +86,11 @@ const AppImpuestosRoute = AppImpuestosRouteImport.update({
   path: '/impuestos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppImagenesRoute = AppImagenesRouteImport.update({
+  id: '/imagenes',
+  path: '/imagenes',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFacturasRoute = AppFacturasRouteImport.update({
   id: '/facturas',
   path: '/facturas',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/app/creditos': typeof AppCreditosRoute
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/app/creditos': typeof AppCreditosRoute
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/app/creditos': typeof AppCreditosRoute
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/app/creditos'
     | '/app/empleados'
     | '/app/facturas'
+    | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
     | '/app/ocr'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/app/creditos'
     | '/app/empleados'
     | '/app/facturas'
+    | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
     | '/app/ocr'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/app/creditos'
     | '/app/empleados'
     | '/app/facturas'
+    | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
     | '/app/ocr'
@@ -352,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppImpuestosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/imagenes': {
+      id: '/app/imagenes'
+      path: '/imagenes'
+      fullPath: '/app/imagenes'
+      preLoaderRoute: typeof AppImagenesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/facturas': {
       id: '/app/facturas'
       path: '/facturas'
@@ -427,6 +446,7 @@ interface AppRouteChildren {
   AppCreditosRoute: typeof AppCreditosRoute
   AppEmpleadosRoute: typeof AppEmpleadosRoute
   AppFacturasRoute: typeof AppFacturasRoute
+  AppImagenesRoute: typeof AppImagenesRoute
   AppImpuestosRoute: typeof AppImpuestosRoute
   AppMediosRoute: typeof AppMediosRoute
   AppOcrRoute: typeof AppOcrRoute
@@ -445,6 +465,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCreditosRoute: AppCreditosRoute,
   AppEmpleadosRoute: AppEmpleadosRoute,
   AppFacturasRoute: AppFacturasRoute,
+  AppImagenesRoute: AppImagenesRoute,
   AppImpuestosRoute: AppImpuestosRoute,
   AppMediosRoute: AppMediosRoute,
   AppOcrRoute: AppOcrRoute,
