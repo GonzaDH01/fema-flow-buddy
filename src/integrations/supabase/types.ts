@@ -1997,6 +1997,8 @@ export type Database = {
         | "Gasoil_Combustible"
         | "Mano_de_Obra"
         | "Franco_Particular"
+        | "Repuestos"
+        | "Honorarios"
       categoria_gasto:
         | "servicios"
         | "alquiler"
@@ -2176,6 +2178,8 @@ export const Constants = {
         "Gasoil_Combustible",
         "Mano_de_Obra",
         "Franco_Particular",
+        "Repuestos",
+        "Honorarios",
       ],
       categoria_gasto: [
         "servicios",
