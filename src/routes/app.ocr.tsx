@@ -22,6 +22,7 @@ type OCRResult = {
   descripcion?: string | null; categoria_sugerida?: string;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
+  itc_nafta?: number; itc_gasoil?: number; co2_nafta?: number; co2_gasoil?: number;
   percepciones?: number; total?: number; litros?: number | null;
   producto_combustible?: string | null; moneda?: string;
 };
