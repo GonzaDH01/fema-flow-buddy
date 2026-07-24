@@ -318,17 +318,15 @@ function Page() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="col-span-2">
                 <Label className="text-xs text-muted-foreground">Categoría (editable)</Label>
-                <Select
+                <select
                   value={result.categoria_sugerida ?? "Otro"}
-                  onValueChange={(v) => setResult({ ...result, categoria_sugerida: v })}
+                  onChange={(e) => setResult({ ...result, categoria_sugerida: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                 >
-                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(kind === "compra" ? CATS_COMPRA : CATS_VENTA).map((c) => (
-                      <SelectItem key={c} value={c}>{labelCat(c)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {(kind === "compra" ? CATS_COMPRA : CATS_VENTA).map((c) => (
+                    <option key={c} value={c}>{labelCat(c)}</option>
+                  ))}
+                </select>
               </div>
               {[
                 ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
