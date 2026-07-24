@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
-  Download, Menu, ScanLine, UserCog,
+  Download, Menu, ScanLine, UserCog, Image as ImageIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -58,6 +58,7 @@ const sections: { title: string; items: NavItem[] }[] = [
     title: "Herramientas",
     items: [
       { to: "/app/ocr", label: "OCR Facturas", icon: ScanLine, key: "ocr" },
+      { to: "/app/imagenes", label: "Imágenes", icon: ImageIcon, key: "imagenes" },
       { to: "/app/auditoria", label: "Auditoría", icon: Shield, key: "auditoria" },
     ],
   },
@@ -83,6 +84,7 @@ const titleByPath: Record<string, string> = {
   "/app/presupuestos": "Presupuestos",
   "/app/medios": "Medios de Pago",
   "/app/ocr": "OCR de Facturas",
+  "/app/imagenes": "Imágenes de Facturas",
   "/app/auditoria": "Auditoría / Reportes Contables",
   "/app/usuarios": "Gestión de Usuarios",
 };
