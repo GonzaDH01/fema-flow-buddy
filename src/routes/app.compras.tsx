@@ -409,6 +409,24 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const otros = Number(f.watch("otros_impuestos") || 0);
 
   const isCombustible = categoria === "Gasoil_Combustible";
+
+  // Conversor USD → Pesos (solo al editar, para facturas expresadas en dólares)
+  const [usdOpen, setUsdOpen] = useState(false);
+  const [usdMonto, setUsdMonto] = useState<string>("");
+  const [usdCotiz, setUsdCotiz] = useState<string>("");
+  const aplicarUsd = () => {
+    const u = Number(usdMonto);
+    const c = Number(usdCotiz);
+    if (!u || !c) { toast.error("Ingresá monto USD y cotización"); return; }
+    const netoPesos = Number((u * c).toFixed(2));
+    const iva = tipo === "A" ? Number((netoPesos * 0.21).toFixed(2)) : 0;
+    const total = Number((netoPesos + iva).toFixed(2));
+    f.setValue("neto", netoPesos);
+    f.setValue("iva_21", iva);
+    f.setValue("total", total);
+    toast.success(`Convertido: USD ${u} × ${c} = ${formatPesos(total)}`);
+  };
+
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
     if (tipo === "A") return neto + iva21 + impInt + otros;
@@ -523,6 +541,32 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
             </Select>
           </FormField>
         </div>
+
+        {initial && (
+          <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+            <button
+              type="button"
+              onClick={() => setUsdOpen((v) => !v)}
+              className="text-xs font-semibold uppercase tracking-wide text-accent hover:underline"
+            >
+              {usdOpen ? "▾" : "▸"} Convertir de USD a pesos
+            </button>
+            {usdOpen && (
+              <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                <FormField label="Monto USD">
+                  <Input type="number" step="0.01" placeholder="1000" value={usdMonto} onChange={(e) => setUsdMonto(e.target.value)} />
+                </FormField>
+                <FormField label="Cotización $/USD">
+                  <Input type="number" step="0.01" placeholder="1350" value={usdCotiz} onChange={(e) => setUsdCotiz(e.target.value)} />
+                </FormField>
+                <Button type="button" onClick={aplicarUsd}>Aplicar</Button>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Calcula Neto = USD × cotización. Si la factura es letra A, agrega IVA 21% y actualiza el Monto total automáticamente.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Fecha de pago"><Input type="date" {...f.register("fecha_pago")} /></FormField>
