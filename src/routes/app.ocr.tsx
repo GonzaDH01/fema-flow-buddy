@@ -182,6 +182,19 @@ function Page() {
         tipo_comprobante: result.tipo ?? "Factura",
         observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
       };
+      // Subir imagen al bucket privado
+      let imagen_path: string | null = null;
+      if (b64 && mime) {
+        try {
+          const ext = mime.includes("pdf") ? "pdf" : (mime.split("/")[1] ?? "jpg");
+          const path = `${kind}/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const { error: upErr } = await supabase.storage
+            .from("facturas-img")
+            .upload(path, bytes, { contentType: mime, upsert: false });
+          if (!upErr) imagen_path = path;
+        } catch { /* no bloquear guardado si falla la subida */ }
+      }
       if (kind === "compra") {
         const { error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
@@ -192,6 +205,7 @@ function Page() {
           impuestos_internos: (result.itc_combustible ?? 0) + (result.co2_combustible ?? 0),
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
+          imagen_path,
         });
         if (error) throw error;
         toast.success("Factura de compra guardada");
@@ -201,6 +215,7 @@ function Page() {
           cliente_id: terceroId,
           trabajo: result.descripcion ?? null,
           categoria: (result.categoria_sugerida as any) ?? "Otro",
+          imagen_path,
         });
         if (error) throw error;
         toast.success("Factura de venta guardada");
