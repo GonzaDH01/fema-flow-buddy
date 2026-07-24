@@ -42,10 +42,12 @@ Campos exactos:
   "cuit_emisor": "string|null",
   "cuit_receptor": "string|null",
   "descripcion": "string|null",
-  "categoria_sugerida": "Gasoil_Combustible|Repuestos_JD|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Mano_de_Obra|Franco_Particular|Otro",
+  "categoria_sugerida": "Gasoil_Combustible|Repuestos_JD|Repuestos|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Mano_de_Obra|Honorarios|Franco_Particular|Otro",
   // Reglas de categoría:
   // - Si es_combustible=true o el emisor es estación de servicio (YPF, Axion, Shell, Puma, Servicentro, Estación de Servicio, Red Mercosur, FASENA, etc.) o el producto contiene "diesel/gasoil/nafta/v-power/quantium/infinia/euro" → categoria_sugerida="Gasoil_Combustible".
   // - Si el detalle refiere a jornales, trabajo humano, servicios personales, honorarios de operarios → "Mano_de_Obra".
+  // - Si el comprobante es de un profesional (contador, abogado, ingeniero, arquitecto, escribano, asesor) o dice "honorarios profesionales" → "Honorarios".
+  // - Si son repuestos genéricos (no John Deere) — filtros, aceites, bujías, correas, rodamientos, etc. → "Repuestos". Si son repuestos John Deere u originales JD → "Repuestos_JD".
   // - Si el emisor es un particular (monotributista sin razón social comercial, factura C personal) o el detalle indica gastos personales → "Franco_Particular".
   // - Nunca uses "Otro" si aplica una categoría específica.
   "es_combustible": false,
