@@ -29,12 +29,12 @@ type OCRResult = {
 type DocKind = "compra" | "venta";
 
 const CATS_COMPRA = [
-  "Gasoil_Combustible", "Repuestos_JD", "Mecanicos", "Gomeria",
+  "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
   "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas",
-  "Mano_de_Obra", "Franco_Particular", "Otro",
+  "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro",
 ] as const;
 const CATS_VENTA = [
-  "Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Franco_Particular", "Otro",
+  "Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro",
 ] as const;
 const labelCat = (c: string) => {
   if (c === "Gasoil_Combustible") return "Gasoil / Combustible";
