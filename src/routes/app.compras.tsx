@@ -314,6 +314,7 @@ function Page() {
 
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         <FormDialog
+          key={edit?.id ?? "new"}
           onSubmit={onSubmit}
           initial={edit}
           provNombre={edit?.proveedor_id ? provsMap[edit.proveedor_id] ?? "" : ""}
