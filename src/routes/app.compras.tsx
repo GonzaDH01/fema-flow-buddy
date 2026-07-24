@@ -92,6 +92,10 @@ function Page() {
   const [tab, setTab] = useState<"todas" | "pendiente" | "pagada">("todas");
   const [search, setSearch] = useState("");
   const [outerTab, setOuterTab] = useState<"compras" | "fijos">("compras");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [filtroProv, setFiltroProv] = useState<string>("__all");
+  const [filtroCat, setFiltroCat] = useState<string>("__all");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
@@ -123,6 +127,10 @@ function Page() {
   const filtered = useMemo(() => {
     let rows = data ?? [];
     if (tab !== "todas") rows = rows.filter((r) => r.estado === tab);
+    if (fechaDesde) rows = rows.filter((r) => r.fecha >= fechaDesde);
+    if (fechaHasta) rows = rows.filter((r) => r.fecha <= fechaHasta);
+    if (filtroProv !== "__all") rows = rows.filter((r) => (r.proveedor_id ?? "") === filtroProv);
+    if (filtroCat !== "__all") rows = rows.filter((r) => r.categoria === filtroCat);
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((r) => {
@@ -133,7 +141,7 @@ function Page() {
       });
     }
     return rows;
-  }, [data, tab, search, provsMap]);
+  }, [data, tab, search, provsMap, fechaDesde, fechaHasta, filtroProv, filtroCat]);
 
   const close = () => { setOpen(false); setEdit(null); };
 
@@ -247,6 +255,41 @@ function Page() {
             className="h-9 max-w-xs"
           />
         </CardHeader>
+        <div className="px-6 pb-3 grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground mb-1">Desde</p>
+            <Input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="h-9" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground mb-1">Hasta</p>
+            <Input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="h-9" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground mb-1">Proveedor</p>
+            <Select value={filtroProv} onValueChange={setFiltroProv}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Todos</SelectItem>
+                {(provs ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground mb-1">Categoría</p>
+            <Select value={filtroCat} onValueChange={setFiltroCat}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Todas</SelectItem>
+                {CATS.map((c) => <SelectItem key={c} value={c}>{labelCat(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button variant="outline" size="sm" className="h-9 w-full" onClick={() => {
+              setFechaDesde(""); setFechaHasta(""); setFiltroProv("__all"); setFiltroCat("__all");
+            }}>Limpiar filtros</Button>
+          </div>
+        </div>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
