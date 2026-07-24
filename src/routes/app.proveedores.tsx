@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export const Route = createFileRoute("/app/proveedores")({ component: Page });
 
-const CATS = ["Repuestos_JD","Mecanicos","Gomeria","Inoculante","Transportistas","Seguros","Servicios","Herramientas","Otro"] as const;
+const CATS = ["Repuestos_JD","Repuestos","Mecanicos","Gomeria","Inoculante","Transportistas","Seguros","Servicios","Herramientas","Honorarios","Otro"] as const;
 const schema = z.object({
   nombre: z.string().min(2).max(100),
   cuit: z.string().max(15).optional().or(z.literal("")),
