@@ -34,9 +34,9 @@ export const Route = createFileRoute("/app/compras")({ component: Page });
 const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CATS = [
-  "Gasoil_Combustible", "Repuestos_JD", "Mecanicos", "Gomeria",
+  "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
   "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas",
-  "Mano_de_Obra", "Franco_Particular", "Otro",
+  "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro",
 ] as const;
 const FORMAS_PAGO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Débito automático", "Otro"] as const;
 
