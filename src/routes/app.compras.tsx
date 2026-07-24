@@ -493,8 +493,8 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Neto (libre de impuestos)"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
               <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
-              <FormField label="Impuestos internos ITC"><Input type="number" step="0.01" {...f.register("impuestos_internos")} /></FormField>
-              <FormField label="Otros impuestos CO₂"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+              <FormField label="ITC (Nafta + Gas Oil)"><Input type="number" step="0.01" {...f.register("impuestos_internos")} /></FormField>
+              <FormField label="CO₂ + Otros tributos (Tasa Vial, etc.)"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
               <FormField label="Litros"><Input type="number" step="0.01" {...f.register("litros")} /></FormField>
               <FormField label="Producto"><Input placeholder="Ej: Quantium Diesel" {...f.register("producto")} /></FormField>
             </div>
