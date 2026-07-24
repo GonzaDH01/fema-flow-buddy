@@ -542,6 +542,32 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           </FormField>
         </div>
 
+        {initial && (
+          <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+            <button
+              type="button"
+              onClick={() => setUsdOpen((v) => !v)}
+              className="text-xs font-semibold uppercase tracking-wide text-accent hover:underline"
+            >
+              {usdOpen ? "▾" : "▸"} Convertir de USD a pesos
+            </button>
+            {usdOpen && (
+              <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                <FormField label="Monto USD">
+                  <Input type="number" step="0.01" placeholder="1000" value={usdMonto} onChange={(e) => setUsdMonto(e.target.value)} />
+                </FormField>
+                <FormField label="Cotización $/USD">
+                  <Input type="number" step="0.01" placeholder="1350" value={usdCotiz} onChange={(e) => setUsdCotiz(e.target.value)} />
+                </FormField>
+                <Button type="button" onClick={aplicarUsd}>Aplicar</Button>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Calcula Neto = USD × cotización. Si la factura es letra A, agrega IVA 21% y actualiza el Monto total automáticamente.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Fecha de pago"><Input type="date" {...f.register("fecha_pago")} /></FormField>
           <FormField label="Forma de pago">
