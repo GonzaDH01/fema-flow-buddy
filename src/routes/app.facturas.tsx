@@ -32,7 +32,7 @@ const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
 const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado Pago", "Otro"] as const;
-const CATEGORIAS_VENTA = ["Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Franco_Particular", "Otro"] as const;
+const CATEGORIAS_VENTA = ["Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro"] as const;
 const labelCatVenta = (c: string) => {
   if (c === "Mano_de_Obra") return "Mano de Obra";
   if (c === "Franco_Particular") return "Franco Particular";
