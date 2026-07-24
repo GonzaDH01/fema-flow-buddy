@@ -693,6 +693,7 @@ export type Database = {
           fecha_pago: string | null
           forma_pago: string | null
           id: string
+          imagen_path: string | null
           impuestos_internos: number | null
           iva_105: number | null
           iva_21: number | null
@@ -721,6 +722,7 @@ export type Database = {
           fecha_pago?: string | null
           forma_pago?: string | null
           id?: string
+          imagen_path?: string | null
           impuestos_internos?: number | null
           iva_105?: number | null
           iva_21?: number | null
@@ -749,6 +751,7 @@ export type Database = {
           fecha_pago?: string | null
           forma_pago?: string | null
           id?: string
+          imagen_path?: string | null
           impuestos_internos?: number | null
           iva_105?: number | null
           iva_21?: number | null
@@ -791,6 +794,7 @@ export type Database = {
           forma_cobro: string | null
           hectareas: number | null
           id: string
+          imagen_path: string | null
           iva_105: number | null
           iva_21: number | null
           mes: number | null
@@ -821,6 +825,7 @@ export type Database = {
           forma_cobro?: string | null
           hectareas?: number | null
           id?: string
+          imagen_path?: string | null
           iva_105?: number | null
           iva_21?: number | null
           mes?: number | null
@@ -851,6 +856,7 @@ export type Database = {
           forma_cobro?: string | null
           hectareas?: number | null
           id?: string
+          imagen_path?: string | null
           iva_105?: number | null
           iva_21?: number | null
           mes?: number | null
