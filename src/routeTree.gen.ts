@@ -9,36 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
-import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
-import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
-import { Route as AppOcrRouteImport } from './routes/app.ocr'
-import { Route as AppMediosRouteImport } from './routes/app.medios'
-import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
-import { Route as AppImagenesRouteImport } from './routes/app.imagenes'
-import { Route as AppFacturasRouteImport } from './routes/app.facturas'
-import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
-import { Route as AppCreditosRouteImport } from './routes/app.creditos'
-import { Route as AppComprasRouteImport } from './routes/app.compras'
-import { Route as AppCombustibleRouteImport } from './routes/app.combustible'
-import { Route as AppClientesRouteImport } from './routes/app.clientes'
-import { Route as AppCashflowRouteImport } from './routes/app.cashflow'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
+import { Route as AppCashflowRouteImport } from './routes/app.cashflow'
+import { Route as AppClientesRouteImport } from './routes/app.clientes'
+import { Route as AppCombustibleRouteImport } from './routes/app.combustible'
+import { Route as AppComprasRouteImport } from './routes/app.compras'
+import { Route as AppCreditosRouteImport } from './routes/app.creditos'
+import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
+import { Route as AppFacturasRouteImport } from './routes/app.facturas'
+import { Route as AppImagenesRouteImport } from './routes/app.imagenes'
+import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
+import { Route as AppMediosRouteImport } from './routes/app.medios'
+import { Route as AppOcrRouteImport } from './routes/app.ocr'
+import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
+import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
+import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
 
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -46,9 +41,14 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -56,69 +56,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppUsuariosRoute = AppUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppProveedoresRoute = AppProveedoresRouteImport.update({
-  id: '/proveedores',
-  path: '/proveedores',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
-  id: '/presupuestos',
-  path: '/presupuestos',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOcrRoute = AppOcrRouteImport.update({
-  id: '/ocr',
-  path: '/ocr',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMediosRoute = AppMediosRouteImport.update({
-  id: '/medios',
-  path: '/medios',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppImpuestosRoute = AppImpuestosRouteImport.update({
-  id: '/impuestos',
-  path: '/impuestos',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppImagenesRoute = AppImagenesRouteImport.update({
-  id: '/imagenes',
-  path: '/imagenes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFacturasRoute = AppFacturasRouteImport.update({
-  id: '/facturas',
-  path: '/facturas',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEmpleadosRoute = AppEmpleadosRouteImport.update({
-  id: '/empleados',
-  path: '/empleados',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCreditosRoute = AppCreditosRouteImport.update({
-  id: '/creditos',
-  path: '/creditos',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppComprasRoute = AppComprasRouteImport.update({
-  id: '/compras',
-  path: '/compras',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCombustibleRoute = AppCombustibleRouteImport.update({
-  id: '/combustible',
-  path: '/combustible',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppClientesRoute = AppClientesRouteImport.update({
-  id: '/clientes',
-  path: '/clientes',
+const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCashflowRoute = AppCashflowRouteImport.update({
@@ -126,9 +66,69 @@ const AppCashflowRoute = AppCashflowRouteImport.update({
   path: '/cashflow',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
+const AppClientesRoute = AppClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCombustibleRoute = AppCombustibleRouteImport.update({
+  id: '/combustible',
+  path: '/combustible',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppComprasRoute = AppComprasRouteImport.update({
+  id: '/compras',
+  path: '/compras',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCreditosRoute = AppCreditosRouteImport.update({
+  id: '/creditos',
+  path: '/creditos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmpleadosRoute = AppEmpleadosRouteImport.update({
+  id: '/empleados',
+  path: '/empleados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFacturasRoute = AppFacturasRouteImport.update({
+  id: '/facturas',
+  path: '/facturas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImagenesRoute = AppImagenesRouteImport.update({
+  id: '/imagenes',
+  path: '/imagenes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImpuestosRoute = AppImpuestosRouteImport.update({
+  id: '/impuestos',
+  path: '/impuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMediosRoute = AppMediosRouteImport.update({
+  id: '/medios',
+  path: '/medios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOcrRoute = AppOcrRouteImport.update({
+  id: '/ocr',
+  path: '/ocr',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
+  id: '/presupuestos',
+  path: '/presupuestos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProveedoresRoute = AppProveedoresRouteImport.update({
+  id: '/proveedores',
+  path: '/proveedores',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUsuariosRoute = AppUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => AppRoute,
 } as any)
 const ApiPublicOcrFacturaRoute = ApiPublicOcrFacturaRouteImport.update({
@@ -287,18 +287,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -308,11 +301,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -322,95 +322,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/usuarios': {
-      id: '/app/usuarios'
-      path: '/usuarios'
-      fullPath: '/app/usuarios'
-      preLoaderRoute: typeof AppUsuariosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/proveedores': {
-      id: '/app/proveedores'
-      path: '/proveedores'
-      fullPath: '/app/proveedores'
-      preLoaderRoute: typeof AppProveedoresRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/presupuestos': {
-      id: '/app/presupuestos'
-      path: '/presupuestos'
-      fullPath: '/app/presupuestos'
-      preLoaderRoute: typeof AppPresupuestosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/ocr': {
-      id: '/app/ocr'
-      path: '/ocr'
-      fullPath: '/app/ocr'
-      preLoaderRoute: typeof AppOcrRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/medios': {
-      id: '/app/medios'
-      path: '/medios'
-      fullPath: '/app/medios'
-      preLoaderRoute: typeof AppMediosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/impuestos': {
-      id: '/app/impuestos'
-      path: '/impuestos'
-      fullPath: '/app/impuestos'
-      preLoaderRoute: typeof AppImpuestosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/imagenes': {
-      id: '/app/imagenes'
-      path: '/imagenes'
-      fullPath: '/app/imagenes'
-      preLoaderRoute: typeof AppImagenesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/facturas': {
-      id: '/app/facturas'
-      path: '/facturas'
-      fullPath: '/app/facturas'
-      preLoaderRoute: typeof AppFacturasRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/empleados': {
-      id: '/app/empleados'
-      path: '/empleados'
-      fullPath: '/app/empleados'
-      preLoaderRoute: typeof AppEmpleadosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/creditos': {
-      id: '/app/creditos'
-      path: '/creditos'
-      fullPath: '/app/creditos'
-      preLoaderRoute: typeof AppCreditosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/compras': {
-      id: '/app/compras'
-      path: '/compras'
-      fullPath: '/app/compras'
-      preLoaderRoute: typeof AppComprasRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/combustible': {
-      id: '/app/combustible'
-      path: '/combustible'
-      fullPath: '/app/combustible'
-      preLoaderRoute: typeof AppCombustibleRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/clientes': {
-      id: '/app/clientes'
-      path: '/clientes'
-      fullPath: '/app/clientes'
-      preLoaderRoute: typeof AppClientesRouteImport
+    '/app/auditoria': {
+      id: '/app/auditoria'
+      path: '/auditoria'
+      fullPath: '/app/auditoria'
+      preLoaderRoute: typeof AppAuditoriaRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/cashflow': {
@@ -420,11 +336,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCashflowRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/auditoria': {
-      id: '/app/auditoria'
-      path: '/auditoria'
-      fullPath: '/app/auditoria'
-      preLoaderRoute: typeof AppAuditoriaRouteImport
+    '/app/clientes': {
+      id: '/app/clientes'
+      path: '/clientes'
+      fullPath: '/app/clientes'
+      preLoaderRoute: typeof AppClientesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/combustible': {
+      id: '/app/combustible'
+      path: '/combustible'
+      fullPath: '/app/combustible'
+      preLoaderRoute: typeof AppCombustibleRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/compras': {
+      id: '/app/compras'
+      path: '/compras'
+      fullPath: '/app/compras'
+      preLoaderRoute: typeof AppComprasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/creditos': {
+      id: '/app/creditos'
+      path: '/creditos'
+      fullPath: '/app/creditos'
+      preLoaderRoute: typeof AppCreditosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/empleados': {
+      id: '/app/empleados'
+      path: '/empleados'
+      fullPath: '/app/empleados'
+      preLoaderRoute: typeof AppEmpleadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/facturas': {
+      id: '/app/facturas'
+      path: '/facturas'
+      fullPath: '/app/facturas'
+      preLoaderRoute: typeof AppFacturasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/imagenes': {
+      id: '/app/imagenes'
+      path: '/imagenes'
+      fullPath: '/app/imagenes'
+      preLoaderRoute: typeof AppImagenesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/impuestos': {
+      id: '/app/impuestos'
+      path: '/impuestos'
+      fullPath: '/app/impuestos'
+      preLoaderRoute: typeof AppImpuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/medios': {
+      id: '/app/medios'
+      path: '/medios'
+      fullPath: '/app/medios'
+      preLoaderRoute: typeof AppMediosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ocr': {
+      id: '/app/ocr'
+      path: '/ocr'
+      fullPath: '/app/ocr'
+      preLoaderRoute: typeof AppOcrRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/presupuestos': {
+      id: '/app/presupuestos'
+      path: '/presupuestos'
+      fullPath: '/app/presupuestos'
+      preLoaderRoute: typeof AppPresupuestosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proveedores': {
+      id: '/app/proveedores'
+      path: '/proveedores'
+      fullPath: '/app/proveedores'
+      preLoaderRoute: typeof AppProveedoresRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/usuarios': {
+      id: '/app/usuarios'
+      path: '/usuarios'
+      fullPath: '/app/usuarios'
+      preLoaderRoute: typeof AppUsuariosRouteImport
       parentRoute: typeof AppRoute
     }
     '/api/public/ocr-factura': {
