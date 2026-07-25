@@ -595,12 +595,68 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
 }
 
 function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => void }) {
-  if (rows.length === 0) {
-    return <div className="text-sm text-muted-foreground py-4 text-center">No hay echeqs en cartera</div>;
-  }
+  const [orden, setOrden] = useState<"pago_asc"|"pago_desc"|"monto_asc"|"monto_desc">("pago_asc");
+  const [desde, setDesde] = useState<string>("");
+  const [hasta, setHasta] = useState<string>("");
   const hoy = new Date();
+
+  const filtradas = useMemo(() => {
+    let r = [...rows];
+    if (desde) r = r.filter(m => (m.vencimiento ?? "") >= desde);
+    if (hasta) r = r.filter(m => (m.vencimiento ?? "") <= hasta);
+    r.sort((a, b) => {
+      if (orden === "pago_asc" || orden === "pago_desc") {
+        const av = a.vencimiento ?? "9999-12-31";
+        const bv = b.vencimiento ?? "9999-12-31";
+        return orden === "pago_asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      const am = Number(a.monto), bm = Number(b.monto);
+      return orden === "monto_asc" ? am - bm : bm - am;
+    });
+    return r;
+  }, [rows, orden, desde, hasta]);
+
+  const totalFiltrado = filtradas.reduce((a, m) => a + Number(m.monto), 0);
+
   return (
-    <Table>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase text-muted-foreground">Fecha pago desde</label>
+          <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-9 w-[150px]" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase text-muted-foreground">Hasta</label>
+          <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-9 w-[150px]" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase text-muted-foreground">Ordenar</label>
+          <Select value={orden} onValueChange={(v: any) => setOrden(v)}>
+            <SelectTrigger className="h-9 w-[210px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pago_asc">Fecha de pago (menor a mayor)</SelectItem>
+              <SelectItem value="pago_desc">Fecha de pago (mayor a menor)</SelectItem>
+              <SelectItem value="monto_asc">Monto (menor a mayor)</SelectItem>
+              <SelectItem value="monto_desc">Monto (mayor a menor)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(desde || hasta) && (
+          <Button variant="ghost" size="sm" onClick={() => { setDesde(""); setHasta(""); }}>
+            <XIcon className="w-4 h-4 mr-1" />Limpiar
+          </Button>
+        )}
+        <div className="ml-auto text-xs text-muted-foreground">
+          {filtradas.length} echeqs · <span className="font-mono text-emerald-400">{formatPesos(totalFiltrado)}</span>
+        </div>
+      </div>
+
+      {filtradas.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">
+          {rows.length === 0 ? "No hay echeqs en cartera" : "Ningún echeq coincide con los filtros"}
+        </div>
+      ) : (
+      <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Nº echeq</TableHead>
@@ -613,7 +669,7 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map(m => {
+        {filtradas.map(m => {
           const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
           const venc = dias !== null && dias < 7;
           return (
@@ -635,7 +691,9 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
           );
         })}
       </TableBody>
-    </Table>
+      </Table>
+      )}
+    </div>
   );
 }
 
