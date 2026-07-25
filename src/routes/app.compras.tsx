@@ -421,9 +421,9 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
     const netoPesos = Number((u * c).toFixed(2));
     const iva = tipo === "A" ? Number((netoPesos * 0.21).toFixed(2)) : 0;
     const total = Number((netoPesos + iva).toFixed(2));
-    f.setValue("neto", netoPesos);
-    f.setValue("iva_21", iva);
-    f.setValue("total", total);
+    f.setValue("neto", netoPesos, { shouldDirty: true, shouldValidate: true });
+    f.setValue("iva_21", iva, { shouldDirty: true, shouldValidate: true });
+    f.setValue("total", total, { shouldDirty: true, shouldValidate: true });
     toast.success(`Convertido: USD ${u} × ${c} = ${formatPesos(total)}`);
   };
 
@@ -451,7 +451,11 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   return (
     <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} Compra / Proveedor</DialogTitle></DialogHeader>
-      <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
+      <form onSubmit={f.handleSubmit(onSubmit, (errs) => {
+        console.error("Validación compras:", errs);
+        const first = Object.values(errs)[0] as any;
+        toast.error(first?.message ? `Revisá el formulario: ${first.message}` : "Revisá los campos marcados");
+      })} className="space-y-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Tipo de comprobante</p>
           <div className="grid grid-cols-2 gap-2">
