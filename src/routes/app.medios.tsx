@@ -742,6 +742,24 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
   const [genPeriodicidad, setGenPeriodicidad] = useState<"semanal"|"quincenal"|"mensual">("mensual");
 
+  // Pago a proveedor — método de pago
+  type MetodoPagoProv = "cuotas" | "ceder_cartera";
+  const [metodoPagoProv, setMetodoPagoProv] = useState<MetodoPagoProv>("cuotas");
+  const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
+  const [busqCartera, setBusqCartera] = useState("");
+  const echeqsCarteraFiltrados = useMemo(() => {
+    const q = busqCartera.trim().toLowerCase();
+    const list = q
+      ? echeqsCartera.filter(e => [e.numero, e.contraparte, e.banco].some(v => (v ?? "").toString().toLowerCase().includes(q)))
+      : echeqsCartera;
+    return [...list].sort((a, b) => (a.vencimiento ?? "").localeCompare(b.vencimiento ?? ""));
+  }, [echeqsCartera, busqCartera]);
+  const totalCedidos = useMemo(
+    () => echeqsCartera.filter(e => echeqsCedidos.includes(e.id)).reduce((a, e) => a + Number(e.monto), 0),
+    [echeqsCartera, echeqsCedidos]);
+  const toggleEcheqCedido = (id: string) =>
+    setEcheqsCedidos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   const facturaActual = useMemo(() => {
     if (!facturaSel) return null;
     const list = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
@@ -843,6 +861,29 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
+        // Pago a proveedor cediendo echeqs en cartera (multi-selección)
+        if (tipo === "pago_proveedor" && metodoPagoProv === "ceder_cartera" && !initial) {
+          if (echeqsCedidos.length === 0) { toast.error("Seleccioná al menos un echeq a ceder"); return; }
+          const provNombre = contraparte || fact?.proveedor || "Proveedor";
+          for (const eid of echeqsCedidos) {
+            const e = echeqsCartera.find(x => x.id === eid);
+            if (!e) continue;
+            const { error: uErr } = await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", eid);
+            if (uErr) throw uErr;
+            const { error: iErr } = await sb.from("fema_movimientos_pago").insert({
+              user_id: userId, instrumento: "cesion", direccion: "pago",
+              tipo_movimiento: "ceder_echeq",
+              fecha_emision: new Date().toISOString().split("T")[0],
+              vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
+              contraparte: provNombre, monto: e.monto, estado: "pagado",
+              echeq_origen_id: eid,
+              factura_compra_id: facturaSel,
+              observaciones: observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
+              anio: year, mes,
+            });
+            if (iErr) throw iErr;
+          }
+        } else {
         const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
         if (filasValidas.length === 0) { toast.error("Cargá al menos una cuota con monto"); return; }
         if (initial) {
@@ -897,6 +938,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               if (error) throw error;
             }
           }
+        }
         }
       } else {
         // libre
