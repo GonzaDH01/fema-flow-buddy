@@ -44,6 +44,21 @@ const labelCat = (c: string) => {
   return c.replace(/_/g, " ");
 };
 
+const onlyDigits = (value: string | null | undefined) => value ? String(value).replace(/[^0-9]/g, "") : "";
+const cleanName = (value: string | null | undefined) => (value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/\b(SA|S\.A\.|SRL|S\.R\.L\.|CUIT|IVA|RESPONSABLE|MONOTRIBUTO)\b/gi, "")
+  .replace(/[^a-z0-9]+/gi, " ")
+  .trim()
+  .toLowerCase();
+const compatibleName = (a: string | null | undefined, b: string | null | undefined) => {
+  const left = cleanName(a);
+  const right = cleanName(b);
+  if (!left || !right) return true;
+  return left === right || left.includes(right) || right.includes(left);
+};
+
 function Page() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -125,20 +140,26 @@ function Page() {
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
       const terceroNombre = (kind === "compra" ? result.emisor : (result.receptor ?? result.emisor))?.trim() || null;
       const terceroCuitRaw = (kind === "compra" ? result.cuit_emisor : (result.cuit_receptor ?? result.cuit_emisor)) ?? null;
-      const terceroCuit = terceroCuitRaw ? String(terceroCuitRaw).replace(/[^0-9]/g, "") : null;
+      const terceroCuit = onlyDigits(terceroCuitRaw) || null;
 
       // Buscar o crear proveedor/cliente
       let terceroId: string | null = null;
       if (terceroNombre || terceroCuit) {
         const tabla = kind === "compra" ? "fema_proveedores" : "fema_clientes";
-        let existente: { id: string } | null = null;
+        let existente: { id: string; nombre?: string | null; cuit?: string | null } | null = null;
+        let cuitDisponible = terceroCuit;
         if (terceroCuit) {
           const { data } = await supabase
             .from(tabla)
-            .select("id")
+            .select("id,nombre,cuit")
             .eq("cuit", terceroCuit)
             .maybeSingle();
-          existente = data ?? null;
+          if (data && compatibleName(terceroNombre, data.nombre)) {
+            existente = data;
+          } else if (data) {
+            cuitDisponible = null;
+            toast.warning(`El CUIT leído ya pertenece a "${data.nombre}". Se guardará usando el nombre del comprobante para evitar vincularlo mal.`);
+          }
         }
         if (!existente && terceroNombre) {
           const { data } = await supabase
@@ -149,15 +170,15 @@ function Page() {
           if (data) {
             existente = { id: data.id };
             // si no tenía CUIT y ahora lo tenemos, lo completamos
-            if (terceroCuit && !data.cuit) {
-              await supabase.from(tabla).update({ cuit: terceroCuit }).eq("id", data.id);
+            if (cuitDisponible && !data.cuit) {
+              await supabase.from(tabla).update({ cuit: cuitDisponible }).eq("id", data.id);
             }
           }
         }
         if (existente?.id) {
           terceroId = existente.id;
         } else {
-          const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: terceroCuit };
+          const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: cuitDisponible };
           if (kind === "compra") nuevo.categoria = (result.es_combustible ? "Gasoil_Combustible" : (result.categoria_sugerida as any)) ?? "Otro";
           const { data: creado, error: errC } = await supabase
             .from(tabla)
@@ -351,11 +372,13 @@ function Page() {
                   ))}
                 </select>
               </div>
+              <EditableOCRField label="Emisor / proveedor" value={result.emisor ?? ""} onChange={(value) => setResult({ ...result, emisor: value })} />
+              <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(value) => setResult({ ...result, cuit_emisor: onlyDigits(value) })} />
+              <EditableOCRField label="Receptor / cliente" value={result.receptor ?? ""} onChange={(value) => setResult({ ...result, receptor: value })} />
+              <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(value) => setResult({ ...result, cuit_receptor: onlyDigits(value) })} />
               {[
                 ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
-                ["Emisor", result.emisor ?? "—"], ["Receptor", result.receptor ?? "—"],
-                ["CUIT Emisor", result.cuit_emisor ?? "—"], ["CUIT Receptor", result.cuit_receptor ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
                 ["IVA 10.5%", result.iva_105 ?? 0], ["Percepciones", result.percepciones ?? 0],
@@ -378,6 +401,15 @@ function Page() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EditableOCRField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-8 text-sm" />
     </div>
   );
 }
