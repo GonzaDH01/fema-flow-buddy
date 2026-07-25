@@ -25,6 +25,7 @@ const MODULOS: { key: string; label: string }[] = [
   { key: "presupuestos", label: "Presupuestos" },
   { key: "medios", label: "Medios de Pago" },
   { key: "ocr", label: "OCR Facturas" },
+  { key: "imagenes", label: "Imágenes" },
   { key: "auditoria", label: "Auditoría" },
   { key: "usuarios", label: "Usuarios (admin)" },
 ];
