@@ -553,9 +553,12 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map(m => (
-          <TableRow key={m.id}>
-            <TableCell className="font-medium">{INSTRUMENT_LABEL[m.instrumento]}</TableCell>
+        {rows.map(m => {
+          const hoyStr = new Date().toISOString().slice(0,10);
+          const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
+          return (
+          <TableRow key={m.id} className={vencidoSinCobrar ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
+            <TableCell className="font-medium">{INSTRUMENT_LABEL[m.instrumento]}{vencidoSinCobrar && <Badge variant="outline" className="ml-2 border-red-500/50 text-red-400">Vencido</Badge>}</TableCell>
             <TableCell>
               <Badge variant="outline" className={m.direccion === "cobro" ? "border-emerald-500/40 text-emerald-400" : "border-rose-500/40 text-rose-400"}>
                 {m.direccion === "cobro" ? "Cobro" : "Pago"}
@@ -588,7 +591,8 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
               </div>
             </TableCell>
           </TableRow>
-        ))}
+          );
+        })}
       </TableBody>
     </Table>
   );
