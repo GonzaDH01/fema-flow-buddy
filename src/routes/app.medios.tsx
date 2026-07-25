@@ -675,13 +675,14 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
       <TableBody>
         {filtradas.map(m => {
           const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
-          const venc = dias !== null && dias < 7;
+          const vencido = dias !== null && dias < 0;
+          const venc = dias !== null && dias < 7 && dias >= 0;
           return (
-            <TableRow key={m.id}>
-              <TableCell className="font-mono text-xs">{m.numero ?? "—"}</TableCell>
+            <TableRow key={m.id} className={vencido ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
+              <TableCell className="font-mono text-xs">{m.numero ?? "—"}{vencido && <Badge variant="outline" className="ml-2 border-red-500/50 text-red-400">Vencido</Badge>}</TableCell>
               <TableCell>{m.contraparte ?? "—"}</TableCell>
               <TableCell>{m.banco ?? "—"}</TableCell>
-              <TableCell className={`text-xs ${venc ? "text-amber-400" : ""}`}>
+              <TableCell className={`text-xs ${vencido ? "text-red-400 font-semibold" : venc ? "text-amber-400" : ""}`}>
                 {m.vencimiento ? `${formatFecha(m.vencimiento)} (${dias}d)` : "—"}
               </TableCell>
               <TableCell className="text-right font-mono text-emerald-400">{formatPesos(m.monto)}</TableCell>
