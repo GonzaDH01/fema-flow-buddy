@@ -1035,6 +1035,88 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
+          {tipo === "pago_proveedor" && !initial && (
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">¿Cómo abonás?</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button type="button" onClick={() => { setMetodoPagoProv("cuotas"); setInstrumento("transferencia"); }}
+                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "cuotas" && instrumento === "transferencia" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"}`}>
+                  <div className="font-medium text-sm">Transferencia</div>
+                  <div className="text-[11px] text-muted-foreground">Desde cuenta bancaria</div>
+                </button>
+                <button type="button" onClick={() => { setMetodoPagoProv("cuotas"); setInstrumento("echeq"); }}
+                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "cuotas" && instrumento === "echeq" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"}`}>
+                  <div className="font-medium text-sm">Emitir echeq(s)</div>
+                  <div className="text-[11px] text-muted-foreground">Uno o varios propios</div>
+                </button>
+                <button type="button" onClick={() => setMetodoPagoProv("ceder_cartera")}
+                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "ceder_cartera" ? "border-amber-500 bg-amber-500/10" : "border-border hover:bg-muted/50"}`}>
+                  <div className="font-medium text-sm">Ceder de cartera</div>
+                  <div className="text-[11px] text-muted-foreground">Uno o varios echeqs recibidos</div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tipo === "pago_proveedor" && !initial && metodoPagoProv === "ceder_cartera" ? (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Echeqs a ceder (selección múltiple)</div>
+                <Input placeholder="Filtrar por Nº / cliente / banco..." value={busqCartera} onChange={(e) => setBusqCartera(e.target.value)} className="max-w-xs h-8" />
+              </div>
+              <div className="max-h-72 overflow-auto rounded-md border divide-y">
+                {echeqsCarteraFiltrados.length === 0 && (
+                  <div className="p-3 text-xs text-muted-foreground">Sin echeqs en cartera</div>
+                )}
+                {echeqsCarteraFiltrados.map(e => {
+                  const checked = echeqsCedidos.includes(e.id);
+                  return (
+                    <label key={e.id} className={`flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/10" : ""}`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleEcheqCedido(e.id)} />
+                      <div className="flex-1 min-w-0 grid grid-cols-4 gap-2 text-xs items-center">
+                        <div className="font-mono truncate">Nº {e.numero ?? "s/n"}</div>
+                        <div className="truncate text-muted-foreground">{e.contraparte ?? "—"}</div>
+                        <div className="truncate text-muted-foreground">{e.banco ?? "—"} · vto {formatFecha(e.vencimiento)}</div>
+                        <div className="text-right font-mono text-emerald-400">{formatPesos(Number(e.monto))}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-muted-foreground">{echeqsCedidos.length} seleccionados</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-muted-foreground">Total a ceder</span>
+                  <span className="font-mono font-semibold">{formatPesos(totalCedidos)}</span>
+                  {totalFactura > 0 && Math.abs(totalFactura - totalCedidos) > 0.5 && (
+                    <span className={totalFactura - totalCedidos > 0 ? "text-amber-400" : "text-rose-400"}>
+                      {totalFactura - totalCedidos > 0
+                        ? `Faltan ${formatPesos(totalFactura - totalCedidos)}`
+                        : `Excede en ${formatPesos(totalCedidos - totalFactura)}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Proveedor / beneficiario">
+                  <Input value={contraparte} onChange={(e) => setContraparte(e.target.value)} placeholder="Nombre" />
+                </FormField>
+                <FormField label="Mes asociado">
+                  <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MESES_LARGOS.map((m, i) => <SelectItem key={i} value={String(i+1)}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
+              <FormField label="Observaciones">
+                <Input placeholder="Ej: Cesión por pago gasoil YPF..." value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+              </FormField>
+              <p className="text-[11px] text-muted-foreground">Los echeqs seleccionados pasarán a estado "Cedido" y quedarán vinculados a esta factura de compra.</p>
+            </div>
+          ) : (
+          <>
           <div className="grid grid-cols-3 gap-3">
             <FormField label="Tipo documento">
               <Select value={instrumento} onValueChange={setInstrumento}>
@@ -1155,6 +1237,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </FormField>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
 
