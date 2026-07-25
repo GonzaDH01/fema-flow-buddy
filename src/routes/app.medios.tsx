@@ -475,10 +475,10 @@ function Page() {
       </Dialog>
 
       <Dialog open={openMov} onOpenChange={(v) => { if (!v) { setOpenMov(false); setEditMov(null); } }}>
-        {openMov && (
+        {openMov && user && (
           <MovimientoDialog
             initial={editMov}
-            userId={user!.id} year={year}
+            userId={user.id} year={year}
             facturasVenta={facturasVentaPend}
             facturasCompra={facturasCompraPend}
             echeqsCartera={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
@@ -747,13 +747,29 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [metodoPagoProv, setMetodoPagoProv] = useState<MetodoPagoProv>("cuotas");
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [busqCartera, setBusqCartera] = useState("");
+  const [fechaDesdeCartera, setFechaDesdeCartera] = useState("");
+  const [fechaHastaCartera, setFechaHastaCartera] = useState("");
+  const [ordenCartera, setOrdenCartera] = useState<"pago_asc" | "pago_desc" | "monto_mayor" | "monto_menor">("pago_asc");
   const echeqsCarteraFiltrados = useMemo(() => {
     const q = busqCartera.trim().toLowerCase();
-    const list = q
-      ? echeqsCartera.filter(e => [e.numero, e.contraparte, e.banco].some(v => (v ?? "").toString().toLowerCase().includes(q)))
-      : echeqsCartera;
-    return [...list].sort((a, b) => (a.vencimiento ?? "").localeCompare(b.vencimiento ?? ""));
-  }, [echeqsCartera, busqCartera]);
+    let list = echeqsCartera;
+    if (q) {
+      list = list.filter(e => [e.numero, e.contraparte, e.banco].some(v => (v ?? "").toString().toLowerCase().includes(q)));
+    }
+    if (fechaDesdeCartera) {
+      list = list.filter(e => e.vencimiento && e.vencimiento >= fechaDesdeCartera);
+    }
+    if (fechaHastaCartera) {
+      list = list.filter(e => e.vencimiento && e.vencimiento <= fechaHastaCartera);
+    }
+    list = [...list].sort((a, b) => {
+      if (ordenCartera === "pago_asc") return (a.vencimiento ?? "").localeCompare(b.vencimiento ?? "");
+      if (ordenCartera === "pago_desc") return (b.vencimiento ?? "").localeCompare(a.vencimiento ?? "");
+      if (ordenCartera === "monto_mayor") return Number(b.monto) - Number(a.monto);
+      return Number(a.monto) - Number(b.monto);
+    });
+    return list;
+  }, [echeqsCartera, busqCartera, fechaDesdeCartera, fechaHastaCartera, ordenCartera]);
   const totalCedidos = useMemo(
     () => echeqsCartera.filter(e => echeqsCedidos.includes(e.id)).reduce((a, e) => a + Number(e.monto), 0),
     [echeqsCartera, echeqsCedidos]);
@@ -973,7 +989,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   };
 
   return (
-    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Registrar movimiento</DialogTitle>
         <DialogDescription>
@@ -1061,22 +1077,51 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Echeqs a ceder (selección múltiple)</div>
-                <Input placeholder="Filtrar por Nº / cliente / banco..." value={busqCartera} onChange={(e) => setBusqCartera(e.target.value)} className="max-w-xs h-8" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input placeholder="Filtrar por Nº / cliente / banco..." value={busqCartera} onChange={(e) => setBusqCartera(e.target.value)} className="w-56 h-8" />
+                  <div className="flex items-center gap-1">
+                    <Input type="date" value={fechaDesdeCartera} onChange={(e) => setFechaDesdeCartera(e.target.value)} className="w-32 h-8 text-xs" />
+                    <span className="text-xs text-muted-foreground">a</span>
+                    <Input type="date" value={fechaHastaCartera} onChange={(e) => setFechaHastaCartera(e.target.value)} className="w-32 h-8 text-xs" />
+                  </div>
+                  <Select value={ordenCartera} onValueChange={(v) => setOrdenCartera(v as any)}>
+                    <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pago_asc">Fecha pago ↑</SelectItem>
+                      <SelectItem value="pago_desc">Fecha pago ↓</SelectItem>
+                      <SelectItem value="monto_mayor">Monto mayor</SelectItem>
+                      <SelectItem value="monto_menor">Monto menor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="max-h-72 overflow-auto rounded-md border divide-y">
+                <div className="hidden sm:grid grid-cols-6 gap-3 px-2 py-1.5 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground items-center">
+                  <div className="col-span-1 pl-6">Nº</div>
+                  <div className="col-span-1">Cliente / Origen</div>
+                  <div className="col-span-1">Banco</div>
+                  <div className="col-span-1">Fecha de pago</div>
+                  <div className="col-span-1 text-right">Monto</div>
+                  <div className="col-span-1"></div>
+                </div>
                 {echeqsCarteraFiltrados.length === 0 && (
                   <div className="p-3 text-xs text-muted-foreground">Sin echeqs en cartera</div>
                 )}
                 {echeqsCarteraFiltrados.map(e => {
                   const checked = echeqsCedidos.includes(e.id);
+                  const vencido = e.vencimiento && e.vencimiento < new Date().toISOString().split("T")[0];
                   return (
-                    <label key={e.id} className={`flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/10" : ""}`}>
+                    <label key={e.id} className={`flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/10" : ""} ${vencido && !checked ? "bg-red-500/10" : ""}`}>
                       <input type="checkbox" checked={checked} onChange={() => toggleEcheqCedido(e.id)} />
-                      <div className="flex-1 min-w-0 grid grid-cols-4 gap-2 text-xs items-center">
+                      <div className="flex-1 min-w-0 grid grid-cols-6 gap-3 text-xs items-center">
                         <div className="font-mono truncate">Nº {e.numero ?? "s/n"}</div>
                         <div className="truncate text-muted-foreground">{e.contraparte ?? "—"}</div>
-                        <div className="truncate text-muted-foreground">{e.banco ?? "—"} · vto {formatFecha(e.vencimiento)}</div>
+                        <div className="truncate text-muted-foreground">{e.banco ?? "—"}</div>
+                        <div className="truncate">{formatFecha(e.vencimiento)} {vencido && <span className="text-[10px] text-red-400 ml-1">Vencido</span>}</div>
                         <div className="text-right font-mono text-emerald-400">{formatPesos(Number(e.monto))}</div>
+                        <div className="text-right">
+                          {checked && <Badge variant="outline" className="text-[10px] h-5">Seleccionado</Badge>}
+                        </div>
                       </div>
                     </label>
                   );
