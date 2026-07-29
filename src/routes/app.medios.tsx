@@ -878,11 +878,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
-        // Pago a proveedor cediendo echeqs en cartera (multi-selección)
-        if (tipo === "pago_proveedor" && metodoPagoProv === "ceder_cartera" && !initial) {
-          if (echeqsCedidos.length === 0) { toast.error("Seleccioná al menos un echeq a ceder"); return; }
+        // Pago a proveedor: pueden coexistir cesiones de cartera + cuotas (transferencia/emisión de echeqs)
+        const cesionesAProcesar = (tipo === "pago_proveedor" && !initial) ? echeqsCedidos : [];
+        const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
+        if (filasValidas.length === 0 && cesionesAProcesar.length === 0) {
+          toast.error("Cargá al menos una cuota con monto o seleccioná un echeq a ceder");
+          return;
+        }
+        if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
-          for (const eid of echeqsCedidos) {
+          for (const eid of cesionesAProcesar) {
             const e = echeqsCartera.find(x => x.id === eid);
             if (!e) continue;
             const { error: uErr } = await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", eid);
@@ -900,9 +905,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             });
             if (iErr) throw iErr;
           }
-        } else {
-        const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
-        if (filasValidas.length === 0) { toast.error("Cargá al menos una cuota con monto"); return; }
+        }
+        if (filasValidas.length > 0) {
         if (initial) {
           // edición: actualiza única fila
           const c = filasValidas[0];
