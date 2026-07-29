@@ -742,9 +742,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
   const [genPeriodicidad, setGenPeriodicidad] = useState<"semanal"|"quincenal"|"mensual">("mensual");
 
-  // Pago a proveedor — método de pago
-  type MetodoPagoProv = "cuotas" | "ceder_cartera";
-  const [metodoPagoProv, setMetodoPagoProv] = useState<MetodoPagoProv>("cuotas");
+  // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [busqCartera, setBusqCartera] = useState("");
@@ -787,7 +785,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
   const totalFactura = Number(facturaActual?.total ?? monto ?? 0);
-  const diferencia = totalFactura - totalCargado;
+  const totalCombinado = totalCargado + totalCedidos;
+  const diferencia = totalFactura - totalCombinado;
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
@@ -880,11 +879,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
-        // Pago a proveedor cediendo echeqs en cartera (multi-selección)
-        if (tipo === "pago_proveedor" && metodoPagoProv === "ceder_cartera" && !initial) {
-          if (echeqsCedidos.length === 0) { toast.error("Seleccioná al menos un echeq a ceder"); return; }
+        // Pago a proveedor: pueden coexistir cesiones de cartera + cuotas (transferencia/emisión de echeqs)
+        const cesionesAProcesar = (tipo === "pago_proveedor" && !initial) ? echeqsCedidos : [];
+        const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
+        if (filasValidas.length === 0 && cesionesAProcesar.length === 0) {
+          toast.error("Cargá al menos una cuota con monto o seleccioná un echeq a ceder");
+          return;
+        }
+        if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
-          for (const eid of echeqsCedidos) {
+          for (const eid of cesionesAProcesar) {
             const e = echeqsCartera.find(x => x.id === eid);
             if (!e) continue;
             const { error: uErr } = await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", eid);
@@ -902,9 +906,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             });
             if (iErr) throw iErr;
           }
-        } else {
-        const filasValidas = cuotas.filter(c => Number(c.monto) > 0);
-        if (filasValidas.length === 0) { toast.error("Cargá al menos una cuota con monto"); return; }
+        }
+        if (filasValidas.length > 0) {
         if (initial) {
           // edición: actualiza única fila
           const c = filasValidas[0];
@@ -1056,32 +1059,15 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           )}
 
           {tipo === "pago_proveedor" && !initial && (
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">¿Cómo abonás?</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <button type="button" onClick={() => { setMetodoPagoProv("cuotas"); setInstrumento("transferencia"); }}
-                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "cuotas" && instrumento === "transferencia" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"}`}>
-                  <div className="font-medium text-sm">Transferencia</div>
-                  <div className="text-[11px] text-muted-foreground">Desde cuenta bancaria</div>
-                </button>
-                <button type="button" onClick={() => { setMetodoPagoProv("cuotas"); setInstrumento("echeq"); }}
-                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "cuotas" && instrumento === "echeq" ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"}`}>
-                  <div className="font-medium text-sm">Emitir echeq(s)</div>
-                  <div className="text-[11px] text-muted-foreground">Uno o varios propios</div>
-                </button>
-                <button type="button" onClick={() => setMetodoPagoProv("ceder_cartera")}
-                  className={`text-left rounded-md border p-2 text-xs ${metodoPagoProv === "ceder_cartera" ? "border-amber-500 bg-amber-500/10" : "border-border hover:bg-muted/50"}`}>
-                  <div className="font-medium text-sm">Ceder de cartera</div>
-                  <div className="text-[11px] text-muted-foreground">Uno o varios echeqs recibidos</div>
-                </button>
-              </div>
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-[11px] text-muted-foreground">
+              Podés combinar varios medios de pago en un mismo movimiento: cargá <b>cesiones de echeqs de cartera</b> abajo, y/o <b>transferencias / echeqs emitidos</b> en la tabla de instrumentos. El sistema guardará todo junto al confirmar.
             </div>
           )}
 
-          {tipo === "pago_proveedor" && !initial && metodoPagoProv === "ceder_cartera" ? (
+          {tipo === "pago_proveedor" && !initial && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Echeqs a ceder (selección múltiple)</div>
+                <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Ceder echeqs de cartera (opcional · selección múltiple)</div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Input placeholder="Filtrar por Nº / cliente / banco..." value={busqCartera} onChange={(e) => setBusqCartera(e.target.value)} className="w-56 h-8" />
                   <div className="flex items-center gap-1">
@@ -1135,36 +1121,14 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               <div className="flex items-center justify-between text-xs pt-1">
                 <span className="text-muted-foreground">{echeqsCedidos.length} seleccionados</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-muted-foreground">Total a ceder</span>
+                  <span className="text-muted-foreground">Subtotal cesiones</span>
                   <span className="font-mono font-semibold">{formatPesos(totalCedidos)}</span>
-                  {totalFactura > 0 && Math.abs(totalFactura - totalCedidos) > 0.5 && (
-                    <span className={totalFactura - totalCedidos > 0 ? "text-amber-400" : "text-rose-400"}>
-                      {totalFactura - totalCedidos > 0
-                        ? `Faltan ${formatPesos(totalFactura - totalCedidos)}`
-                        : `Excede en ${formatPesos(totalCedidos - totalFactura)}`}
-                    </span>
-                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Proveedor / beneficiario">
-                  <Input value={contraparte} onChange={(e) => setContraparte(e.target.value)} placeholder="Nombre" />
-                </FormField>
-                <FormField label="Mes asociado">
-                  <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {MESES_LARGOS.map((m, i) => <SelectItem key={i} value={String(i+1)}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </div>
-              <FormField label="Observaciones">
-                <Input placeholder="Ej: Cesión por pago gasoil YPF..." value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-              </FormField>
               <p className="text-[11px] text-muted-foreground">Los echeqs seleccionados pasarán a estado "Cedido" y quedarán vinculados a esta factura de compra.</p>
             </div>
-          ) : (
+          )}
+
           <>
           <div className="grid grid-cols-3 gap-3">
             <FormField label="Tipo documento">
@@ -1260,8 +1224,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <Plus className="w-3 h-3 mr-1" />Agregar fila
               </Button>
               <div className="flex items-center gap-4">
-                <span className="text-muted-foreground">Total cargado</span>
+                <span className="text-muted-foreground">Instrumentos</span>
                 <span className="font-mono font-semibold">{formatPesos(totalCargado)}</span>
+                {totalCedidos > 0 && (
+                  <>
+                    <span className="text-muted-foreground">+ Cesiones</span>
+                    <span className="font-mono font-semibold text-amber-400">{formatPesos(totalCedidos)}</span>
+                    <span className="text-muted-foreground">= Total</span>
+                    <span className="font-mono font-semibold">{formatPesos(totalCombinado)}</span>
+                  </>
+                )}
                 {totalFactura > 0 && Math.abs(diferencia) > 0.5 && (
                   <span className={diferencia > 0 ? "text-amber-400" : "text-rose-400"}>
                     {diferencia > 0 ? `Faltan ${formatPesos(diferencia)} para cubrir el total` : `Excede en ${formatPesos(-diferencia)}`}
@@ -1287,7 +1259,6 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           </div>
           </>
-          )}
         </div>
       )}
 
