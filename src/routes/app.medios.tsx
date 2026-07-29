@@ -1376,7 +1376,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button onClick={guardar}>Guardar movimiento</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
       </DialogFooter>
     </DialogContent>
   );
