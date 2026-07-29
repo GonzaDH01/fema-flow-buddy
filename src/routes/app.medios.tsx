@@ -746,6 +746,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   type MetodoPagoProv = "cuotas" | "ceder_cartera";
   const [metodoPagoProv, setMetodoPagoProv] = useState<MetodoPagoProv>("cuotas");
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
   const [busqCartera, setBusqCartera] = useState("");
   const [fechaDesdeCartera, setFechaDesdeCartera] = useState("");
   const [fechaHastaCartera, setFechaHastaCartera] = useState("");
@@ -859,6 +860,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   }, [tipo, busqFact, facturasVenta, facturasCompra]);
 
   const guardar = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       if (tipo === "ceder_echeq") {
         if (!echeqId) { toast.error("Seleccioná un echeq"); return; }
@@ -985,6 +988,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       onSaved();
     } catch (e: any) {
       toast.error(e.message ?? "Error al guardar");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1371,7 +1376,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button onClick={guardar}>Guardar movimiento</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
       </DialogFooter>
     </DialogContent>
   );
