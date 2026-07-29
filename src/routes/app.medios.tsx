@@ -785,7 +785,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
   const totalFactura = Number(facturaActual?.total ?? monto ?? 0);
-  const diferencia = totalFactura - totalCargado;
+  const totalCombinado = totalCargado + totalCedidos;
+  const diferencia = totalFactura - totalCombinado;
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
