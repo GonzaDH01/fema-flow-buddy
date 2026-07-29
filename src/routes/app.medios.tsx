@@ -1224,8 +1224,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <Plus className="w-3 h-3 mr-1" />Agregar fila
               </Button>
               <div className="flex items-center gap-4">
-                <span className="text-muted-foreground">Total cargado</span>
+                <span className="text-muted-foreground">Instrumentos</span>
                 <span className="font-mono font-semibold">{formatPesos(totalCargado)}</span>
+                {totalCedidos > 0 && (
+                  <>
+                    <span className="text-muted-foreground">+ Cesiones</span>
+                    <span className="font-mono font-semibold text-amber-400">{formatPesos(totalCedidos)}</span>
+                    <span className="text-muted-foreground">= Total</span>
+                    <span className="font-mono font-semibold">{formatPesos(totalCombinado)}</span>
+                  </>
+                )}
                 {totalFactura > 0 && Math.abs(diferencia) > 0.5 && (
                   <span className={diferencia > 0 ? "text-amber-400" : "text-rose-400"}>
                     {diferencia > 0 ? `Faltan ${formatPesos(diferencia)} para cubrir el total` : `Excede en ${formatPesos(-diferencia)}`}
