@@ -742,9 +742,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
   const [genPeriodicidad, setGenPeriodicidad] = useState<"semanal"|"quincenal"|"mensual">("mensual");
 
-  // Pago a proveedor — método de pago
-  type MetodoPagoProv = "cuotas" | "ceder_cartera";
-  const [metodoPagoProv, setMetodoPagoProv] = useState<MetodoPagoProv>("cuotas");
+  // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [busqCartera, setBusqCartera] = useState("");
