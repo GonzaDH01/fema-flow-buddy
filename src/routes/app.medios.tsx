@@ -1461,6 +1461,23 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
     setTimeout(() => { w.focus(); w.print(); }, 300);
   };
 
+  const descargarPDF = async () => {
+    const el = document.querySelector(".recibo-print") as HTMLElement | null;
+    if (!el) { toast.error("No se pudo generar el PDF"); return; }
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      await html2pdf().set({
+        margin: 0,
+        filename: `${tituloDoc.replace(/\s+/g, "_")}_${reciboNro}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      }).from(el).save();
+    } catch (e: any) {
+      toast.error("Error generando PDF: " + (e?.message ?? ""));
+    }
+  };
+
   return (
     <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
       <DialogHeader className="no-print">
@@ -1544,8 +1561,9 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
       </div>
 
       <DialogFooter className="no-print">
-        <Button variant="outline" onClick={onClose}>Cerrar</Button>
-        <Button onClick={imprimir}><Printer className="w-4 h-4 mr-2" />Imprimir / Guardar PDF</Button>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="outline" onClick={imprimir}><Printer className="w-4 h-4 mr-2" />Imprimir</Button>
+        <Button onClick={descargarPDF}><Printer className="w-4 h-4 mr-2" />Descargar PDF</Button>
       </DialogFooter>
     </DialogContent>
   );
