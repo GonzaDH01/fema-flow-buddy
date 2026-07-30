@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, Fuel } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -16,7 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  FemaDocHeader, FemaClientBox, FemaWatermark, femaPrintCSS, femaHeaderHTML,
+  femaClientHTML, femaWatermarkHTML, femaLogoUrl, femaWatermarkUrl, absoluteAssetUrl,
+} from "@/lib/fema-doc";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tabs as OuterTabs, TabsList as OuterTabsList, TabsTrigger as OuterTabsTrigger, TabsContent as OuterTabsContent } from "@/components/ui/tabs";
@@ -80,6 +84,7 @@ type Row = {
   total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
   fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
+  imagen_path?: string | null;
   fema_proveedores?: { nombre: string } | null;
 };
 
@@ -96,6 +101,8 @@ function Page() {
   const [fechaHasta, setFechaHasta] = useState("");
   const [filtroProv, setFiltroProv] = useState<string>("__all");
   const [filtroCat, setFiltroCat] = useState<string>("__all");
+  const [reciboRow, setReciboRow] = useState<Row | null>(null);
+  const [imgRow, setImgRow] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
@@ -313,7 +320,21 @@ function Page() {
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.tipo}-{r.numero ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {r.imagen_path ? (
+                      <button
+                        type="button"
+                        onClick={() => setImgRow(r)}
+                        className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                        title="Ver imagen de la factura"
+                      >
+                        <ImageIcon className="h-3 w-3" />
+                        {r.tipo}-{r.numero ?? "—"}
+                      </button>
+                    ) : (
+                      <>{r.tipo}-{r.numero ?? "—"}</>
+                    )}
+                  </TableCell>
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
@@ -328,6 +349,12 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      {r.estado === "pagada" && (
+                        <Button variant="outline" size="sm" className="border-primary/40 text-primary"
+                          onClick={() => setReciboRow(r)}>
+                          <Receipt className="h-3 w-3" /> Recibo
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => { setEdit(r); setOpen(true); }}>
                         <Pencil className="h-3 w-3" /> Editar
                       </Button>
@@ -364,9 +391,251 @@ function Page() {
           year={year}
         />
       </Dialog>
+
+      <Dialog open={!!reciboRow} onOpenChange={(v) => { if (!v) setReciboRow(null); }}>
+        {reciboRow && (
+          <ReciboCompraDialog
+            row={reciboRow}
+            proveedor={reciboRow.fema_proveedores?.nombre ?? (reciboRow.proveedor_id ? provsMap[reciboRow.proveedor_id] ?? "—" : "—")}
+            onClose={() => setReciboRow(null)}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!imgRow} onOpenChange={(v) => { if (!v) setImgRow(null); }}>
+        {imgRow && <ImagenFacturaDialog row={imgRow} />}
+      </Dialog>
         </OuterTabsContent>
       </OuterTabs>
     </div>
+  );
+}
+
+const INSTRUMENT_LABEL: Record<string, string> = {
+  transferencia: "Transferencia",
+  echeq: "E-cheq",
+  cheque_fisico: "Cheque físico",
+  efectivo: "Efectivo",
+  otro: "Otro",
+};
+
+function ImagenFacturaDialog({ row }: { row: Row }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["compra-img", row.id, row.imagen_path],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from("facturas-img")
+        .createSignedUrl(row.imagen_path!, 60 * 10);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  });
+  const esPdf = (row.imagen_path ?? "").toLowerCase().endsWith(".pdf");
+  return (
+    <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Factura {row.tipo}-{row.numero ?? "s/n"}</DialogTitle>
+        <DialogDescription>Imagen del comprobante cargado.</DialogDescription>
+      </DialogHeader>
+      {isLoading && <div className="flex items-center gap-2 py-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando imagen…</div>}
+      {error && <p className="py-8 text-sm text-destructive">No se pudo cargar la imagen.</p>}
+      {data && (esPdf
+        ? <iframe src={data} className="h-[70vh] w-full rounded-lg border border-border" title="Comprobante" />
+        : <img src={data} alt={`Comprobante ${row.tipo}-${row.numero ?? ""}`} className="w-full rounded-lg border border-border" />)}
+      {data && (
+        <DialogFooter>
+          <Button variant="outline" onClick={() => window.open(data, "_blank")}>Abrir en pestaña nueva</Button>
+        </DialogFooter>
+      )}
+    </DialogContent>
+  );
+}
+
+function ReciboCompraDialog({ row, proveedor, onClose }: {
+  row: Row; proveedor: string; onClose: () => void;
+}) {
+  const { data: movs } = useQuery({
+    queryKey: ["compra-movs", row.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_movimientos_pago")
+        .select("*")
+        .eq("factura_compra_id", row.id)
+        .order("vencimiento", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const items = movs ?? [];
+  const totalPagado = items.reduce((a, m) => a + Number(m.monto), 0);
+  const total = items.length > 0 ? totalPagado : Number(row.total);
+  const reciboNro = `RP-${new Date().getFullYear()}-${row.id.slice(0, 8).toUpperCase()}`;
+  const hoy = new Date().toISOString().split("T")[0];
+  const saldo = Number(row.total) - total;
+
+  const filas = items.length > 0
+    ? items.map((m) => ({
+        medio: INSTRUMENT_LABEL[m.instrumento] ?? m.instrumento,
+        numero: m.numero ?? "—",
+        banco: m.banco ?? "—",
+        emision: formatFecha(m.fecha_emision),
+        venc: m.vencimiento ? formatFecha(m.vencimiento) : "—",
+        monto: Number(m.monto),
+      }))
+    : [{
+        medio: row.forma_pago ?? "Pago",
+        numero: "—",
+        banco: "—",
+        emision: formatFecha(row.fecha_pago ?? row.fecha),
+        venc: "—",
+        monto: Number(row.total),
+      }];
+
+  const imprimir = () => {
+    const logo = absoluteAssetUrl(femaLogoUrl);
+    const wm = absoluteAssetUrl(femaWatermarkUrl);
+    const rowsHTML = filas.map((f) => `<tr>
+      <td>${f.medio}</td><td>${f.numero}</td><td>${f.banco}</td>
+      <td>${f.emision}</td><td>${f.venc}</td>
+      <td class="right">${formatPesos(f.monto)}</td></tr>`).join("");
+    const obs = [
+      saldo > 0.01 ? `Saldo pendiente de la factura: <b>${formatPesos(saldo)}</b>` : "Factura abonada en su totalidad.",
+      row.observaciones ? String(row.observaciones).replace(/\n/g, "<br>") : "",
+    ].filter(Boolean).join("<br>");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>RECIBO DE PAGO ${reciboNro}</title>
+<style>${femaPrintCSS}</style></head><body>
+<div class="fema-page">
+  ${femaWatermarkHTML(wm)}
+  <div class="fema-content">
+    ${femaHeaderHTML("RECIBO DE PAGO", [
+      { label: "Nº:", value: reciboNro },
+      { label: "Fecha:", value: formatFecha(hoy) },
+      { label: "Factura:", value: `${row.tipo}-${row.numero ?? "s/n"}` },
+    ], logo)}
+    ${femaClientHTML([
+      { label: "Proveedor:", value: proveedor },
+      { label: "Concepto:", value: row.descripcion ?? labelCat(row.categoria) },
+      { label: "Factura Nº:", value: `${row.tipo}-${row.numero ?? "s/n"} — ${formatFecha(row.fecha)}` },
+      { label: "Total factura:", value: formatPesos(Number(row.total)) },
+    ])}
+    <table class="fema">
+      <thead><tr><th>Medio</th><th>Nº / Ref.</th><th>Banco</th><th>Fecha emisión</th><th>Vencimiento</th><th class="right">Monto</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div class="fema-spacer"></div>
+    <div class="fema-bottom">
+      <div class="fema-obs"><div class="t">OBSERVACIONES:</div>${obs}</div>
+      <div class="fema-tot">
+        <div class="row"><span>Cantidad de valores:</span><span>${filas.length}</span></div>
+        <div class="row"><span>Subtotal:</span><span>${formatPesos(total)}</span></div>
+        <div class="row total"><span>Total</span><span>${formatPesos(total)}</span></div>
+      </div>
+    </div>
+    <div class="fema-sign"><div>Firma del emisor</div><div>Firma del proveedor</div></div>
+  </div>
+</div>
+</body></html>`;
+    const w = window.open("", "_blank", "width=900,height=1000");
+    if (!w) { toast.error("Bloqueado por el navegador"); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
+
+  const descargarPDF = async () => {
+    const el = document.querySelector(".recibo-compra-print") as HTMLElement | null;
+    if (!el) { toast.error("No se pudo generar el PDF"); return; }
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      await html2pdf().set({
+        margin: 0,
+        filename: `RECIBO_DE_PAGO_${reciboNro}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      }).from(el).save();
+    } catch (e: any) {
+      toast.error("Error generando PDF: " + (e?.message ?? ""));
+    }
+  };
+
+  return (
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader className="no-print">
+        <DialogTitle>Recibo de pago</DialogTitle>
+        <DialogDescription>Comprobante del pago realizado al proveedor.</DialogDescription>
+      </DialogHeader>
+
+      <div className="recibo-compra-print relative bg-white text-black p-6 text-[10.5px] flex flex-col" style={{ minHeight: "273mm" }}>
+        <FemaWatermark />
+        <div className="relative z-10 flex flex-1 flex-col">
+          <FemaDocHeader
+            title="RECIBO DE PAGO"
+            meta={[
+              { label: "Nº:", value: reciboNro },
+              { label: "Fecha:", value: formatFecha(hoy) },
+              { label: "Factura:", value: `${row.tipo}-${row.numero ?? "s/n"}` },
+            ]}
+          />
+          <FemaClientBox
+            rows={[
+              { label: "Proveedor:", value: proveedor },
+              { label: "Concepto:", value: row.descripcion ?? labelCat(row.categoria) },
+              { label: "Factura Nº:", value: `${row.tipo}-${row.numero ?? "s/n"} — ${formatFecha(row.fecha)}` },
+              { label: "Total factura:", value: formatPesos(Number(row.total)) },
+            ]}
+          />
+          <table className="mt-3 w-full border-collapse text-[10.5px]">
+            <thead>
+              <tr>
+                {["Medio", "Nº / Ref.", "Banco", "Fecha emisión", "Vencimiento"].map((h) => (
+                  <th key={h} className="border-y-2 border-black px-2 py-1 text-left">{h}</th>
+                ))}
+                <th className="border-y-2 border-black px-2 py-1 text-right">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f, i) => (
+                <tr key={i} className="border-b border-black/20">
+                  <td className="px-2 py-1">{f.medio}</td>
+                  <td className="px-2 py-1">{f.numero}</td>
+                  <td className="px-2 py-1">{f.banco}</td>
+                  <td className="px-2 py-1">{f.emision}</td>
+                  <td className="px-2 py-1">{f.venc}</td>
+                  <td className="px-2 py-1 text-right">{formatPesos(f.monto)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex-1" />
+          <div className="mt-4 flex justify-between gap-6">
+            <div className="max-w-[55%] text-[10px]">
+              <div className="font-bold">OBSERVACIONES:</div>
+              {saldo > 0.01
+                ? <div>Saldo pendiente de la factura: <b>{formatPesos(saldo)}</b></div>
+                : <div>Factura abonada en su totalidad.</div>}
+              {row.observaciones && <div>{row.observaciones}</div>}
+            </div>
+            <div className="w-56 text-[10.5px]">
+              <div className="flex justify-between"><span>Cantidad de valores:</span><span>{filas.length}</span></div>
+              <div className="flex justify-between"><span>Subtotal:</span><span>{formatPesos(total)}</span></div>
+              <div className="mt-1 flex justify-between border-t-2 border-black pt-1 font-bold"><span>Total</span><span>{formatPesos(total)}</span></div>
+            </div>
+          </div>
+          <div className="mt-10 flex justify-between text-[10px]">
+            <div className="border-t border-black px-8 pt-1">Firma del emisor</div>
+            <div className="border-t border-black px-8 pt-1">Firma del proveedor</div>
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter className="no-print">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="secondary" onClick={imprimir}>Imprimir</Button>
+        <Button onClick={descargarPDF}>Descargar PDF</Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 
