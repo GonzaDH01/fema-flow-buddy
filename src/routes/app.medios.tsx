@@ -267,6 +267,18 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
+  const revertir = async (m: Mov) => {
+    if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
+    const { error } = await sb.from("fema_movimientos_pago")
+      .update({ estado: "en_cartera" }).eq("id", m.id);
+    if (error) { toast.error(error.message); return; }
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
+    toast.success("Echeq devuelto a cartera");
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+  };
+
   const ceder = async (m: Mov) => {
     const proveedor = window.prompt("Proveedor / beneficiario al que se cede el echeq:");
     if (!proveedor) return;
