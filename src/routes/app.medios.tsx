@@ -455,7 +455,11 @@ function Page() {
             <h3 className="font-semibold">Cartera de echeqs disponibles para ceder</h3>
             <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
           </div>
-          <CarteraEcheqs rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")} onCeder={ceder} />
+          <CarteraEcheqs
+            rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
+            onCeder={ceder}
+            onCobrar={cobrar}
+          />
         </CardContent>
       </Card>
 
