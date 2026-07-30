@@ -615,14 +615,18 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
   );
 }
 
-function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => void }) {
+function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
+  rows: Mov[]; onCeder: (m: Mov) => void; onCobrar: (m: Mov) => void; onRevertir: (m: Mov) => void;
+}) {
   const [orden, setOrden] = useState<"pago_asc"|"pago_desc"|"monto_asc"|"monto_desc">("pago_asc");
   const [desde, setDesde] = useState<string>("");
   const [hasta, setHasta] = useState<string>("");
+  const [estadoFiltro, setEstadoFiltro] = useState<"en_cartera"|"cobrado"|"cedido"|"todos">("en_cartera");
   const hoy = new Date();
 
   const filtradas = useMemo(() => {
     let r = [...rows];
+    if (estadoFiltro !== "todos") r = r.filter(m => m.estado === estadoFiltro);
     if (desde) r = r.filter(m => (m.vencimiento ?? "") >= desde);
     if (hasta) r = r.filter(m => (m.vencimiento ?? "") <= hasta);
     r.sort((a, b) => {
@@ -635,7 +639,7 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
       return orden === "monto_asc" ? am - bm : bm - am;
     });
     return r;
-  }, [rows, orden, desde, hasta]);
+  }, [rows, orden, desde, hasta, estadoFiltro]);
 
   const totalFiltrado = filtradas.reduce((a, m) => a + Number(m.monto), 0);
 
