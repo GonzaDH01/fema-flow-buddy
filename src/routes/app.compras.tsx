@@ -101,6 +101,8 @@ function Page() {
   const [fechaHasta, setFechaHasta] = useState("");
   const [filtroProv, setFiltroProv] = useState<string>("__all");
   const [filtroCat, setFiltroCat] = useState<string>("__all");
+  const [reciboRow, setReciboRow] = useState<Row | null>(null);
+  const [imgRow, setImgRow] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
