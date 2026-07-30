@@ -666,6 +666,18 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase text-muted-foreground">Estado</label>
+          <Select value={estadoFiltro} onValueChange={(v: any) => setEstadoFiltro(v)}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en_cartera">En cartera</SelectItem>
+              <SelectItem value="cobrado">Cobrados</SelectItem>
+              <SelectItem value="cedido">Cedidos</SelectItem>
+              <SelectItem value="todos">Todos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {(desde || hasta) && (
           <Button variant="ghost" size="sm" onClick={() => { setDesde(""); setHasta(""); }}>
             <XIcon className="w-4 h-4 mr-1" />Limpiar
