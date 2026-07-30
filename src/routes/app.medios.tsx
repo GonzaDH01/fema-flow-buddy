@@ -267,6 +267,18 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
+  const revertir = async (m: Mov) => {
+    if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
+    const { error } = await sb.from("fema_movimientos_pago")
+      .update({ estado: "en_cartera" }).eq("id", m.id);
+    if (error) { toast.error(error.message); return; }
+    await reconciliarFactura(m.factura_venta_id, "venta");
+    await reconciliarFactura(m.factura_compra_id, "compra");
+    toast.success("Echeq devuelto a cartera");
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+  };
+
   const ceder = async (m: Mov) => {
     const proveedor = window.prompt("Proveedor / beneficiario al que se cede el echeq:");
     if (!proveedor) return;
@@ -455,7 +467,12 @@ function Page() {
             <h3 className="font-semibold">Cartera de echeqs disponibles para ceder</h3>
             <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
           </div>
-          <CarteraEcheqs rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")} onCeder={ceder} />
+          <CarteraEcheqs
+            rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro")}
+            onCeder={ceder}
+            onCobrar={cobrar}
+            onRevertir={revertir}
+          />
         </CardContent>
       </Card>
 
@@ -598,14 +615,18 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
   );
 }
 
-function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => void }) {
+function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
+  rows: Mov[]; onCeder: (m: Mov) => void; onCobrar: (m: Mov) => void; onRevertir: (m: Mov) => void;
+}) {
   const [orden, setOrden] = useState<"pago_asc"|"pago_desc"|"monto_asc"|"monto_desc">("pago_asc");
   const [desde, setDesde] = useState<string>("");
   const [hasta, setHasta] = useState<string>("");
+  const [estadoFiltro, setEstadoFiltro] = useState<"en_cartera"|"cobrado"|"cedido"|"todos">("en_cartera");
   const hoy = new Date();
 
   const filtradas = useMemo(() => {
     let r = [...rows];
+    if (estadoFiltro !== "todos") r = r.filter(m => m.estado === estadoFiltro);
     if (desde) r = r.filter(m => (m.vencimiento ?? "") >= desde);
     if (hasta) r = r.filter(m => (m.vencimiento ?? "") <= hasta);
     r.sort((a, b) => {
@@ -618,7 +639,7 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
       return orden === "monto_asc" ? am - bm : bm - am;
     });
     return r;
-  }, [rows, orden, desde, hasta]);
+  }, [rows, orden, desde, hasta, estadoFiltro]);
 
   const totalFiltrado = filtradas.reduce((a, m) => a + Number(m.monto), 0);
 
@@ -642,6 +663,18 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
               <SelectItem value="pago_desc">Fecha de pago (mayor a menor)</SelectItem>
               <SelectItem value="monto_asc">Monto (menor a mayor)</SelectItem>
               <SelectItem value="monto_desc">Monto (mayor a menor)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] uppercase text-muted-foreground">Estado</label>
+          <Select value={estadoFiltro} onValueChange={(v: any) => setEstadoFiltro(v)}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en_cartera">En cartera</SelectItem>
+              <SelectItem value="cobrado">Cobrados</SelectItem>
+              <SelectItem value="cedido">Cedidos</SelectItem>
+              <SelectItem value="todos">Todos</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -675,7 +708,8 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
       <TableBody>
         {filtradas.map(m => {
           const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
-          const vencido = dias !== null && dias < 0;
+          const enCartera = m.estado === "en_cartera";
+          const vencido = enCartera && dias !== null && dias < 0;
           const venc = dias !== null && dias < 7 && dias >= 0;
           return (
             <TableRow key={m.id} className={vencido ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
@@ -686,11 +720,25 @@ function CarteraEcheqs({ rows, onCeder }: { rows: Mov[]; onCeder: (m: Mov) => vo
                 {m.vencimiento ? `${formatFecha(m.vencimiento)} (${dias}d)` : "—"}
               </TableCell>
               <TableCell className="text-right font-mono text-emerald-400">{formatPesos(m.monto)}</TableCell>
-              <TableCell><Badge variant="outline" className={ESTADO_VARIANT.en_cartera}>En cartera</Badge></TableCell>
+              <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
               <TableCell className="text-right">
-                <Button size="sm" variant="outline" onClick={() => onCeder(m)} className="border-amber-500/40 text-amber-400">
-                  <ArrowRight className="w-3 h-3 mr-1" />Ceder a proveedor
-                </Button>
+                <div className="flex justify-end gap-1">
+                  {enCartera && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />Marcar cobrado
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => onCeder(m)} className="border-amber-500/40 text-amber-400">
+                        <ArrowRight className="w-3 h-3 mr-1" />Ceder a proveedor
+                      </Button>
+                    </>
+                  )}
+                  {!enCartera && (
+                    <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
+                      Volver a cartera
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           );
