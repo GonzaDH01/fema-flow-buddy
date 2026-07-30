@@ -708,7 +708,8 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
       <TableBody>
         {filtradas.map(m => {
           const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
-          const vencido = dias !== null && dias < 0;
+          const enCartera = m.estado === "en_cartera";
+          const vencido = enCartera && dias !== null && dias < 0;
           const venc = dias !== null && dias < 7 && dias >= 0;
           return (
             <TableRow key={m.id} className={vencido ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
@@ -719,11 +720,25 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
                 {m.vencimiento ? `${formatFecha(m.vencimiento)} (${dias}d)` : "—"}
               </TableCell>
               <TableCell className="text-right font-mono text-emerald-400">{formatPesos(m.monto)}</TableCell>
-              <TableCell><Badge variant="outline" className={ESTADO_VARIANT.en_cartera}>En cartera</Badge></TableCell>
+              <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
               <TableCell className="text-right">
-                <Button size="sm" variant="outline" onClick={() => onCeder(m)} className="border-amber-500/40 text-amber-400">
-                  <ArrowRight className="w-3 h-3 mr-1" />Ceder a proveedor
-                </Button>
+                <div className="flex justify-end gap-1">
+                  {enCartera && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />Marcar cobrado
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => onCeder(m)} className="border-amber-500/40 text-amber-400">
+                        <ArrowRight className="w-3 h-3 mr-1" />Ceder a proveedor
+                      </Button>
+                    </>
+                  )}
+                  {!enCartera && (
+                    <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
+                      Volver a cartera
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           );
