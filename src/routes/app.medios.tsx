@@ -468,9 +468,10 @@ function Page() {
             <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
           </div>
           <CarteraEcheqs
-            rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
+            rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro")}
             onCeder={ceder}
             onCobrar={cobrar}
+            onRevertir={revertir}
           />
         </CardContent>
       </Card>
