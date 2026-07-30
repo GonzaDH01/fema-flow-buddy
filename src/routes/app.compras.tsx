@@ -318,7 +318,21 @@ function Page() {
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.tipo}-{r.numero ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {r.imagen_path ? (
+                      <button
+                        type="button"
+                        onClick={() => setImgRow(r)}
+                        className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                        title="Ver imagen de la factura"
+                      >
+                        <ImageIcon className="h-3 w-3" />
+                        {r.tipo}-{r.numero ?? "—"}
+                      </button>
+                    ) : (
+                      <>{r.tipo}-{r.numero ?? "—"}</>
+                    )}
+                  </TableCell>
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
@@ -333,6 +347,12 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      {r.estado === "pagada" && (
+                        <Button variant="outline" size="sm" className="border-primary/40 text-primary"
+                          onClick={() => setReciboRow(r)}>
+                          <Receipt className="h-3 w-3" /> Recibo
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => { setEdit(r); setOpen(true); }}>
                         <Pencil className="h-3 w-3" /> Editar
                       </Button>
