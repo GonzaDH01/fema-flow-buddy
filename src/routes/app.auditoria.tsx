@@ -255,8 +255,24 @@ function Page() {
   const exportPaquete = () => {
     const wb = XLSX.utils.book_new();
     const add = (name: string, rows: any[]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name.slice(0, 31));
-    add("IVA Ventas", resumen.fv as any[]);
-    add("IVA Compras", resumen.fc as any[]);
+    add("IVA Ventas", (resumen.fv as any[]).map((f) => ({
+      Fecha: f.fecha, Tipo: f.tipo_comprobante || f.tipo, Numero: f.numero,
+      Cliente: nombreCliente(f.cliente_id), CUIT: cuitCliente(f.cliente_id),
+      Trabajo: f.trabajo || f.cultivo, Hectareas: f.hectareas, Metros_bolsa: f.metros_bolsa,
+      Neto: resumen.netoDe(f), IVA_21: f.iva_21, IVA_105: f.iva_105, Percepciones: f.percepciones,
+      Total: f.total, Cobrado: Math.min(cobradoDeVenta(f), Number(f.total || 0)),
+      Saldo: Math.max(0, Number(f.total || 0) - cobradoDeVenta(f)),
+      Estado: f.estado, Fecha_cobro: f.fecha_cobro, Forma_cobro: f.forma_cobro,
+    })));
+    add("IVA Compras", (resumen.fc as any[]).map((f) => ({
+      Fecha: f.fecha, Tipo: f.tipo_comprobante || f.tipo, Numero: f.numero,
+      Proveedor: nombreProveedor(f.proveedor_id), CUIT: cuitProveedor(f.proveedor_id),
+      Categoria: f.categoria, Descripcion: f.descripcion,
+      Neto: resumen.netoDe(f), IVA_21: f.iva_21, IVA_105: f.iva_105, Percepciones: f.percepciones,
+      Impuestos_internos: f.impuestos_internos, Otros_impuestos: f.otros_impuestos,
+      Total: f.total, Pagado: pagadoDeCompra(f.id), Saldo: Math.max(0, Number(f.total || 0) - pagadoDeCompra(f.id)),
+      Estado: f.estado, Fecha_pago: f.fecha_pago, Forma_pago: f.forma_pago,
+    })));
     add("Sueldos", resumen.sue as any[]);
     add("Impuestos", resumen.imp as any[]);
     add("Cheques cartera", chequesEnriched);
