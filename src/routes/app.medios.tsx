@@ -399,6 +399,10 @@ function Page() {
               <span className="text-xs text-muted-foreground">
                 Saldo total: <b>{formatPesos(totalSaldoBancos)}</b> · Usado para abonar facturas por transferencia
               </span>
+              <p className="text-xs text-muted-foreground mt-1">
+                Cargá primero el saldo que hoy figura en el banco (antes de marcar echeqs). Cada echeq
+                que marques como cobrado se suma automáticamente a la cuenta que elijas.
+              </p>
             </div>
             <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
               <Plus className="w-4 h-4 mr-2" />Agregar cuenta
@@ -523,6 +527,21 @@ function Page() {
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
               setOpenCta(false); setEditCta(null);
+            }}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!depositoMov} onOpenChange={(v) => { if (!v) setDepositoMov(null); }}>
+        {depositoMov && (
+          <DepositoDialog
+            mov={depositoMov}
+            cuentas={cuentas}
+            onClose={() => setDepositoMov(null)}
+            onConfirm={async (cuentaId) => {
+              const m = depositoMov;
+              setDepositoMov(null);
+              await aplicarCobro(m, cuentaId);
             }}
           />
         )}
