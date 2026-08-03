@@ -662,9 +662,9 @@ function Page() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Ese comprobante ya está cargado</DialogTitle>
-            <DialogDescription>
-              Encontré un comprobante con el mismo número y total en {kind === "compra" ? "Compras" : "Ventas"}. ¿Querés guardar solo la imagen en ese registro?
-            </DialogDescription>
+             <DialogDescription>
+               Encontré un comprobante con el mismo número y total en {kind === "compra" ? "Compras" : "Ventas"}. Para evitar duplicados solo se puede guardar la imagen en ese registro.
+             </DialogDescription>
           </DialogHeader>
           {dupe && (
             <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
@@ -679,12 +679,6 @@ function Page() {
           )}
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={() => setDupe(null)}>Cancelar</Button>
-            <Button
-              variant="secondary"
-              onClick={() => { setModo("nuevo"); setDestinoId(null); setDupe(null); toast.message("Podés cargarlo igual como comprobante nuevo."); }}
-            >
-              Cargar igual como nuevo
-            </Button>
             <Button
               disabled={saving || !b64}
               onClick={async () => { const id = dupe!.id; setModo("adjuntar"); setDestinoId(id); setDupe(null); await adjuntar(id); }}
