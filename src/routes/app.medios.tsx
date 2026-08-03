@@ -23,6 +23,7 @@ import {
   FemaDocHeader, FemaClientBox, FemaWatermark,
   femaPrintCSS, femaHeaderHTML, femaClientHTML, femaWatermarkHTML,
   absoluteAssetUrl, femaLogoUrl, femaWatermarkUrl,
+  femaPdfOptions,
 } from "@/lib/fema-doc";
 
 export const Route = createFileRoute("/app/medios")({ component: Page });

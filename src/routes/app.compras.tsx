@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import {
   FemaDocHeader, FemaClientBox, FemaWatermark, femaPrintCSS, femaHeaderHTML,
   femaClientHTML, femaWatermarkHTML, femaLogoUrl, femaWatermarkUrl, absoluteAssetUrl,
+  femaPdfOptions,
 } from "@/lib/fema-doc";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
