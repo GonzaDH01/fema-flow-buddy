@@ -34,35 +34,78 @@ function Page() {
     queryKey: ["auditoria-reportes", user?.id, year],
     enabled: !!user,
     queryFn: async () => {
-      const [fv, fc, sue, imp, mov, cli, emp] = await Promise.all([
-        supabase.from("fema_facturas_venta").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha"),
-        supabase.from("fema_facturas_compra").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha"),
-        supabase.from("fema_sueldos").select("*").eq("user_id", user!.id).eq("anio", year).order("periodo"),
-        supabase.from("fema_impuestos").select("*").eq("user_id", user!.id).eq("anio", year).order("mes"),
-        supabase.from("fema_movimientos_pago").select("*").eq("user_id", user!.id).order("fecha_emision"),
-        supabase.from("fema_clientes").select("id,nombre,cuit"),
+      // Nota: el resto del sistema comparte datos entre usuarios aprobados,
+      // así que acá NO se filtra por user_id (antes se perdían comprobantes
+      // cargados por otros usuarios del estudio).
+      const [fv, fc, sue, imp, mov, cli, prov, emp] = await Promise.all([
+        supabase.from("fema_facturas_venta").select("*").order("fecha"),
+        supabase.from("fema_facturas_compra").select("*").order("fecha"),
+        supabase.from("fema_sueldos").select("*").order("periodo"),
+        supabase.from("fema_impuestos").select("*").eq("anio", year).order("mes"),
+        supabase.from("fema_movimientos_pago").select("*").order("fecha_emision"),
+        supabase.from("fema_clientes").select("id,nombre,cuit,condicion_iva"),
+        supabase.from("fema_proveedores").select("id,nombre,cuit,condicion_iva,categoria"),
         supabase.from("fema_empleados").select("id,nombre,cuil,activo"),
       ]);
+      // El año se resuelve por `anio` y, si está vacío, por la fecha del comprobante.
+      const delAnio = (rows: any[] | null, campo = "fecha") =>
+        (rows ?? []).filter((r: any) => Number(r.anio ?? new Date(r[campo]).getFullYear()) === year);
+      const pagosPorCompra: Record<string, number> = {};
+      const cobrosPorVenta: Record<string, number> = {};
+      for (const m of (mov.data ?? []) as any[]) {
+        if (!["pagado", "cedido", "cobrado", "acreditado", "depositado"].includes(m.estado)) continue;
+        if (m.factura_compra_id) pagosPorCompra[m.factura_compra_id] = (pagosPorCompra[m.factura_compra_id] ?? 0) + Number(m.monto || 0);
+        if (m.factura_venta_id) cobrosPorVenta[m.factura_venta_id] = (cobrosPorVenta[m.factura_venta_id] ?? 0) + Number(m.monto || 0);
+      }
       return {
-        fv: fv.data ?? [], fc: fc.data ?? [], sue: sue.data ?? [],
-        imp: imp.data ?? [], mov: mov.data ?? [], cli: cli.data ?? [], emp: emp.data ?? [],
+        fv: delAnio(fv.data), fc: delAnio(fc.data), sue: delAnio(sue.data),
+        imp: imp.data ?? [], mov: mov.data ?? [], cli: cli.data ?? [],
+        prov: prov.data ?? [], emp: emp.data ?? [],
+        pagosPorCompra, cobrosPorVenta,
       };
     },
   });
 
+  const mesDe = (r: any) => Number(r?.mes ?? (r?.fecha ? new Date(r.fecha).getMonth() + 1 : 0));
+  const nombreCliente = (id: string | null) => (data?.cli ?? []).find((c: any) => c.id === id)?.nombre ?? "—";
+  const nombreProveedor = (id: string | null) => (data?.prov ?? []).find((p: any) => p.id === id)?.nombre ?? "—";
+  const cuitCliente = (id: string | null) => (data?.cli ?? []).find((c: any) => c.id === id)?.cuit ?? "—";
+  const cuitProveedor = (id: string | null) => (data?.prov ?? []).find((p: any) => p.id === id)?.cuit ?? "—";
+  const pagadoDeCompra = (id: string) => Number(data?.pagosPorCompra?.[id] ?? 0);
+  const cobradoDeVenta = (f: any) =>
+    Number(data?.cobrosPorVenta?.[f.id] ?? (f.estado === "cobrada" || f.fecha_cobro ? Number(f.total || 0) : 0));
+
   // === Resumen del período ===
   const resumen = useMemo(() => {
-    const fv = (data?.fv ?? []).filter((r: any) => enRango(r.mes));
-    const fc = (data?.fc ?? []).filter((r: any) => enRango(r.mes));
-    const sue = (data?.sue ?? []).filter((r: any) => enRango(r.mes));
+    const fv = (data?.fv ?? []).filter((r: any) => enRango(mesDe(r)));
+    const fc = (data?.fc ?? []).filter((r: any) => enRango(mesDe(r)));
+    const sue = (data?.sue ?? []).filter((r: any) => enRango(mesDe(r)));
     const imp = (data?.imp ?? []).filter((r: any) => enRango(r.mes));
-    const ventasNetas = fv.reduce((a, x: any) => a + Number(x.neto || 0), 0);
-    const ivaDebito = fv.reduce((a, x: any) => a + Number(x.iva_21 || 0) + Number(x.iva_105 || 0), 0);
-    const comprasNetas = fc.reduce((a, x: any) => a + Number(x.neto || 0), 0);
-    const ivaCredito = fc.reduce((a, x: any) => a + Number(x.iva_21 || 0) + Number(x.iva_105 || 0), 0);
+    const sum = (rows: any[], campo: string) => rows.reduce((a, x: any) => a + Number(x[campo] || 0), 0);
+    // Si el neto no está cargado (tickets B/C), se reconstruye desde el total
+    // menos los impuestos discriminados para no subvaluar el reporte.
+    const netoDe = (x: any) => {
+      const n = Number(x.neto || 0);
+      if (n > 0) return n;
+      return Math.max(
+        0,
+        Number(x.total || 0) - Number(x.iva_21 || 0) - Number(x.iva_105 || 0) -
+          Number(x.percepciones || 0) - Number(x.impuestos_internos || 0) - Number(x.otros_impuestos || 0),
+      );
+    };
+    const ventasNetas = fv.reduce((a, x: any) => a + netoDe(x), 0);
+    const ivaDebito = sum(fv, "iva_21") + sum(fv, "iva_105");
+    const comprasNetas = fc.reduce((a, x: any) => a + netoDe(x), 0);
+    const ivaCredito = sum(fc, "iva_21") + sum(fc, "iva_105");
+    const percepcionesVentas = sum(fv, "percepciones");
+    const percepcionesCompras = sum(fc, "percepciones");
+    const otrosImpCompras = sum(fc, "impuestos_internos") + sum(fc, "otros_impuestos");
     const sueldosPagados = sue.filter((s: any) => s.estado === "Pagado").reduce((a, x: any) => a + Number(x.total || 0), 0);
     const impuestosPagados = imp.reduce((a, x: any) => a + Number(x.iva_debito || 0) - Number(x.iva_credito || 0), 0);
-    return { ventasNetas, ivaDebito, comprasNetas, ivaCredito, sueldosPagados, impuestosPagados, fv, fc, sue, imp };
+    return {
+      ventasNetas, ivaDebito, comprasNetas, ivaCredito, sueldosPagados, impuestosPagados,
+      percepcionesVentas, percepcionesCompras, otrosImpCompras, netoDe, fv, fc, sue, imp,
+    };
   }, [data, desde, hasta]);
 
   const resultadoBruto = resumen.ventasNetas - resumen.comprasNetas - resumen.sueldosPagados;
