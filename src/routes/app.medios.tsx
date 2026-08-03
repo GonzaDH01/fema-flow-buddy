@@ -1857,6 +1857,8 @@ function CuentaBancariaDialog({
   const [numeroCuenta, setNumeroCuenta] = useState(initial?.numero_cuenta ?? "");
   const [cbu, setCbu] = useState(initial?.cbu ?? "");
   const [saldo, setSaldo] = useState<string>(String(initial?.saldo ?? "0"));
+  const [tipoCuenta, setTipoCuenta] = useState<string>(initial?.tipo_cuenta ?? "vista");
+  const [rescate, setRescate] = useState<string>(initial?.rescate ?? "inmediato");
   const [observaciones, setObservaciones] = useState(initial?.observaciones ?? "");
   const [activa, setActiva] = useState<boolean>(initial?.activa ?? true);
   const [saving, setSaving] = useState(false);
@@ -1871,6 +1873,8 @@ function CuentaBancariaDialog({
       numero_cuenta: numeroCuenta.trim() || null,
       cbu: cbu.trim() || null,
       saldo: Number(saldo) || 0,
+      tipo_cuenta: tipoCuenta,
+      rescate: tipoCuenta === "fondo" ? rescate : null,
       observaciones: observaciones.trim() || null,
       activa,
     };
@@ -1903,6 +1907,28 @@ function CuentaBancariaDialog({
           <FormField label="Saldo actual en el banco">
             <Input type="number" step="0.01" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
           </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tipo de cuenta">
+            <Select value={tipoCuenta} onValueChange={setTipoCuenta}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vista">Caja a la vista (para transferir)</SelectItem>
+                <SelectItem value="fondo">Fondo de inversión</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          {tipoCuenta === "fondo" && (
+            <FormField label="Plazo de rescate">
+              <Select value={rescate} onValueChange={setRescate}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inmediato">Rescate inmediato</SelectItem>
+                  <SelectItem value="24hs">Rescate en 24 hs</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Nº de cuenta">
