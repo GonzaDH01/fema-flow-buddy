@@ -434,36 +434,52 @@ function Page() {
           <ReportShell title={`Libro IVA Compras — ${rangoLabel}`} subtitle={`IVA Crédito Fiscal acumulado: ${formatPesos(resumen.ivaCredito)} · Total compras abonadas: ${formatPesos((resumen.fc as any[]).filter((f) => f.estado === "pagada").reduce((a, x: any) => a + Number(x.total || 0), 0))}`}>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Fecha</TableHead><TableHead>Nº Factura</TableHead><TableHead>Proveedor</TableHead>
+                <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Nº Factura</TableHead>
+                <TableHead>Proveedor</TableHead><TableHead>CUIT</TableHead>
                 <TableHead>Categoría</TableHead><TableHead>Descripción</TableHead>
                 <TableHead className="text-right">Neto (sin IVA)</TableHead><TableHead className="text-right">IVA 21%</TableHead>
-                <TableHead className="text-right">Total</TableHead><TableHead>Estado</TableHead><TableHead>Fecha pago</TableHead>
+                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percep.</TableHead>
+                <TableHead className="text-right">Imp. int. / otros</TableHead>
+                <TableHead className="text-right">Total</TableHead><TableHead className="text-right">Pagado</TableHead>
+                <TableHead className="text-right">Saldo</TableHead>
+                <TableHead>Estado</TableHead><TableHead>Fecha pago</TableHead><TableHead>Forma pago</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {(resumen.fc as any[]).length === 0 ? (
-                  <TableRow><TableCell colSpan={10} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={18} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
                 ) : (resumen.fc as any[]).map((f) => (
                   <TableRow key={f.id}>
                     <TableCell>{formatFecha(f.fecha)}</TableCell>
+                    <TableCell>{f.tipo_comprobante || f.tipo || "—"}</TableCell>
                     <TableCell>{f.numero || "—"}</TableCell>
-                    <TableCell>{f.proveedor_id ?? "—"}</TableCell>
+                    <TableCell>{nombreProveedor(f.proveedor_id)}</TableCell>
+                    <TableCell>{cuitProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{f.categoria}</TableCell>
                     <TableCell>{f.descripcion || "—"}</TableCell>
-                    <TableCell className="text-right">{formatPesos(f.neto)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(resumen.netoDe(f))}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_21)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.iva_105)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.percepciones)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(Number(f.impuestos_internos || 0) + Number(f.otros_impuestos || 0))}</TableCell>
                     <TableCell className="text-right font-medium">{formatPesos(f.total)}</TableCell>
+                    <TableCell className="text-right text-primary">{formatPesos(pagadoDeCompra(f.id))}</TableCell>
+                    <TableCell className="text-right text-accent">{formatPesos(Math.max(0, Number(f.total || 0) - pagadoDeCompra(f.id)))}</TableCell>
                     <TableCell><Badge variant="secondary">{f.estado}</Badge></TableCell>
                     <TableCell>{f.fecha_pago ? formatFecha(f.fecha_pago) : "—"}</TableCell>
+                    <TableCell>{f.forma_pago || "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <tfoot>
                 <tr className="border-t border-border bg-muted/30 font-semibold">
-                  <td className="p-3" colSpan={5}>TOTALES DEL PERÍODO</td>
+                  <td className="p-3" colSpan={7}>TOTALES DEL PERÍODO</td>
                   <td className="p-3 text-right text-primary">{formatPesos(resumen.comprasNetas)}</td>
-                  <td className="p-3 text-right text-primary">{formatPesos(resumen.ivaCredito)}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.iva_21 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.iva_105 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos(resumen.percepcionesCompras)}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos(resumen.otrosImpCompras)}</td>
                   <td className="p-3 text-right text-destructive">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.total || 0), 0))}</td>
-                  <td colSpan={2}></td>
+                  <td colSpan={5}></td>
                 </tr>
               </tfoot>
             </Table>
