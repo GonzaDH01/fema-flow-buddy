@@ -1670,6 +1670,53 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
   );
 }
 
+function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
+  mov: Mov; cuentas: any[];
+  onClose: () => void; onConfirm: (cuentaId: string | null) => void;
+}) {
+  const activas = cuentas.filter((c: any) => c.activa !== false);
+  const [cuentaId, setCuentaId] = useState<string>(activas[0]?.id ?? "");
+  const cta = cuentas.find((c: any) => c.id === cuentaId);
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Marcar como cobrado</DialogTitle>
+        <DialogDescription>
+          Elegí en qué cuenta se acredita {formatPesos(mov.monto)}
+          {mov.numero ? ` del echeq Nº ${mov.numero}` : ""}. El saldo del banco se actualiza automáticamente.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cuenta de depósito">
+          <Select value={cuentaId} onValueChange={setCuentaId}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar cuenta" /></SelectTrigger>
+            <SelectContent>
+              {activas.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        {cta && (
+          <p className="text-xs text-muted-foreground">
+            Saldo actual {formatPesos(Number(cta.saldo || 0))} → nuevo saldo{" "}
+            <b className="text-emerald-400">{formatPesos(Number(cta.saldo || 0) + Number(mov.monto))}</b>
+          </p>
+        )}
+      </div>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => onConfirm(null)}>Cobrar sin depositar</Button>
+        <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
+          Cobrar y acreditar
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 function CuentaBancariaDialog({
   initial, userId, onClose, onSaved,
 }: {
@@ -1721,7 +1768,7 @@ function CuentaBancariaDialog({
           <FormField label="Alias / Titular">
             <Input value={alias} onChange={(e) => setAlias(e.target.value)} />
           </FormField>
-          <FormField label="Saldo disponible">
+          <FormField label="Saldo actual en el banco">
             <Input type="number" step="0.01" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
           </FormField>
         </div>
