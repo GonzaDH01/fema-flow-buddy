@@ -288,6 +288,8 @@ function Page() {
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Estado actualizado");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
@@ -313,6 +315,8 @@ function Page() {
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Echeq devuelto a cartera");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
   };
 
@@ -332,6 +336,8 @@ function Page() {
     await reconciliarFactura(m.factura_venta_id, "venta");
     toast.success("Echeq cedido");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
   };
 
   const eliminar = async (m: Mov) => {
@@ -346,6 +352,8 @@ function Page() {
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
     toast.success("Eliminado");
@@ -558,6 +566,8 @@ function Page() {
             onClose={() => { setOpenMov(false); setEditMov(null); }}
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
               setOpenMov(false); setEditMov(null);

@@ -95,7 +95,7 @@ function Page() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const [tab, setTab] = useState<"todas" | "pendiente" | "pagada">("todas");
+  const [tab, setTab] = useState<"todas" | "pendiente" | "parcial" | "pagada">("todas");
   const [search, setSearch] = useState("");
   const [outerTab, setOuterTab] = useState<"compras" | "fijos">("compras");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -132,9 +132,36 @@ function Page() {
     [provs],
   );
 
+  // Pagos confirmados por factura de compra → permite ver pagos parciales y saldo.
+  const { data: pagosMap } = useQuery({
+    queryKey: ["fema_pagos_por_compra", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_movimientos_pago")
+        .select("factura_compra_id,monto,estado")
+        .not("factura_compra_id", "is", null);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const m of (data ?? []) as any[]) {
+        if (!["pagado", "cedido"].includes(m.estado)) continue;
+        map[m.factura_compra_id] = (map[m.factura_compra_id] ?? 0) + Number(m.monto || 0);
+      }
+      return map;
+    },
+  });
+  const pagadoDe = (id: string) => Number(pagosMap?.[id] ?? 0);
+  const saldoDe = (r: Row) => Math.max(0, Number(r.total) - pagadoDe(r.id));
+
   const filtered = useMemo(() => {
     let rows = data ?? [];
-    if (tab !== "todas") rows = rows.filter((r) => r.estado === tab);
+    if (tab === "parcial") {
+      rows = rows.filter((r) => {
+        const p = Number(pagosMap?.[r.id] ?? 0);
+        return p > 0.01 && p < Number(r.total) - 0.01;
+      });
+    } else if (tab !== "todas") {
+      rows = rows.filter((r) => r.estado === tab);
+    }
     if (fechaDesde) rows = rows.filter((r) => r.fecha >= fechaDesde);
     if (fechaHasta) rows = rows.filter((r) => r.fecha <= fechaHasta);
     if (filtroProv !== "__all") rows = rows.filter((r) => (r.proveedor_id ?? "") === filtroProv);
@@ -149,7 +176,7 @@ function Page() {
       });
     }
     return rows;
-  }, [data, tab, search, provsMap, fechaDesde, fechaHasta, filtroProv, filtroCat]);
+  }, [data, tab, search, provsMap, fechaDesde, fechaHasta, filtroProv, filtroCat, pagosMap]);
 
   const close = () => { setOpen(false); setEdit(null); };
 
@@ -214,6 +241,8 @@ function Page() {
       Categoría: labelCat(r.categoria),
       Descripción: r.descripcion ?? "",
       Monto: Number(r.total),
+      Pagado: pagadoDe(r.id),
+      Saldo: saldoDe(r),
       Estado: r.estado,
       "Fecha de pago": r.fecha_pago ?? "",
       "Forma de pago": r.forma_pago ?? "",
@@ -240,6 +269,7 @@ function Page() {
           <TabsList>
             <TabsTrigger value="todas">Todas</TabsTrigger>
             <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
+            <TabsTrigger value="parcial">Pago parcial</TabsTrigger>
             <TabsTrigger value="pagada">Abonadas</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -308,16 +338,18 @@ function Page() {
                 <TableHead>CATEGORÍA</TableHead>
                 <TableHead>DESCRIPCIÓN</TableHead>
                 <TableHead className="text-right">MONTO</TableHead>
+                <TableHead className="text-right">PAGADO</TableHead>
+                <TableHead className="text-right">SALDO</TableHead>
                 <TableHead>ESTADO</TableHead>
                 <TableHead className="text-right">ACCIONES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
@@ -343,14 +375,22 @@ function Page() {
                   <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
                   </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold ${saldoDe(r) <= 0.01 ? "text-primary" : "text-accent"}`}>
+                    {formatPesos(saldoDe(r))}
+                  </TableCell>
                   <TableCell>
                     {r.estado === "pagada"
                       ? <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
-                      : <Badge variant="outline" className="text-accent border-accent/40">● Pendiente</Badge>}
+                      : pagadoDe(r.id) > 0.01
+                        ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">● Pago parcial</Badge>
+                        : <Badge variant="outline" className="text-accent border-accent/40">● Pendiente</Badge>}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      {r.estado === "pagada" && (
+                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
                           <Receipt className="h-3 w-3" /> Recibo
