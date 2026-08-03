@@ -316,6 +316,7 @@ function Page() {
             { l: "IVA Débito Fiscal", v: resumen.ivaDebito },
             { l: "Compras netas (sin IVA)", v: resumen.comprasNetas },
             { l: "IVA Crédito Fiscal", v: resumen.ivaCredito },
+            { l: "Percepciones e imp. internos", v: resumen.percepcionesCompras + resumen.otrosImpCompras },
             { l: "Sueldos pagados", v: resumen.sueldosPagados },
             { l: "Impuestos pagados", v: resumen.impuestosPagados },
             { l: "Resultado bruto", v: resultadoBruto },
