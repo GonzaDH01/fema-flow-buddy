@@ -1852,6 +1852,104 @@ function CuentaBancariaDialog({
   initial: any | null; userId: string;
   onClose: () => void; onSaved: () => void;
 }) {
+  return <CuentaBancariaDialogInner initial={initial} userId={userId} onClose={onClose} onSaved={onSaved} />;
+}
+
+function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const vista = cuentas.filter((c) => (c.tipo_cuenta ?? "vista") === "vista");
+  const [origen, setOrigen] = useState<string>(vista[0]?.id ?? cuentas[0]?.id ?? "");
+  const [destino, setDestino] = useState<string>("");
+  const [monto, setMonto] = useState<string>("");
+  const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [obs, setObs] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const ctaOrigen = cuentas.find((c) => c.id === origen);
+  const ctaDestino = cuentas.find((c) => c.id === destino);
+  const importe = Number(monto) || 0;
+  const nom = (c: any) => (c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""} — ${formatPesos(Number(c.saldo || 0))}` : "");
+
+  const guardar = async () => {
+    if (!ctaOrigen || !ctaDestino || ctaOrigen.id === ctaDestino.id) { toast.error("Elegí origen y destino distintos"); return; }
+    if (importe <= 0) { toast.error("Ingresá el monto a mover"); return; }
+    if (importe > Number(ctaOrigen.saldo || 0)) { toast.error("El origen no tiene saldo suficiente"); return; }
+    setSaving(true);
+    const { error } = await sb.from("fema_mov_fondos").insert({
+      user_id: userId, fecha, origen_id: ctaOrigen.id, destino_id: ctaDestino.id,
+      monto: importe, observaciones: obs.trim() || null,
+      anio: Number(fecha.slice(0, 4)), mes: Number(fecha.slice(5, 7)),
+    });
+    if (error) { setSaving(false); toast.error(error.message); return; }
+    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaOrigen.saldo || 0) - importe }).eq("id", ctaOrigen.id);
+    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaDestino.saldo || 0) + importe }).eq("id", ctaDestino.id);
+    setSaving(false);
+    toast.success("Dinero movido");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Mover dinero entre caja y fondos</DialogTitle>
+        <DialogDescription>
+          Pasá plata de la caja a la vista a un fondo (o al revés). Los saldos se actualizan solos.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Desde">
+            <Select value={origen} onValueChange={setOrigen}>
+              <SelectTrigger><SelectValue placeholder="Origen" /></SelectTrigger>
+              <SelectContent>
+                {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{nom(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Hacia">
+            <Select value={destino} onValueChange={setDestino}>
+              <SelectTrigger><SelectValue placeholder="Destino" /></SelectTrigger>
+              <SelectContent>
+                {cuentas.filter((c) => c.id !== origen).map((c) => <SelectItem key={c.id} value={c.id}>{nom(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Monto">
+            <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
+          </FormField>
+          <FormField label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Observaciones">
+          <Textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} />
+        </FormField>
+        {ctaOrigen && ctaDestino && importe > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {ctaOrigen.banco}{ctaOrigen.alias ? ` · ${ctaOrigen.alias}` : ""} queda en{" "}
+            <b>{formatPesos(Number(ctaOrigen.saldo || 0) - importe)}</b> ·{" "}
+            {ctaDestino.banco}{ctaDestino.alias ? ` · ${ctaDestino.alias}` : ""} queda en{" "}
+            <b className="text-emerald-400">{formatPesos(Number(ctaDestino.saldo || 0) + importe)}</b>
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>Confirmar pase</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function CuentaBancariaDialogInner({
+  initial, userId, onClose, onSaved,
+}: {
+  initial: any | null; userId: string;
+  onClose: () => void; onSaved: () => void;
+}) {
   const [banco, setBanco] = useState(initial?.banco ?? "");
   const [alias, setAlias] = useState(initial?.alias ?? "");
   const [numeroCuenta, setNumeroCuenta] = useState(initial?.numero_cuenta ?? "");
