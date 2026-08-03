@@ -398,6 +398,84 @@ function Page() {
         </p>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+        <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
+            <Save className="mr-1.5 h-4 w-4" /> Cargar comprobante nuevo
+          </Button>
+          <Button type="button" size="sm" variant={modo === "adjuntar" ? "default" : "outline"} onClick={() => setModo("adjuntar")}>
+            <Paperclip className="mr-1.5 h-4 w-4" /> Adjuntar imagen a uno ya cargado
+          </Button>
+        </div>
+        <p className="ml-auto text-xs text-muted-foreground">
+          {modo === "adjuntar"
+            ? "No se crea ningún registro: solo se guarda la imagen en el comprobante elegido."
+            : "Si el número y el total ya existen, el sistema te avisa y pasa a modo adjuntar."}
+        </p>
+      </div>
+
+      {modo === "adjuntar" && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold">
+              {kind === "compra" ? "Compras" : "Ventas"} sin imagen adjunta
+            </h3>
+            <div className="relative ml-auto w-full max-w-xs">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por proveedor, número, fecha o total"
+                className="h-9 pl-8"
+              />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted/60 text-left">
+                <tr>
+                  <th className="w-10 px-3 py-2"></th>
+                  <th className="px-3 py-2">Fecha</th>
+                  <th className="px-3 py-2">{kind === "compra" ? "Proveedor" : "Cliente"}</th>
+                  <th className="px-3 py-2">Número</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingPend ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">Cargando…</td></tr>
+                ) : filtrados.length === 0 ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">No hay comprobantes sin imagen</td></tr>
+                ) : filtrados.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => setDestinoId(r.id)}
+                    className={`cursor-pointer border-t border-border ${destinoId === r.id ? "bg-primary/10" : "hover:bg-muted/30"}`}
+                  >
+                    <td className="px-3 py-2">
+                      <input type="radio" readOnly checked={destinoId === r.id} />
+                    </td>
+                    <td className="px-3 py-2">{r.fecha}</td>
+                    <td className="px-3 py-2">{r.tercero ?? "—"}</td>
+                    <td className="px-3 py-2">{r.numero ?? "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      {r.total != null ? r.total.toLocaleString("es-AR", { style: "currency", currency: "ARS" }) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button onClick={adjuntar} disabled={saving || !destinoId || !b64}>
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Paperclip className="mr-1.5 h-4 w-4" />}
+              Adjuntar imagen al comprobante
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div
@@ -494,7 +572,7 @@ function Page() {
           )}
           {result && (
             <div className="mt-4 flex justify-end">
-              <Button onClick={guardar} disabled={saving}>
+              <Button onClick={guardar} disabled={saving || modo === "adjuntar"}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 Guardar como {kind === "compra" ? "compra" : "venta"}
               </Button>
