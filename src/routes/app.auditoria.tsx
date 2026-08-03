@@ -287,6 +287,32 @@ function Page() {
   };
   const imprimir = () => window.print();
 
+  // === Libro de IVA Digital (ARCA — RG 4597) ===
+  const arca = useMemo(() => {
+    const fv = resumen.fv as any[];
+    const fc = resumen.fc as any[];
+    const cuitC = (id: any) => (data?.cli ?? []).find((c: any) => c.id === id)?.cuit ?? "";
+    const cuitP = (id: any) => (data?.prov ?? []).find((p: any) => p.id === id)?.cuit ?? "";
+    const nomC = (id: any) => (data?.cli ?? []).find((c: any) => c.id === id)?.nombre ?? "SIN IDENTIFICAR";
+    const nomP = (id: any) => (data?.prov ?? []).find((p: any) => p.id === id)?.nombre ?? "SIN IDENTIFICAR";
+    return {
+      vc: ventasCbte(fv, nomC, cuitC),
+      va: ventasAlicuotas(fv),
+      cc: comprasCbte(fc, nomP, cuitP),
+      ca: comprasAlicuotas(fc, cuitP),
+      validaciones: validarLibro(fv, fc, cuitC, cuitP),
+    };
+  }, [resumen.fv, resumen.fc, data]);
+
+  const periodoTxt = `${year}${String(desde).padStart(2, "0")}`;
+  const bajarArca = () => {
+    descargarTxt(`REGINFO_CV_VENTAS_CBTE_${periodoTxt}.txt`, arca.vc);
+    descargarTxt(`REGINFO_CV_VENTAS_ALICUOTAS_${periodoTxt}.txt`, arca.va);
+    descargarTxt(`REGINFO_CV_COMPRAS_CBTE_${periodoTxt}.txt`, arca.cc);
+    descargarTxt(`REGINFO_CV_COMPRAS_ALICUOTAS_${periodoTxt}.txt`, arca.ca);
+    toast.success("Archivos del Libro de IVA Digital generados");
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       <header>
