@@ -19,6 +19,12 @@ type OCRResult = {
   tipo?: string; letra?: string | null; numero?: string | null;
   fecha?: string | null; emisor?: string | null; receptor?: string | null;
   cuit_emisor?: string | null; cuit_receptor?: string | null;
+  emisor_domicilio?: string | null; emisor_localidad?: string | null;
+  emisor_telefono?: string | null; emisor_email?: string | null;
+  emisor_condicion_iva?: string | null; emisor_iibb?: string | null;
+  receptor_domicilio?: string | null; receptor_localidad?: string | null;
+  receptor_telefono?: string | null; receptor_email?: string | null;
+  receptor_condicion_iva?: string | null; receptor_iibb?: string | null;
   descripcion?: string | null; categoria_sugerida?: string;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
