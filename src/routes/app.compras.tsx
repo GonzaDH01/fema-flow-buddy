@@ -36,7 +36,7 @@ import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/app/compras")({ component: Page });
 
-const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Comprobante provisorio"] as const;
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CATS = [
   "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
