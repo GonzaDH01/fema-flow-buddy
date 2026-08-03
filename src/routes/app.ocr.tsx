@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -28,6 +28,15 @@ type OCRResult = {
 };
 
 type DocKind = "compra" | "venta";
+type Modo = "nuevo" | "adjuntar";
+
+type PendienteRow = {
+  id: string;
+  fecha: string;
+  numero: string | null;
+  total: number | null;
+  tercero: string | null;
+};
 
 const CATS_COMPRA = [
   "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
@@ -70,6 +79,81 @@ function Page() {
   const [result, setResult] = useState<OCRResult | null>(null);
   const [kind, setKind] = useState<DocKind>("compra");
   const [saving, setSaving] = useState(false);
+  const [modo, setModo] = useState<Modo>("nuevo");
+  const [busqueda, setBusqueda] = useState("");
+  const [destinoId, setDestinoId] = useState<string | null>(null);
+
+  const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+
+  const { data: pendientes, isLoading: loadingPend } = useQuery({
+    queryKey: ["ocr_sin_imagen", kind],
+    enabled: modo === "adjuntar",
+    queryFn: async (): Promise<PendienteRow[]> => {
+      const rel = kind === "compra" ? "fema_proveedores(nombre)" : "fema_clientes(nombre)";
+      const { data, error } = await supabase
+        .from(tablaKind)
+        .select(`id, fecha, numero, total, ${rel}`)
+        .is("imagen_path", null)
+        .order("fecha", { ascending: false })
+        .limit(300);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        fecha: r.fecha,
+        numero: r.numero,
+        total: r.total,
+        tercero: kind === "compra" ? (r.fema_proveedores?.nombre ?? null) : (r.fema_clientes?.nombre ?? null),
+      }));
+    },
+  });
+
+  const filtrados = (pendientes ?? []).filter((r) => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return true;
+    return [r.numero, r.tercero, r.fecha, String(r.total ?? "")]
+      .some((v) => (v ?? "").toString().toLowerCase().includes(q));
+  });
+
+  const subirImagen = async () => {
+    if (!b64 || !mime || !user) return null;
+    const ext = mime.includes("pdf") ? "pdf" : (mime.split("/")[1] ?? "jpg");
+    const path = `${kind}/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const { error } = await supabase.storage
+      .from("facturas-img")
+      .upload(path, bytes, { contentType: mime, upsert: false });
+    if (error) throw error;
+    return path;
+  };
+
+  const limpiar = () => {
+    setResult(null);
+    setPreview(null);
+    setB64(null);
+    setMime(null);
+    setDestinoId(null);
+  };
+
+  const adjuntar = async () => {
+    if (!destinoId) return toast.error("Elegí el comprobante ya cargado");
+    if (!b64 || !mime) return toast.error("Subí primero la imagen");
+    setSaving(true);
+    try {
+      const path = await subirImagen();
+      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", destinoId);
+      if (error) throw error;
+      toast.success("Imagen adjuntada al comprobante existente (sin duplicar)");
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["ocr_sin_imagen", kind] });
+      qc.invalidateQueries({ queryKey: ["imagenes", kind] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al adjuntar");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
@@ -135,6 +219,23 @@ function Page() {
     if (!result || !user) return toast.error("Sin datos o sesión");
     setSaving(true);
     try {
+      // Control de duplicados: mismo número + total ya cargado
+      if (result.numero) {
+        const { data: dup } = await supabase
+          .from(tablaKind)
+          .select("id, numero, total, imagen_path")
+          .eq("numero", result.numero)
+          .limit(5);
+        const match = (dup ?? []).find((d: any) => Math.abs((d.total ?? 0) - (result.total ?? 0)) < 1);
+        if (match) {
+          setSaving(false);
+          setModo("adjuntar");
+          setDestinoId(match.id);
+          setBusqueda(result.numero);
+          toast.warning("Ese comprobante ya está cargado. Cambié a modo \"Adjuntar imagen\" para no duplicarlo.");
+          return;
+        }
+      }
       const letra = (result.letra ?? "B").toUpperCase();
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
@@ -297,6 +398,84 @@ function Page() {
         </p>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+        <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
+            <Save className="mr-1.5 h-4 w-4" /> Cargar comprobante nuevo
+          </Button>
+          <Button type="button" size="sm" variant={modo === "adjuntar" ? "default" : "outline"} onClick={() => setModo("adjuntar")}>
+            <Paperclip className="mr-1.5 h-4 w-4" /> Adjuntar imagen a uno ya cargado
+          </Button>
+        </div>
+        <p className="ml-auto text-xs text-muted-foreground">
+          {modo === "adjuntar"
+            ? "No se crea ningún registro: solo se guarda la imagen en el comprobante elegido."
+            : "Si el número y el total ya existen, el sistema te avisa y pasa a modo adjuntar."}
+        </p>
+      </div>
+
+      {modo === "adjuntar" && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold">
+              {kind === "compra" ? "Compras" : "Ventas"} sin imagen adjunta
+            </h3>
+            <div className="relative ml-auto w-full max-w-xs">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por proveedor, número, fecha o total"
+                className="h-9 pl-8"
+              />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted/60 text-left">
+                <tr>
+                  <th className="w-10 px-3 py-2"></th>
+                  <th className="px-3 py-2">Fecha</th>
+                  <th className="px-3 py-2">{kind === "compra" ? "Proveedor" : "Cliente"}</th>
+                  <th className="px-3 py-2">Número</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingPend ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">Cargando…</td></tr>
+                ) : filtrados.length === 0 ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">No hay comprobantes sin imagen</td></tr>
+                ) : filtrados.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => setDestinoId(r.id)}
+                    className={`cursor-pointer border-t border-border ${destinoId === r.id ? "bg-primary/10" : "hover:bg-muted/30"}`}
+                  >
+                    <td className="px-3 py-2">
+                      <input type="radio" readOnly checked={destinoId === r.id} />
+                    </td>
+                    <td className="px-3 py-2">{r.fecha}</td>
+                    <td className="px-3 py-2">{r.tercero ?? "—"}</td>
+                    <td className="px-3 py-2">{r.numero ?? "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      {r.total != null ? r.total.toLocaleString("es-AR", { style: "currency", currency: "ARS" }) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button onClick={adjuntar} disabled={saving || !destinoId || !b64}>
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Paperclip className="mr-1.5 h-4 w-4" />}
+              Adjuntar imagen al comprobante
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div
@@ -393,7 +572,7 @@ function Page() {
           )}
           {result && (
             <div className="mt-4 flex justify-end">
-              <Button onClick={guardar} disabled={saving}>
+              <Button onClick={guardar} disabled={saving || modo === "adjuntar"}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 Guardar como {kind === "compra" ? "compra" : "venta"}
               </Button>
