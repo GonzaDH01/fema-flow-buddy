@@ -91,8 +91,30 @@ function Page() {
   const [modo, setModo] = useState<Modo>("nuevo");
   const [busqueda, setBusqueda] = useState("");
   const [destinoId, setDestinoId] = useState<string | null>(null);
+  const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
 
   const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+
+  // Busca un comprobante ya cargado con el mismo número (y total aproximado)
+  const buscarDuplicado = async (r: OCRResult) => {
+    if (!r?.numero) return null;
+    const rel = kind === "compra" ? "fema_proveedores(nombre)" : "fema_clientes(nombre)";
+    const { data } = await supabase
+      .from(tablaKind)
+      .select(`id, numero, total, fecha, imagen_path, ${rel}`)
+      .eq("numero", r.numero)
+      .limit(5);
+    const match = (data ?? []).find((d: any) => Math.abs((d.total ?? 0) - (r.total ?? 0)) < 1) as any;
+    if (!match) return null;
+    return {
+      id: match.id as string,
+      numero: match.numero ?? null,
+      total: match.total ?? null,
+      fecha: match.fecha ?? null,
+      tercero: kind === "compra" ? (match.fema_proveedores?.nombre ?? null) : (match.fema_clientes?.nombre ?? null),
+      tieneImagen: !!match.imagen_path,
+    };
+  };
 
   const { data: pendientes, isLoading: loadingPend } = useQuery({
     queryKey: ["ocr_sin_imagen", kind],
