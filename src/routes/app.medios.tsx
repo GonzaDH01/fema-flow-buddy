@@ -112,6 +112,35 @@ function Page() {
   });
   const cuentas = ctasQ.data ?? [];
   const totalSaldoBancos = cuentas.reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+  const totalVista = cuentas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista")
+    .reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+  const totalFondos = cuentas.filter((c: any) => c.tipo_cuenta === "fondo")
+    .reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+
+  const fondosQ = useQuery({
+    queryKey: ["fema_mov_fondos", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_mov_fondos")
+        .select("*").order("fecha", { ascending: false }).limit(30);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const movFondos = fondosQ.data ?? [];
+
+  const eliminarMovFondo = async (m: any) => {
+    if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
+    const org = cuentas.find((c: any) => c.id === m.origen_id);
+    const dst = cuentas.find((c: any) => c.id === m.destino_id);
+    const { error } = await sb.from("fema_mov_fondos").delete().eq("id", m.id);
+    if (error) { toast.error(error.message); return; }
+    if (org) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(org.saldo || 0) + Number(m.monto) }).eq("id", org.id);
+    if (dst) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(dst.saldo || 0) - Number(m.monto) }).eq("id", dst.id);
+    toast.success("Pase eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
+  };
 
   const eliminarCta = async (id: string) => {
     if (!confirm("¿Eliminar cuenta bancaria?")) return;
