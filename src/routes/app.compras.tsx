@@ -787,6 +787,13 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           <p className="text-xs text-muted-foreground mt-1">
             Factura A: el IVA es crédito fiscal computable. Factura B o C: el IVA va dentro del precio (no se discrimina).
           </p>
+          {f.watch("tipo_comprobante") === "Comprobante provisorio" && (
+            <p className="text-xs text-amber-500 mt-1">
+              Usalo cuando pagás antes de recibir la factura (ej. cuota de maquinaria). Cargá el total a transferir y dejá el N° vacío;
+              queda como pendiente para pagarlo desde Medios de Pago. Cuando llegue la factura real, editá este registro:
+              cambiá el tipo a "Factura", cargá N°, fecha y el IVA discriminado.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
