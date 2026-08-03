@@ -165,16 +165,18 @@ function Page() {
     setDestinoId(null);
   };
 
-  const adjuntar = async () => {
-    if (!destinoId) return toast.error("Elegí el comprobante ya cargado");
+  const adjuntar = async (idForzado?: string) => {
+    const id = idForzado ?? destinoId;
+    if (!id) return toast.error("Elegí el comprobante ya cargado");
     if (!b64 || !mime) return toast.error("Subí primero la imagen");
     setSaving(true);
     try {
       const path = await subirImagen();
-      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", destinoId);
+      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", id);
       if (error) throw error;
       toast.success("Imagen adjuntada al comprobante existente (sin duplicar)");
       limpiar();
+      setDupe(null);
       qc.invalidateQueries({ queryKey: ["ocr_sin_imagen", kind] });
       qc.invalidateQueries({ queryKey: ["imagenes", kind] });
       qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
