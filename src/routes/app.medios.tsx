@@ -462,6 +462,15 @@ function Page() {
                 <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1">
                   En fondos de inversión: <b className="text-blue-400">{formatPesos(totalFondos)}</b>
                 </span>
+                <span className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1">
+                  Echeqs propios a debitar: <b className="text-rose-400">{formatPesos(totalEmitidosPend)}</b>
+                </span>
+                <span className="rounded-md border border-border px-2 py-1">
+                  Saldo proyectado (caja − echeqs emitidos):{" "}
+                  <b className={totalVista - totalEmitidosPend < 0 ? "text-rose-400" : "text-foreground"}>
+                    {formatPesos(totalVista - totalEmitidosPend)}
+                  </b>
+                </span>
               </div>
             </div>
             <div className="flex gap-2">
