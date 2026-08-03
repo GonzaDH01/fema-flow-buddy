@@ -25,7 +25,9 @@ function Page() {
   const { year } = useYear();
   const now = new Date();
   const defaultMes = now.getFullYear() === year ? now.getMonth() + 1 : 12;
-  const [desde, setDesde] = useState<number>(defaultMes);
+  // Por defecto se muestra el acumulado del ejercicio (enero → mes actual),
+  // así no parece que "faltan" comprobantes de meses anteriores.
+  const [desde, setDesde] = useState<number>(1);
   const [hasta, setHasta] = useState<number>(defaultMes);
 
   const enRango = (m: number | null | undefined) => {
@@ -341,6 +343,10 @@ function Page() {
                 </Select>
               </div>
               <Button variant="outline" onClick={() => { setDesde(1); setHasta(12); }}>Año completo</Button>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              En el período seleccionado: {(resumen.fv as any[]).length} venta(s) y {(resumen.fc as any[]).length} compra(s).
+              {" "}En todo {year}: {(data?.fv ?? []).length} venta(s) y {(data?.fc ?? []).length} compra(s).
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
