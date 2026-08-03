@@ -281,6 +281,7 @@ export type Database = {
           domicilio: string | null
           email: string | null
           id: string
+          iibb: string | null
           localidad: string | null
           nombre: string
           observaciones: string | null
@@ -298,6 +299,7 @@ export type Database = {
           domicilio?: string | null
           email?: string | null
           id?: string
+          iibb?: string | null
           localidad?: string | null
           nombre: string
           observaciones?: string | null
@@ -315,6 +317,7 @@ export type Database = {
           domicilio?: string | null
           email?: string | null
           id?: string
+          iibb?: string | null
           localidad?: string | null
           nombre?: string
           observaciones?: string | null
@@ -1388,10 +1391,14 @@ export type Database = {
       fema_proveedores: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_compra"] | null
+          condicion_iva: string | null
           created_at: string
           cuit: string | null
+          domicilio: string | null
           email: string | null
           id: string
+          iibb: string | null
+          localidad: string | null
           nombre: string
           telefono: string | null
           updated_at: string
@@ -1399,10 +1406,14 @@ export type Database = {
         }
         Insert: {
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          condicion_iva?: string | null
           created_at?: string
           cuit?: string | null
+          domicilio?: string | null
           email?: string | null
           id?: string
+          iibb?: string | null
+          localidad?: string | null
           nombre: string
           telefono?: string | null
           updated_at?: string
@@ -1410,10 +1421,14 @@ export type Database = {
         }
         Update: {
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
+          condicion_iva?: string | null
           created_at?: string
           cuit?: string | null
+          domicilio?: string | null
           email?: string | null
           id?: string
+          iibb?: string | null
+          localidad?: string | null
           nombre?: string
           telefono?: string | null
           updated_at?: string
