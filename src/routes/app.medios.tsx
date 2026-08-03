@@ -562,6 +562,70 @@ function Page() {
         </CardContent>
       </Card>
 
+      <Card className="border-rose-500/30">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold">Echeqs / cheques propios emitidos (pendientes de débito)</h3>
+              <p className="text-xs text-muted-foreground">
+                La factura ya queda abonada con el plan de pago elegido. El importe se descuenta de la caja
+                recién el día de la fecha de pago de cada documento: al llegar esa fecha, tocá <b>Debitar de caja</b>.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-rose-400 whitespace-nowrap">
+              {formatPesos(totalEmitidosPend)}
+            </span>
+          </div>
+          {emitidosPendientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No hay echeqs propios pendientes de débito.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha de pago</TableHead>
+                  <TableHead>Instrumento</TableHead>
+                  <TableHead>Nº</TableHead>
+                  <TableHead>Beneficiario</TableHead>
+                  <TableHead>Banco</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emitidosPendientes.map((m) => {
+                  const hoyStr = new Date().toISOString().split("T")[0];
+                  const vence = m.vencimiento ?? "";
+                  const vencido = vence && vence < hoyStr;
+                  const hoyMismo = vence === hoyStr;
+                  return (
+                    <TableRow key={m.id} className={vencido ? "bg-rose-500/10" : hoyMismo ? "bg-amber-500/10" : ""}>
+                      <TableCell className="whitespace-nowrap">
+                        {vence ? formatFecha(vence) : "—"}
+                        {vencido && <Badge variant="outline" className="ml-2 border-rose-500/50 text-rose-400">A debitar</Badge>}
+                        {hoyMismo && <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-400">Hoy</Badge>}
+                      </TableCell>
+                      <TableCell>{INSTRUMENT_LABEL[m.instrumento]}</TableCell>
+                      <TableCell className="font-mono text-xs">{m.numero || "—"}</TableCell>
+                      <TableCell>{m.contraparte || "—"}</TableCell>
+                      <TableCell className="text-xs">{m.banco || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPesos(Number(m.monto))}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" className="border-rose-500/40 text-rose-400"
+                          onClick={() => cobrar(m)}>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />Debitar de caja
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={openPase} onOpenChange={setOpenPase}>
         {openPase && user && (
           <PaseFondosDialog
