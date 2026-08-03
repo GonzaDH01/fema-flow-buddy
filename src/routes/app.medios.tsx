@@ -1758,7 +1758,10 @@ function CuentaBancariaDialog({
     <DialogContent className="max-w-lg">
       <DialogHeader>
         <DialogTitle>{initial ? "Editar cuenta bancaria" : "Nueva cuenta bancaria"}</DialogTitle>
-        <DialogDescription>Registrá el saldo disponible para abonar por transferencia.</DialogDescription>
+        <DialogDescription>
+          Poné el saldo que hoy figura en el banco (antes de acreditar echeqs). Después, cada echeq
+          cobrado se suma solo a esta cuenta.
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
         <FormField label="Banco *">
