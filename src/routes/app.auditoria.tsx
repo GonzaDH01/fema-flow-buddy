@@ -34,35 +34,78 @@ function Page() {
     queryKey: ["auditoria-reportes", user?.id, year],
     enabled: !!user,
     queryFn: async () => {
-      const [fv, fc, sue, imp, mov, cli, emp] = await Promise.all([
-        supabase.from("fema_facturas_venta").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha"),
-        supabase.from("fema_facturas_compra").select("*").eq("user_id", user!.id).eq("anio", year).order("fecha"),
-        supabase.from("fema_sueldos").select("*").eq("user_id", user!.id).eq("anio", year).order("periodo"),
-        supabase.from("fema_impuestos").select("*").eq("user_id", user!.id).eq("anio", year).order("mes"),
-        supabase.from("fema_movimientos_pago").select("*").eq("user_id", user!.id).order("fecha_emision"),
-        supabase.from("fema_clientes").select("id,nombre,cuit"),
+      // Nota: el resto del sistema comparte datos entre usuarios aprobados,
+      // así que acá NO se filtra por user_id (antes se perdían comprobantes
+      // cargados por otros usuarios del estudio).
+      const [fv, fc, sue, imp, mov, cli, prov, emp] = await Promise.all([
+        supabase.from("fema_facturas_venta").select("*").order("fecha"),
+        supabase.from("fema_facturas_compra").select("*").order("fecha"),
+        supabase.from("fema_sueldos").select("*").order("periodo"),
+        supabase.from("fema_impuestos").select("*").eq("anio", year).order("mes"),
+        supabase.from("fema_movimientos_pago").select("*").order("fecha_emision"),
+        supabase.from("fema_clientes").select("id,nombre,cuit,condicion_iva"),
+        supabase.from("fema_proveedores").select("id,nombre,cuit,condicion_iva,categoria"),
         supabase.from("fema_empleados").select("id,nombre,cuil,activo"),
       ]);
+      // El año se resuelve por `anio` y, si está vacío, por la fecha del comprobante.
+      const delAnio = (rows: any[] | null, campo = "fecha") =>
+        (rows ?? []).filter((r: any) => Number(r.anio ?? new Date(r[campo]).getFullYear()) === year);
+      const pagosPorCompra: Record<string, number> = {};
+      const cobrosPorVenta: Record<string, number> = {};
+      for (const m of (mov.data ?? []) as any[]) {
+        if (!["pagado", "cedido", "cobrado", "acreditado", "depositado"].includes(m.estado)) continue;
+        if (m.factura_compra_id) pagosPorCompra[m.factura_compra_id] = (pagosPorCompra[m.factura_compra_id] ?? 0) + Number(m.monto || 0);
+        if (m.factura_venta_id) cobrosPorVenta[m.factura_venta_id] = (cobrosPorVenta[m.factura_venta_id] ?? 0) + Number(m.monto || 0);
+      }
       return {
-        fv: fv.data ?? [], fc: fc.data ?? [], sue: sue.data ?? [],
-        imp: imp.data ?? [], mov: mov.data ?? [], cli: cli.data ?? [], emp: emp.data ?? [],
+        fv: delAnio(fv.data), fc: delAnio(fc.data), sue: delAnio(sue.data),
+        imp: imp.data ?? [], mov: mov.data ?? [], cli: cli.data ?? [],
+        prov: prov.data ?? [], emp: emp.data ?? [],
+        pagosPorCompra, cobrosPorVenta,
       };
     },
   });
 
+  const mesDe = (r: any) => Number(r?.mes ?? (r?.fecha ? new Date(r.fecha).getMonth() + 1 : 0));
+  const nombreCliente = (id: string | null) => (data?.cli ?? []).find((c: any) => c.id === id)?.nombre ?? "—";
+  const nombreProveedor = (id: string | null) => (data?.prov ?? []).find((p: any) => p.id === id)?.nombre ?? "—";
+  const cuitCliente = (id: string | null) => (data?.cli ?? []).find((c: any) => c.id === id)?.cuit ?? "—";
+  const cuitProveedor = (id: string | null) => (data?.prov ?? []).find((p: any) => p.id === id)?.cuit ?? "—";
+  const pagadoDeCompra = (id: string) => Number(data?.pagosPorCompra?.[id] ?? 0);
+  const cobradoDeVenta = (f: any) =>
+    Number(data?.cobrosPorVenta?.[f.id] ?? (f.estado === "cobrada" || f.fecha_cobro ? Number(f.total || 0) : 0));
+
   // === Resumen del período ===
   const resumen = useMemo(() => {
-    const fv = (data?.fv ?? []).filter((r: any) => enRango(r.mes));
-    const fc = (data?.fc ?? []).filter((r: any) => enRango(r.mes));
-    const sue = (data?.sue ?? []).filter((r: any) => enRango(r.mes));
+    const fv = (data?.fv ?? []).filter((r: any) => enRango(mesDe(r)));
+    const fc = (data?.fc ?? []).filter((r: any) => enRango(mesDe(r)));
+    const sue = (data?.sue ?? []).filter((r: any) => enRango(mesDe(r)));
     const imp = (data?.imp ?? []).filter((r: any) => enRango(r.mes));
-    const ventasNetas = fv.reduce((a, x: any) => a + Number(x.neto || 0), 0);
-    const ivaDebito = fv.reduce((a, x: any) => a + Number(x.iva_21 || 0) + Number(x.iva_105 || 0), 0);
-    const comprasNetas = fc.reduce((a, x: any) => a + Number(x.neto || 0), 0);
-    const ivaCredito = fc.reduce((a, x: any) => a + Number(x.iva_21 || 0) + Number(x.iva_105 || 0), 0);
+    const sum = (rows: any[], campo: string) => rows.reduce((a, x: any) => a + Number(x[campo] || 0), 0);
+    // Si el neto no está cargado (tickets B/C), se reconstruye desde el total
+    // menos los impuestos discriminados para no subvaluar el reporte.
+    const netoDe = (x: any) => {
+      const n = Number(x.neto || 0);
+      if (n > 0) return n;
+      return Math.max(
+        0,
+        Number(x.total || 0) - Number(x.iva_21 || 0) - Number(x.iva_105 || 0) -
+          Number(x.percepciones || 0) - Number(x.impuestos_internos || 0) - Number(x.otros_impuestos || 0),
+      );
+    };
+    const ventasNetas = fv.reduce((a, x: any) => a + netoDe(x), 0);
+    const ivaDebito = sum(fv, "iva_21") + sum(fv, "iva_105");
+    const comprasNetas = fc.reduce((a, x: any) => a + netoDe(x), 0);
+    const ivaCredito = sum(fc, "iva_21") + sum(fc, "iva_105");
+    const percepcionesVentas = sum(fv, "percepciones");
+    const percepcionesCompras = sum(fc, "percepciones");
+    const otrosImpCompras = sum(fc, "impuestos_internos") + sum(fc, "otros_impuestos");
     const sueldosPagados = sue.filter((s: any) => s.estado === "Pagado").reduce((a, x: any) => a + Number(x.total || 0), 0);
     const impuestosPagados = imp.reduce((a, x: any) => a + Number(x.iva_debito || 0) - Number(x.iva_credito || 0), 0);
-    return { ventasNetas, ivaDebito, comprasNetas, ivaCredito, sueldosPagados, impuestosPagados, fv, fc, sue, imp };
+    return {
+      ventasNetas, ivaDebito, comprasNetas, ivaCredito, sueldosPagados, impuestosPagados,
+      percepcionesVentas, percepcionesCompras, otrosImpCompras, netoDe, fv, fc, sue, imp,
+    };
   }, [data, desde, hasta]);
 
   const resultadoBruto = resumen.ventasNetas - resumen.comprasNetas - resumen.sueldosPagados;
@@ -93,8 +136,9 @@ function Page() {
       cur.facturas += 1;
       cur.hectareas += Number(f.hectareas || 0);
       cur.total += Number(f.total || 0);
-      if (f.estado === "cobrada" || f.fecha_cobro) cur.cobrado += Number(f.total || 0);
-      else cur.pendiente += Number(f.total || 0);
+      const cob = Math.min(cobradoDeVenta(f), Number(f.total || 0));
+      cur.cobrado += cob;
+      cur.pendiente += Math.max(0, Number(f.total || 0) - cob);
       map.set(key, cur);
     }
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
@@ -211,8 +255,24 @@ function Page() {
   const exportPaquete = () => {
     const wb = XLSX.utils.book_new();
     const add = (name: string, rows: any[]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name.slice(0, 31));
-    add("IVA Ventas", resumen.fv as any[]);
-    add("IVA Compras", resumen.fc as any[]);
+    add("IVA Ventas", (resumen.fv as any[]).map((f) => ({
+      Fecha: f.fecha, Tipo: f.tipo_comprobante || f.tipo, Numero: f.numero,
+      Cliente: nombreCliente(f.cliente_id), CUIT: cuitCliente(f.cliente_id),
+      Trabajo: f.trabajo || f.cultivo, Hectareas: f.hectareas, Metros_bolsa: f.metros_bolsa,
+      Neto: resumen.netoDe(f), IVA_21: f.iva_21, IVA_105: f.iva_105, Percepciones: f.percepciones,
+      Total: f.total, Cobrado: Math.min(cobradoDeVenta(f), Number(f.total || 0)),
+      Saldo: Math.max(0, Number(f.total || 0) - cobradoDeVenta(f)),
+      Estado: f.estado, Fecha_cobro: f.fecha_cobro, Forma_cobro: f.forma_cobro,
+    })));
+    add("IVA Compras", (resumen.fc as any[]).map((f) => ({
+      Fecha: f.fecha, Tipo: f.tipo_comprobante || f.tipo, Numero: f.numero,
+      Proveedor: nombreProveedor(f.proveedor_id), CUIT: cuitProveedor(f.proveedor_id),
+      Categoria: f.categoria, Descripcion: f.descripcion,
+      Neto: resumen.netoDe(f), IVA_21: f.iva_21, IVA_105: f.iva_105, Percepciones: f.percepciones,
+      Impuestos_internos: f.impuestos_internos, Otros_impuestos: f.otros_impuestos,
+      Total: f.total, Pagado: pagadoDeCompra(f.id), Saldo: Math.max(0, Number(f.total || 0) - pagadoDeCompra(f.id)),
+      Estado: f.estado, Fecha_pago: f.fecha_pago, Forma_pago: f.forma_pago,
+    })));
     add("Sueldos", resumen.sue as any[]);
     add("Impuestos", resumen.imp as any[]);
     add("Cheques cartera", chequesEnriched);
@@ -272,6 +332,7 @@ function Page() {
             { l: "IVA Débito Fiscal", v: resumen.ivaDebito },
             { l: "Compras netas (sin IVA)", v: resumen.comprasNetas },
             { l: "IVA Crédito Fiscal", v: resumen.ivaCredito },
+            { l: "Percepciones e imp. internos", v: resumen.percepcionesCompras + resumen.otrosImpCompras },
             { l: "Sueldos pagados", v: resumen.sueldosPagados },
             { l: "Impuestos pagados", v: resumen.impuestosPagados },
             { l: "Resultado bruto", v: resultadoBruto },
@@ -334,25 +395,36 @@ function Page() {
           <ReportShell title={`Libro IVA Ventas — ${rangoLabel}`} subtitle={`Tasa IVA aplicada: 21% · Total cobrado: ${formatPesos((resumen.fv as any[]).filter((f) => f.estado === "cobrada").reduce((a, x: any) => a + Number(x.total || 0), 0))} · Pendiente de cobro: ${formatPesos((resumen.fv as any[]).filter((f) => f.estado !== "cobrada").reduce((a, x: any) => a + Number(x.total || 0), 0))}`}>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Fecha</TableHead><TableHead>Nº Factura</TableHead><TableHead>Cliente</TableHead>
-                <TableHead>Cultivo</TableHead><TableHead className="text-right">Hect.</TableHead>
+                <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Nº Factura</TableHead>
+                <TableHead>Cliente</TableHead><TableHead>CUIT</TableHead>
+                <TableHead>Trabajo / Cultivo</TableHead><TableHead className="text-right">Hect.</TableHead>
+                <TableHead className="text-right">Mts bolsa</TableHead>
                 <TableHead className="text-right">Neto (sin IVA)</TableHead><TableHead className="text-right">IVA 21%</TableHead>
-                <TableHead className="text-right">Total</TableHead><TableHead>Estado</TableHead>
+                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percep.</TableHead>
+                <TableHead className="text-right">Total</TableHead><TableHead className="text-right">Cobrado</TableHead>
+                <TableHead className="text-right">Saldo</TableHead><TableHead>Estado</TableHead>
                 <TableHead>Fecha cobro</TableHead><TableHead>Forma pago</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {(resumen.fv as any[]).length === 0 ? (
-                  <TableRow><TableCell colSpan={11} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={18} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
                 ) : (resumen.fv as any[]).map((f) => (
                   <TableRow key={f.id}>
                     <TableCell>{formatFecha(f.fecha)}</TableCell>
+                    <TableCell>{f.tipo_comprobante || f.tipo || "—"}</TableCell>
                     <TableCell>{f.numero || "—"}</TableCell>
-                    <TableCell>{(data?.cli ?? []).find((c: any) => c.id === f.cliente_id)?.nombre ?? "—"}</TableCell>
-                    <TableCell>{f.cultivo || "—"}</TableCell>
+                    <TableCell>{nombreCliente(f.cliente_id)}</TableCell>
+                    <TableCell>{cuitCliente(f.cliente_id)}</TableCell>
+                    <TableCell>{f.trabajo || f.cultivo || "—"}</TableCell>
                     <TableCell className="text-right">{Number(f.hectareas || 0)}</TableCell>
-                    <TableCell className="text-right">{formatPesos(f.neto)}</TableCell>
+                    <TableCell className="text-right">{Number(f.metros_bolsa || 0)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(resumen.netoDe(f))}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_21)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.iva_105)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.percepciones)}</TableCell>
                     <TableCell className="text-right font-medium">{formatPesos(f.total)}</TableCell>
+                    <TableCell className="text-right text-primary">{formatPesos(Math.min(cobradoDeVenta(f), Number(f.total || 0)))}</TableCell>
+                    <TableCell className="text-right text-accent">{formatPesos(Math.max(0, Number(f.total || 0) - cobradoDeVenta(f)))}</TableCell>
                     <TableCell><Badge variant={f.estado === "cobrada" ? "default" : "secondary"}>{f.estado}</Badge></TableCell>
                     <TableCell>{f.fecha_cobro ? formatFecha(f.fecha_cobro) : "—"}</TableCell>
                     <TableCell>{f.forma_cobro || "—"}</TableCell>
@@ -361,11 +433,13 @@ function Page() {
               </TableBody>
               <tfoot>
                 <tr className="border-t border-border bg-muted/30 font-semibold">
-                  <td className="p-3" colSpan={5}>TOTALES DEL PERÍODO</td>
+                  <td className="p-3" colSpan={8}>TOTALES DEL PERÍODO</td>
                   <td className="p-3 text-right text-primary">{formatPesos(resumen.ventasNetas)}</td>
-                  <td className="p-3 text-right text-primary">{formatPesos(resumen.ivaDebito)}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fv as any[]).reduce((a, x: any) => a + Number(x.iva_21 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fv as any[]).reduce((a, x: any) => a + Number(x.iva_105 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos(resumen.percepcionesVentas)}</td>
                   <td className="p-3 text-right text-primary">{formatPesos((resumen.fv as any[]).reduce((a, x: any) => a + Number(x.total || 0), 0))}</td>
-                  <td colSpan={3}></td>
+                  <td colSpan={5}></td>
                 </tr>
               </tfoot>
             </Table>
@@ -377,36 +451,52 @@ function Page() {
           <ReportShell title={`Libro IVA Compras — ${rangoLabel}`} subtitle={`IVA Crédito Fiscal acumulado: ${formatPesos(resumen.ivaCredito)} · Total compras abonadas: ${formatPesos((resumen.fc as any[]).filter((f) => f.estado === "pagada").reduce((a, x: any) => a + Number(x.total || 0), 0))}`}>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Fecha</TableHead><TableHead>Nº Factura</TableHead><TableHead>Proveedor</TableHead>
+                <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Nº Factura</TableHead>
+                <TableHead>Proveedor</TableHead><TableHead>CUIT</TableHead>
                 <TableHead>Categoría</TableHead><TableHead>Descripción</TableHead>
                 <TableHead className="text-right">Neto (sin IVA)</TableHead><TableHead className="text-right">IVA 21%</TableHead>
-                <TableHead className="text-right">Total</TableHead><TableHead>Estado</TableHead><TableHead>Fecha pago</TableHead>
+                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percep.</TableHead>
+                <TableHead className="text-right">Imp. int. / otros</TableHead>
+                <TableHead className="text-right">Total</TableHead><TableHead className="text-right">Pagado</TableHead>
+                <TableHead className="text-right">Saldo</TableHead>
+                <TableHead>Estado</TableHead><TableHead>Fecha pago</TableHead><TableHead>Forma pago</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {(resumen.fc as any[]).length === 0 ? (
-                  <TableRow><TableCell colSpan={10} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={18} className="py-10 text-center text-muted-foreground">Sin registros en el período</TableCell></TableRow>
                 ) : (resumen.fc as any[]).map((f) => (
                   <TableRow key={f.id}>
                     <TableCell>{formatFecha(f.fecha)}</TableCell>
+                    <TableCell>{f.tipo_comprobante || f.tipo || "—"}</TableCell>
                     <TableCell>{f.numero || "—"}</TableCell>
-                    <TableCell>{f.proveedor_id ?? "—"}</TableCell>
+                    <TableCell>{nombreProveedor(f.proveedor_id)}</TableCell>
+                    <TableCell>{cuitProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{f.categoria}</TableCell>
                     <TableCell>{f.descripcion || "—"}</TableCell>
-                    <TableCell className="text-right">{formatPesos(f.neto)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(resumen.netoDe(f))}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_21)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.iva_105)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(f.percepciones)}</TableCell>
+                    <TableCell className="text-right">{formatPesos(Number(f.impuestos_internos || 0) + Number(f.otros_impuestos || 0))}</TableCell>
                     <TableCell className="text-right font-medium">{formatPesos(f.total)}</TableCell>
+                    <TableCell className="text-right text-primary">{formatPesos(pagadoDeCompra(f.id))}</TableCell>
+                    <TableCell className="text-right text-accent">{formatPesos(Math.max(0, Number(f.total || 0) - pagadoDeCompra(f.id)))}</TableCell>
                     <TableCell><Badge variant="secondary">{f.estado}</Badge></TableCell>
                     <TableCell>{f.fecha_pago ? formatFecha(f.fecha_pago) : "—"}</TableCell>
+                    <TableCell>{f.forma_pago || "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <tfoot>
                 <tr className="border-t border-border bg-muted/30 font-semibold">
-                  <td className="p-3" colSpan={5}>TOTALES DEL PERÍODO</td>
+                  <td className="p-3" colSpan={7}>TOTALES DEL PERÍODO</td>
                   <td className="p-3 text-right text-primary">{formatPesos(resumen.comprasNetas)}</td>
-                  <td className="p-3 text-right text-primary">{formatPesos(resumen.ivaCredito)}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.iva_21 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.iva_105 || 0), 0))}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos(resumen.percepcionesCompras)}</td>
+                  <td className="p-3 text-right text-primary">{formatPesos(resumen.otrosImpCompras)}</td>
                   <td className="p-3 text-right text-destructive">{formatPesos((resumen.fc as any[]).reduce((a, x: any) => a + Number(x.total || 0), 0))}</td>
-                  <td colSpan={2}></td>
+                  <td colSpan={5}></td>
                 </tr>
               </tfoot>
             </Table>
@@ -515,7 +605,7 @@ function Page() {
 
         {/* === Movimientos de Caja === */}
         <TabsContent value="caja">
-          <ReportShell title={`Movimientos de caja — ${rangoLabel}`} subtitle={`${(data?.mov ?? []).filter((m: any) => enRango(m.mes)).length} movimientos`}>
+          <ReportShell title={`Movimientos de caja — ${rangoLabel}`} subtitle={`${(data?.mov ?? []).filter((m: any) => Number(m.anio ?? new Date(m.fecha_emision).getFullYear()) === year && enRango(mesDe({ ...m, fecha: m.fecha_emision }))).length} movimientos`}>
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Concepto</TableHead>
@@ -524,7 +614,9 @@ function Page() {
               </TableRow></TableHeader>
               <TableBody>
                 {(() => {
-                  const rows = (data?.mov ?? []).filter((m: any) => enRango(m.mes));
+                  const rows = (data?.mov ?? []).filter(
+                    (m: any) => Number(m.anio ?? new Date(m.fecha_emision).getFullYear()) === year && enRango(mesDe({ ...m, fecha: m.fecha_emision })),
+                  );
                   if (rows.length === 0) return <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Sin movimientos en el período</TableCell></TableRow>;
                   return rows.map((m: any) => (
                     <TableRow key={m.id}>
@@ -619,18 +711,63 @@ function Page() {
 
         {/* === Retenciones === */}
         <TabsContent value="ret">
-          <ReportShell title={`Retenciones sufridas — ${rangoLabel}`} subtitle="IVA, Ganancias, IIBB retenidas por terceros con certificado respaldatorio">
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Fecha</TableHead><TableHead>Agente retención</TableHead>
-                <TableHead>Tipo</TableHead><TableHead>Nº Certificado</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Sin retenciones registradas en el período</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </ReportShell>
+          {(() => {
+            const filas = [
+              ...(resumen.fc as any[])
+                .filter((f) => Number(f.percepciones || 0) > 0 || Number(f.impuestos_internos || 0) > 0 || Number(f.otros_impuestos || 0) > 0)
+                .map((f) => ({
+                  id: `c-${f.id}`, fecha: f.fecha, agente: nombreProveedor(f.proveedor_id),
+                  origen: "Compra", numero: f.numero || "—",
+                  percep: Number(f.percepciones || 0),
+                  otros: Number(f.impuestos_internos || 0) + Number(f.otros_impuestos || 0),
+                })),
+              ...(resumen.fv as any[])
+                .filter((f) => Number(f.percepciones || 0) > 0)
+                .map((f) => ({
+                  id: `v-${f.id}`, fecha: f.fecha, agente: nombreCliente(f.cliente_id),
+                  origen: "Venta", numero: f.numero || "—",
+                  percep: Number(f.percepciones || 0), otros: 0,
+                })),
+            ].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+            const tPercep = filas.reduce((a, f) => a + f.percep, 0);
+            const tOtros = filas.reduce((a, f) => a + f.otros, 0);
+            return (
+              <ReportShell
+                title={`Percepciones y retenciones sufridas — ${rangoLabel}`}
+                subtitle={`Tomadas de los comprobantes cargados · Percepciones ${formatPesos(tPercep)} · Impuestos internos y otros tributos ${formatPesos(tOtros)}`}
+              >
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Fecha</TableHead><TableHead>Origen</TableHead>
+                    <TableHead>Agente / Contraparte</TableHead><TableHead>Nº Comprobante</TableHead>
+                    <TableHead className="text-right">Percepciones</TableHead>
+                    <TableHead className="text-right">Imp. internos / otros</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {filas.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Sin percepciones ni retenciones en los comprobantes del período</TableCell></TableRow>
+                    ) : filas.map((f) => (
+                      <TableRow key={f.id}>
+                        <TableCell>{formatFecha(f.fecha)}</TableCell>
+                        <TableCell><Badge variant="outline">{f.origen}</Badge></TableCell>
+                        <TableCell>{f.agente}</TableCell>
+                        <TableCell>{f.numero}</TableCell>
+                        <TableCell className="text-right">{formatPesos(f.percep)}</TableCell>
+                        <TableCell className="text-right">{formatPesos(f.otros)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/30 font-semibold">
+                      <td className="p-3" colSpan={4}>TOTAL</td>
+                      <td className="p-3 text-right text-primary">{formatPesos(tPercep)}</td>
+                      <td className="p-3 text-right text-primary">{formatPesos(tOtros)}</td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              </ReportShell>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
