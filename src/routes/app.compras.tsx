@@ -36,7 +36,7 @@ import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/app/compras")({ component: Page });
 
-const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito"] as const;
+const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Comprobante provisorio"] as const;
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CATS = [
   "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
@@ -366,6 +366,11 @@ function Page() {
                       </button>
                     ) : (
                       <>{r.tipo}-{r.numero ?? "—"}</>
+                    )}
+                    {r.tipo_comprobante === "Comprobante provisorio" && (
+                      <Badge variant="outline" className="ml-1 border-amber-500/40 text-amber-500">
+                        s/factura
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
@@ -782,6 +787,13 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           <p className="text-xs text-muted-foreground mt-1">
             Factura A: el IVA es crédito fiscal computable. Factura B o C: el IVA va dentro del precio (no se discrimina).
           </p>
+          {f.watch("tipo_comprobante") === "Comprobante provisorio" && (
+            <p className="text-xs text-amber-500 mt-1">
+              Usalo cuando pagás antes de recibir la factura (ej. cuota de maquinaria). Cargá el total a transferir y dejá el N° vacío;
+              queda como pendiente para pagarlo desde Medios de Pago. Cuando llegue la factura real, editá este registro:
+              cambiá el tipo a "Factura", cargá N°, fecha y el IVA discriminado.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
