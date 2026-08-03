@@ -235,8 +235,11 @@ function Page() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error al procesar");
-      setResult(json.data ?? json);
+      const parsed = (json.data ?? json) as OCRResult;
+      setResult(parsed);
       toast.success("Factura analizada");
+      const existente = await buscarDuplicado(parsed);
+      if (existente) setDupe(existente);
     } catch (e: any) {
       toast.error(e.message ?? "Error");
     } finally {
