@@ -379,6 +379,7 @@ function Page() {
       <Tabs defaultValue="control" className="w-full">
         <TabsList className="flex flex-wrap h-auto justify-start">
           <TabsTrigger value="control">Control auditoría AR</TabsTrigger>
+          <TabsTrigger value="arca">Libro IVA Digital (ARCA)</TabsTrigger>
           <TabsTrigger value="ivav">IVA Ventas</TabsTrigger>
           <TabsTrigger value="ivac">IVA Compras</TabsTrigger>
           <TabsTrigger value="er">Estado Resultado</TabsTrigger>
@@ -391,6 +392,69 @@ function Page() {
         </TabsList>
 
         <ExportRow onXlsx={exportPaquete} />
+
+        {/* === Libro IVA Digital ARCA === */}
+        <TabsContent value="arca">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="border-b border-border p-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">Libro de IVA Digital — {rangoLabel} {year}</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Archivos de importación con el diseño de registro oficial de ARCA (ex AFIP), RG 4597/2019 — Portal IVA.
+                  Se generan los cuatro archivos que el contador importa: comprobantes y alícuotas de ventas y de compras.
+                </p>
+              </div>
+              <Button className="bg-primary" onClick={bajarArca}>
+                <FileText className="mr-2 h-4 w-4" />Descargar archivos ARCA (.txt)
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+              {[
+                { l: "Ventas – comprobantes", v: arca.vc.length, f: "REGINFO_CV_VENTAS_CBTE" },
+                { l: "Ventas – alícuotas", v: arca.va.length, f: "REGINFO_CV_VENTAS_ALICUOTAS" },
+                { l: "Compras – comprobantes", v: arca.cc.length, f: "REGINFO_CV_COMPRAS_CBTE" },
+                { l: "Compras – alícuotas", v: arca.ca.length, f: "REGINFO_CV_COMPRAS_ALICUOTAS" },
+              ].map((k) => (
+                <div key={k.f} className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k.l}</div>
+                  <div className="mt-1 text-lg font-bold text-primary">{k.v} registro(s)</div>
+                  <div className="text-[10px] text-muted-foreground mt-1 break-all">{k.f}.txt</div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border p-4">
+              <h4 className="text-sm font-semibold mb-2">Validaciones previas exigidas por ARCA</h4>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead className="w-28">Estado</TableHead>
+                  <TableHead>Validación / Norma</TableHead>
+                  <TableHead>Detalle</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {arca.validaciones.map((v, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Badge variant={v.ok ? "default" : "destructive"} className="gap-1">
+                          {v.ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                          {v.ok ? "OK" : "Revisar"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-sm">{v.titulo}</div>
+                        <div className="text-[11px] text-muted-foreground">{v.norma}</div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{v.detalle}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-[11px] text-muted-foreground mt-3">
+                Los importes se informan en pesos, sin coma decimal y con 2 decimales implícitos, moneda PES y tipo de cambio 1,0000,
+                conforme al diseño de registro. Verificá el resultado con tu contador matriculado antes de presentarlo.
+              </p>
+            </div>
+          </div>
+        </TabsContent>
 
         {/* === Control auditoría === */}
         <TabsContent value="control">
