@@ -521,6 +521,8 @@ function Page() {
             onCeder={ceder}
             onCobrar={cobrar}
             onRevertir={revertir}
+            cuentas={cuentas}
+            onDepositar={(m) => setDepositoMov(m)}
           />
         </CardContent>
       </Card>
@@ -681,8 +683,9 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
   );
 }
 
-function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
+function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDepositar }: {
   rows: Mov[]; onCeder: (m: Mov) => void; onCobrar: (m: Mov) => void; onRevertir: (m: Mov) => void;
+  cuentas?: any[]; onDepositar?: (m: Mov) => void;
 }) {
   const [orden, setOrden] = useState<"pago_asc"|"pago_desc"|"monto_asc"|"monto_desc">("pago_asc");
   const [desde, setDesde] = useState<string>("");
@@ -768,6 +771,7 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
           <TableHead>Fecha de pago</TableHead>
           <TableHead className="text-right">Monto</TableHead>
           <TableHead>Estado</TableHead>
+          <TableHead>Destino / depósito</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -777,6 +781,8 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
           const enCartera = m.estado === "en_cartera";
           const vencido = enCartera && dias !== null && dias < 0;
           const venc = dias !== null && dias < 7 && dias >= 0;
+          const depId = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "")?.[1];
+          const ctaDep = depId ? cuentas.find((c: any) => c.id === depId) : null;
           return (
             <TableRow key={m.id} className={vencido ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
               <TableCell className="font-mono text-xs">{m.numero ?? "—"}{vencido && <Badge variant="outline" className="ml-2 border-red-500/50 text-red-400">Vencido</Badge>}</TableCell>
@@ -787,6 +793,19 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
               </TableCell>
               <TableCell className="text-right font-mono text-emerald-400">{formatPesos(m.monto)}</TableCell>
               <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
+              <TableCell className="text-xs">
+                {m.estado === "cobrado" ? (
+                  ctaDep ? (
+                    <span className="text-emerald-400">Depositado en {ctaDep.banco}</span>
+                  ) : (
+                    <span className="text-amber-400">Cobrado sin depositar</span>
+                  )
+                ) : m.estado === "cedido" ? (
+                  <span className="text-muted-foreground">{m.observaciones ?? "Cedido"}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
                   {enCartera && (
@@ -800,9 +819,16 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir }: {
                     </>
                   )}
                   {!enCartera && (
-                    <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
-                      Volver a cartera
-                    </Button>
+                    <>
+                      {m.estado === "cobrado" && !ctaDep && onDepositar && cuentas.length > 0 && (
+                        <Button size="sm" variant="outline" onClick={() => onDepositar(m)} className="border-emerald-500/40 text-emerald-400">
+                          Acreditar en banco
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
+                        Volver a cartera
+                      </Button>
+                    </>
                   )}
                 </div>
               </TableCell>
