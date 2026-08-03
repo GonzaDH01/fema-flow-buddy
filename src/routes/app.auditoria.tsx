@@ -344,6 +344,10 @@ function Page() {
               </div>
               <Button variant="outline" onClick={() => { setDesde(1); setHasta(12); }}>Año completo</Button>
             </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              En el período seleccionado: {(resumen.fv as any[]).length} venta(s) y {(resumen.fc as any[]).length} compra(s).
+              {" "}En todo {year}: {(data?.fv ?? []).length} venta(s) y {(data?.fc ?? []).length} compra(s).
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button className="bg-primary"><FileText className="mr-2 h-4 w-4" />Reporte facturación (PDF)</Button>
