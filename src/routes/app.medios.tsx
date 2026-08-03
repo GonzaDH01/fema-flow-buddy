@@ -288,7 +288,7 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
-    if (m.direccion === "cobro" && cuentas.length > 0) {
+    if (cuentas.length > 0) {
       setDepositoMov(m);
       return;
     }
@@ -296,8 +296,10 @@ function Page() {
   };
 
   const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
+    const esPago = m.direccion === "pago";
+    const marca = esPago ? "DEB" : "DEP";
     const obs = cuentaId
-      ? `${(m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "")} [DEP:${cuentaId}]`.trim()
+      ? `${(m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "")} [${marca}:${cuentaId}]`.trim()
       : m.observaciones;
     const { error } = await sb.from("fema_movimientos_pago")
       .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado", observaciones: obs })
@@ -306,11 +308,11 @@ function Page() {
     if (cuentaId) {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
-        const nuevo = Number(cta.saldo || 0) + Number(m.monto);
+        const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
         const { error: e2 } = await sb.from("fema_cuentas_bancarias")
           .update({ saldo: nuevo }).eq("id", cuentaId);
         if (e2) toast.error(`No se pudo actualizar el saldo: ${e2.message}`);
-        else toast.success(`Depositado en ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
+        else toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
     }
@@ -325,19 +327,20 @@ function Page() {
   };
 
   const revertir = async (m: Mov) => {
-    if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
-    const depMatch = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "");
+    if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
+    const depMatch = /\[(DEP|DEB):([^\]]+)\]/.exec(m.observaciones ?? "");
     const { error } = await sb.from("fema_movimientos_pago")
       .update({
         estado: "en_cartera",
-        observaciones: (m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "").trim() || null,
+        observaciones: (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim() || null,
       }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
     if (depMatch) {
-      const cta = cuentas.find((c: any) => c.id === depMatch[1]);
+      const cta = cuentas.find((c: any) => c.id === depMatch[2]);
       if (cta) {
+        const signo = depMatch[1] === "DEB" ? 1 : -1;
         await sb.from("fema_cuentas_bancarias")
-          .update({ saldo: Number(cta.saldo || 0) - Number(m.monto) }).eq("id", cta.id);
+          .update({ saldo: Number(cta.saldo || 0) + signo * Number(m.monto) }).eq("id", cta.id);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
     }
