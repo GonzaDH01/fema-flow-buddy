@@ -98,6 +98,7 @@ function Page() {
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
+  const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
