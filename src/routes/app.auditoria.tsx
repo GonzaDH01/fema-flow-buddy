@@ -136,8 +136,9 @@ function Page() {
       cur.facturas += 1;
       cur.hectareas += Number(f.hectareas || 0);
       cur.total += Number(f.total || 0);
-      if (f.estado === "cobrada" || f.fecha_cobro) cur.cobrado += Number(f.total || 0);
-      else cur.pendiente += Number(f.total || 0);
+      const cob = Math.min(cobradoDeVenta(f), Number(f.total || 0));
+      cur.cobrado += cob;
+      cur.pendiente += Math.max(0, Number(f.total || 0) - cob);
       map.set(key, cur);
     }
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
