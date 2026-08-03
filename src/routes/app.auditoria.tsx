@@ -692,18 +692,63 @@ function Page() {
 
         {/* === Retenciones === */}
         <TabsContent value="ret">
-          <ReportShell title={`Retenciones sufridas — ${rangoLabel}`} subtitle="IVA, Ganancias, IIBB retenidas por terceros con certificado respaldatorio">
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Fecha</TableHead><TableHead>Agente retención</TableHead>
-                <TableHead>Tipo</TableHead><TableHead>Nº Certificado</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Sin retenciones registradas en el período</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </ReportShell>
+          {(() => {
+            const filas = [
+              ...(resumen.fc as any[])
+                .filter((f) => Number(f.percepciones || 0) > 0 || Number(f.impuestos_internos || 0) > 0 || Number(f.otros_impuestos || 0) > 0)
+                .map((f) => ({
+                  id: `c-${f.id}`, fecha: f.fecha, agente: nombreProveedor(f.proveedor_id),
+                  origen: "Compra", numero: f.numero || "—",
+                  percep: Number(f.percepciones || 0),
+                  otros: Number(f.impuestos_internos || 0) + Number(f.otros_impuestos || 0),
+                })),
+              ...(resumen.fv as any[])
+                .filter((f) => Number(f.percepciones || 0) > 0)
+                .map((f) => ({
+                  id: `v-${f.id}`, fecha: f.fecha, agente: nombreCliente(f.cliente_id),
+                  origen: "Venta", numero: f.numero || "—",
+                  percep: Number(f.percepciones || 0), otros: 0,
+                })),
+            ].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+            const tPercep = filas.reduce((a, f) => a + f.percep, 0);
+            const tOtros = filas.reduce((a, f) => a + f.otros, 0);
+            return (
+              <ReportShell
+                title={`Percepciones y retenciones sufridas — ${rangoLabel}`}
+                subtitle={`Tomadas de los comprobantes cargados · Percepciones ${formatPesos(tPercep)} · Impuestos internos y otros tributos ${formatPesos(tOtros)}`}
+              >
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Fecha</TableHead><TableHead>Origen</TableHead>
+                    <TableHead>Agente / Contraparte</TableHead><TableHead>Nº Comprobante</TableHead>
+                    <TableHead className="text-right">Percepciones</TableHead>
+                    <TableHead className="text-right">Imp. internos / otros</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {filas.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Sin percepciones ni retenciones en los comprobantes del período</TableCell></TableRow>
+                    ) : filas.map((f) => (
+                      <TableRow key={f.id}>
+                        <TableCell>{formatFecha(f.fecha)}</TableCell>
+                        <TableCell><Badge variant="outline">{f.origen}</Badge></TableCell>
+                        <TableCell>{f.agente}</TableCell>
+                        <TableCell>{f.numero}</TableCell>
+                        <TableCell className="text-right">{formatPesos(f.percep)}</TableCell>
+                        <TableCell className="text-right">{formatPesos(f.otros)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/30 font-semibold">
+                      <td className="p-3" colSpan={4}>TOTAL</td>
+                      <td className="p-3 text-right text-primary">{formatPesos(tPercep)}</td>
+                      <td className="p-3 text-right text-primary">{formatPesos(tOtros)}</td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              </ReportShell>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
