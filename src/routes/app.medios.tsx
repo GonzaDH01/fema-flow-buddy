@@ -99,6 +99,7 @@ function Page() {
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
+  const [openPase, setOpenPase] = useState(false);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
@@ -440,10 +441,23 @@ function Page() {
                 Cargá primero el saldo que hoy figura en el banco (antes de marcar echeqs). Cada echeq
                 que marques como cobrado se suma automáticamente a la cuenta que elijas.
               </p>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+                  Caja a la vista: <b className="text-emerald-400">{formatPesos(totalVista)}</b>
+                </span>
+                <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1">
+                  En fondos de inversión: <b className="text-blue-400">{formatPesos(totalFondos)}</b>
+                </span>
+              </div>
             </div>
-            <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
-              <Plus className="w-4 h-4 mr-2" />Agregar cuenta
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setOpenPase(true)} disabled={cuentas.length < 2}>
+                <ArrowRight className="w-4 h-4 mr-2" />Mover dinero
+              </Button>
+              <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
+                <Plus className="w-4 h-4 mr-2" />Agregar cuenta
+              </Button>
+            </div>
           </div>
           {cuentas.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
@@ -455,6 +469,7 @@ function Page() {
                 <TableRow>
                   <TableHead>Banco</TableHead>
                   <TableHead>Alias / Titular</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Nº Cuenta / CBU</TableHead>
                   <TableHead className="text-right">Saldo disponible</TableHead>
                   <TableHead>Estado</TableHead>
@@ -466,6 +481,15 @@ function Page() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.banco}</TableCell>
                     <TableCell>{c.alias || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.tipo_cuenta === "fondo" ? (
+                        <Badge variant="outline" className="border-blue-500/40 text-blue-400">
+                          Fondo · rescate {c.rescate === "24hs" ? "24 hs" : "inmediato"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-emerald-500/40 text-emerald-400">Caja a la vista</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {c.numero_cuenta || "—"}
                       {c.cbu ? <><br /><span className="text-muted-foreground">CBU: {c.cbu}</span></> : null}
@@ -487,8 +511,48 @@ function Page() {
               </TableBody>
             </Table>
           )}
+
+          {movFondos.length > 0 && (
+            <div className="pt-2">
+              <h4 className="text-xs uppercase text-muted-foreground mb-2">Últimos pases entre caja y fondos</h4>
+              <div className="space-y-1">
+                {movFondos.map((m: any) => {
+                  const org = cuentas.find((c: any) => c.id === m.origen_id);
+                  const dst = cuentas.find((c: any) => c.id === m.destino_id);
+                  const nom = (c: any) => (c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""}` : "—");
+                  return (
+                    <div key={m.id} className="flex items-center gap-2 text-xs border border-border/50 rounded-md px-2 py-1">
+                      <span className="text-muted-foreground">{formatFecha(m.fecha)}</span>
+                      <span>{nom(org)}</span>
+                      <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                      <span>{nom(dst)}</span>
+                      <span className="font-mono text-emerald-400 ml-auto">{formatPesos(Number(m.monto))}</span>
+                      <Button size="sm" variant="ghost" onClick={() => eliminarMovFondo(m)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={openPase} onOpenChange={setOpenPase}>
+        {openPase && user && (
+          <PaseFondosDialog
+            cuentas={cuentas}
+            userId={user.id}
+            onClose={() => setOpenPase(false)}
+            onSaved={() => {
+              setOpenPase(false);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Tabs value={tab} onValueChange={setTab}>
 
