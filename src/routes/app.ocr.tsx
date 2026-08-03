@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -544,7 +545,7 @@ function Page() {
             </table>
           </div>
           <div className="mt-3 flex justify-end">
-            <Button onClick={adjuntar} disabled={saving || !destinoId || !b64}>
+              <Button onClick={() => adjuntar()} disabled={saving || !destinoId || !b64}>
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Paperclip className="mr-1.5 h-4 w-4" />}
               Adjuntar imagen al comprobante
             </Button>
