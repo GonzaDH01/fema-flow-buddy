@@ -548,13 +548,10 @@ function ReciboCompraDialog({ row, proveedor, onClose }: {
     if (!el) { toast.error("No se pudo generar el PDF"); return; }
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      await html2pdf().set({
-        margin: 0,
-        filename: `RECIBO_DE_PAGO_${reciboNro}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      }).from(el).save();
+      await html2pdf()
+        .set(femaPdfOptions(`RECIBO_DE_PAGO_${reciboNro}.pdf`, ".recibo-compra-print"))
+        .from(el)
+        .save();
     } catch (e: any) {
       toast.error("Error generando PDF: " + (e?.message ?? ""));
     }
