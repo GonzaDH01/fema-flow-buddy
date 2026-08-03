@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -28,6 +28,15 @@ type OCRResult = {
 };
 
 type DocKind = "compra" | "venta";
+type Modo = "nuevo" | "adjuntar";
+
+type PendienteRow = {
+  id: string;
+  fecha: string;
+  numero: string | null;
+  total: number | null;
+  tercero: string | null;
+};
 
 const CATS_COMPRA = [
   "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
@@ -70,6 +79,81 @@ function Page() {
   const [result, setResult] = useState<OCRResult | null>(null);
   const [kind, setKind] = useState<DocKind>("compra");
   const [saving, setSaving] = useState(false);
+  const [modo, setModo] = useState<Modo>("nuevo");
+  const [busqueda, setBusqueda] = useState("");
+  const [destinoId, setDestinoId] = useState<string | null>(null);
+
+  const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+
+  const { data: pendientes, isLoading: loadingPend } = useQuery({
+    queryKey: ["ocr_sin_imagen", kind],
+    enabled: modo === "adjuntar",
+    queryFn: async (): Promise<PendienteRow[]> => {
+      const rel = kind === "compra" ? "fema_proveedores(nombre)" : "fema_clientes(nombre)";
+      const { data, error } = await supabase
+        .from(tablaKind)
+        .select(`id, fecha, numero, total, ${rel}`)
+        .is("imagen_path", null)
+        .order("fecha", { ascending: false })
+        .limit(300);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        fecha: r.fecha,
+        numero: r.numero,
+        total: r.total,
+        tercero: kind === "compra" ? (r.fema_proveedores?.nombre ?? null) : (r.fema_clientes?.nombre ?? null),
+      }));
+    },
+  });
+
+  const filtrados = (pendientes ?? []).filter((r) => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return true;
+    return [r.numero, r.tercero, r.fecha, String(r.total ?? "")]
+      .some((v) => (v ?? "").toString().toLowerCase().includes(q));
+  });
+
+  const subirImagen = async () => {
+    if (!b64 || !mime || !user) return null;
+    const ext = mime.includes("pdf") ? "pdf" : (mime.split("/")[1] ?? "jpg");
+    const path = `${kind}/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const { error } = await supabase.storage
+      .from("facturas-img")
+      .upload(path, bytes, { contentType: mime, upsert: false });
+    if (error) throw error;
+    return path;
+  };
+
+  const limpiar = () => {
+    setResult(null);
+    setPreview(null);
+    setB64(null);
+    setMime(null);
+    setDestinoId(null);
+  };
+
+  const adjuntar = async () => {
+    if (!destinoId) return toast.error("Elegí el comprobante ya cargado");
+    if (!b64 || !mime) return toast.error("Subí primero la imagen");
+    setSaving(true);
+    try {
+      const path = await subirImagen();
+      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", destinoId);
+      if (error) throw error;
+      toast.success("Imagen adjuntada al comprobante existente (sin duplicar)");
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["ocr_sin_imagen", kind] });
+      qc.invalidateQueries({ queryKey: ["imagenes", kind] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+      qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al adjuntar");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
@@ -135,6 +219,23 @@ function Page() {
     if (!result || !user) return toast.error("Sin datos o sesión");
     setSaving(true);
     try {
+      // Control de duplicados: mismo número + total ya cargado
+      if (result.numero) {
+        const { data: dup } = await supabase
+          .from(tablaKind)
+          .select("id, numero, total, imagen_path")
+          .eq("numero", result.numero)
+          .limit(5);
+        const match = (dup ?? []).find((d: any) => Math.abs((d.total ?? 0) - (result.total ?? 0)) < 1);
+        if (match) {
+          setSaving(false);
+          setModo("adjuntar");
+          setDestinoId(match.id);
+          setBusqueda(result.numero);
+          toast.warning("Ese comprobante ya está cargado. Cambié a modo \"Adjuntar imagen\" para no duplicarlo.");
+          return;
+        }
+      }
       const letra = (result.letra ?? "B").toUpperCase();
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
