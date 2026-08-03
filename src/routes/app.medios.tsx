@@ -245,6 +245,17 @@ function Page() {
     return movs.filter(m => m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoy);
   }, [movs]);
 
+  // Echeqs / cheques propios emitidos: la factura ya está paga, pero el dinero
+  // recién sale de la caja el día de la fecha de pago del documento.
+  const emitidosPendientes = useMemo(() => {
+    return movs
+      .filter(m => m.direccion === "pago"
+        && (m.instrumento === "echeq" || m.instrumento === "cheque_fisico")
+        && m.estado === "en_cartera")
+      .sort((a, b) => (a.vencimiento ?? "9999").localeCompare(b.vencimiento ?? "9999"));
+  }, [movs]);
+  const totalEmitidosPend = emitidosPendientes.reduce((a, m) => a + Number(m.monto), 0);
+
   const filtrar = (filtro: (m: Mov) => boolean) => {
     const filtrados = movs.filter(m => {
       if (!filtro(m)) return false;
