@@ -657,6 +657,43 @@ function Page() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!dupe} onOpenChange={(v) => { if (!v) setDupe(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ese comprobante ya está cargado</DialogTitle>
+            <DialogDescription>
+              Encontré un comprobante con el mismo número y total en {kind === "compra" ? "Compras" : "Ventas"}. ¿Querés guardar solo la imagen en ese registro?
+            </DialogDescription>
+          </DialogHeader>
+          {dupe && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div className="font-medium">{dupe.tercero ?? "Sin tercero"}</div>
+              <div className="text-muted-foreground">
+                N° {dupe.numero ?? "—"} · {dupe.fecha ?? "—"} · $ {Number(dupe.total ?? 0).toLocaleString("es-AR")}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {dupe.tieneImagen ? "Ya tiene una imagen adjunta (se reemplazará por la nueva)." : "Todavía no tiene imagen adjunta."}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setDupe(null)}>Cancelar</Button>
+            <Button
+              variant="secondary"
+              onClick={() => { setModo("nuevo"); setDestinoId(null); setDupe(null); toast.message("Podés cargarlo igual como comprobante nuevo."); }}
+            >
+              Cargar igual como nuevo
+            </Button>
+            <Button
+              disabled={saving || !b64}
+              onClick={async () => { const id = dupe!.id; setModo("adjuntar"); setDestinoId(id); setDupe(null); await adjuntar(id); }}
+            >
+              <Paperclip className="mr-1.5 h-4 w-4" /> Guardar solo la imagen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
