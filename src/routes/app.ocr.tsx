@@ -324,7 +324,7 @@ function Page() {
               Object.entries(contactoNoVacio).filter(([k]) => !(actual as any)?.[k]),
             );
             if (Object.keys(faltantes).length) {
-              await supabase.from(tabla).update(faltantes).eq("id", existente.id);
+              await supabase.from(tabla).update(faltantes as any).eq("id", existente.id);
             }
           }
         } else {
