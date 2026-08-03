@@ -258,9 +258,32 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
+    if (m.direccion === "cobro" && cuentas.length > 0) {
+      setDepositoMov(m);
+      return;
+    }
+    await aplicarCobro(m, null);
+  };
+
+  const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
+    const obs = cuentaId
+      ? `${(m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "")} [DEP:${cuentaId}]`.trim()
+      : m.observaciones;
     const { error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado" }).eq("id", m.id);
+      .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado", observaciones: obs })
+      .eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    if (cuentaId) {
+      const cta = cuentas.find((c: any) => c.id === cuentaId);
+      if (cta) {
+        const nuevo = Number(cta.saldo || 0) + Number(m.monto);
+        const { error: e2 } = await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: nuevo }).eq("id", cuentaId);
+        if (e2) toast.error(`No se pudo actualizar el saldo: ${e2.message}`);
+        else toast.success(`Depositado en ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
+        qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+      }
+    }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Estado actualizado");
@@ -271,9 +294,21 @@ function Page() {
 
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
+    const depMatch = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "");
     const { error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: "en_cartera" }).eq("id", m.id);
+      .update({
+        estado: "en_cartera",
+        observaciones: (m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "").trim() || null,
+      }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    if (depMatch) {
+      const cta = cuentas.find((c: any) => c.id === depMatch[1]);
+      if (cta) {
+        await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: Number(cta.saldo || 0) - Number(m.monto) }).eq("id", cta.id);
+        qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+      }
+    }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Echeq devuelto a cartera");
