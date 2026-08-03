@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -91,8 +92,30 @@ function Page() {
   const [modo, setModo] = useState<Modo>("nuevo");
   const [busqueda, setBusqueda] = useState("");
   const [destinoId, setDestinoId] = useState<string | null>(null);
+  const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
 
   const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+
+  // Busca un comprobante ya cargado con el mismo número (y total aproximado)
+  const buscarDuplicado = async (r: OCRResult) => {
+    if (!r?.numero) return null;
+    const rel = kind === "compra" ? "fema_proveedores(nombre)" : "fema_clientes(nombre)";
+    const { data } = await supabase
+      .from(tablaKind)
+      .select(`id, numero, total, fecha, imagen_path, ${rel}`)
+      .eq("numero", r.numero)
+      .limit(5);
+    const match = (data ?? []).find((d: any) => Math.abs((d.total ?? 0) - (r.total ?? 0)) < 1) as any;
+    if (!match) return null;
+    return {
+      id: match.id as string,
+      numero: match.numero ?? null,
+      total: match.total ?? null,
+      fecha: match.fecha ?? null,
+      tercero: kind === "compra" ? (match.fema_proveedores?.nombre ?? null) : (match.fema_clientes?.nombre ?? null),
+      tieneImagen: !!match.imagen_path,
+    };
+  };
 
   const { data: pendientes, isLoading: loadingPend } = useQuery({
     queryKey: ["ocr_sin_imagen", kind],
@@ -143,16 +166,18 @@ function Page() {
     setDestinoId(null);
   };
 
-  const adjuntar = async () => {
-    if (!destinoId) return toast.error("Elegí el comprobante ya cargado");
+  const adjuntar = async (idForzado?: string) => {
+    const id = idForzado ?? destinoId;
+    if (!id) return toast.error("Elegí el comprobante ya cargado");
     if (!b64 || !mime) return toast.error("Subí primero la imagen");
     setSaving(true);
     try {
       const path = await subirImagen();
-      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", destinoId);
+      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", id);
       if (error) throw error;
       toast.success("Imagen adjuntada al comprobante existente (sin duplicar)");
       limpiar();
+      setDupe(null);
       qc.invalidateQueries({ queryKey: ["ocr_sin_imagen", kind] });
       qc.invalidateQueries({ queryKey: ["imagenes", kind] });
       qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
@@ -213,8 +238,11 @@ function Page() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error al procesar");
-      setResult(json.data ?? json);
+      const parsed = (json.data ?? json) as OCRResult;
+      setResult(parsed);
       toast.success("Factura analizada");
+      const existente = await buscarDuplicado(parsed);
+      if (existente) setDupe(existente);
     } catch (e: any) {
       toast.error(e.message ?? "Error");
     } finally {
@@ -517,7 +545,7 @@ function Page() {
             </table>
           </div>
           <div className="mt-3 flex justify-end">
-            <Button onClick={adjuntar} disabled={saving || !destinoId || !b64}>
+              <Button onClick={() => adjuntar()} disabled={saving || !destinoId || !b64}>
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Paperclip className="mr-1.5 h-4 w-4" />}
               Adjuntar imagen al comprobante
             </Button>
@@ -629,6 +657,43 @@ function Page() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!dupe} onOpenChange={(v) => { if (!v) setDupe(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ese comprobante ya está cargado</DialogTitle>
+            <DialogDescription>
+              Encontré un comprobante con el mismo número y total en {kind === "compra" ? "Compras" : "Ventas"}. ¿Querés guardar solo la imagen en ese registro?
+            </DialogDescription>
+          </DialogHeader>
+          {dupe && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div className="font-medium">{dupe.tercero ?? "Sin tercero"}</div>
+              <div className="text-muted-foreground">
+                N° {dupe.numero ?? "—"} · {dupe.fecha ?? "—"} · $ {Number(dupe.total ?? 0).toLocaleString("es-AR")}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {dupe.tieneImagen ? "Ya tiene una imagen adjunta (se reemplazará por la nueva)." : "Todavía no tiene imagen adjunta."}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setDupe(null)}>Cancelar</Button>
+            <Button
+              variant="secondary"
+              onClick={() => { setModo("nuevo"); setDestinoId(null); setDupe(null); toast.message("Podés cargarlo igual como comprobante nuevo."); }}
+            >
+              Cargar igual como nuevo
+            </Button>
+            <Button
+              disabled={saving || !b64}
+              onClick={async () => { const id = dupe!.id; setModo("adjuntar"); setDestinoId(id); setDupe(null); await adjuntar(id); }}
+            >
+              <Paperclip className="mr-1.5 h-4 w-4" /> Guardar solo la imagen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
