@@ -589,7 +589,7 @@ function Page() {
 
         {/* === Movimientos de Caja === */}
         <TabsContent value="caja">
-          <ReportShell title={`Movimientos de caja — ${rangoLabel}`} subtitle={`${(data?.mov ?? []).filter((m: any) => enRango(m.mes)).length} movimientos`}>
+          <ReportShell title={`Movimientos de caja — ${rangoLabel}`} subtitle={`${(data?.mov ?? []).filter((m: any) => Number(m.anio ?? new Date(m.fecha_emision).getFullYear()) === year && enRango(mesDe({ ...m, fecha: m.fecha_emision }))).length} movimientos`}>
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Concepto</TableHead>
@@ -598,7 +598,9 @@ function Page() {
               </TableRow></TableHeader>
               <TableBody>
                 {(() => {
-                  const rows = (data?.mov ?? []).filter((m: any) => enRango(m.mes));
+                  const rows = (data?.mov ?? []).filter(
+                    (m: any) => Number(m.anio ?? new Date(m.fecha_emision).getFullYear()) === year && enRango(mesDe({ ...m, fecha: m.fecha_emision })),
+                  );
                   if (rows.length === 0) return <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Sin movimientos en el período</TableCell></TableRow>;
                   return rows.map((m: any) => (
                     <TableRow key={m.id}>
