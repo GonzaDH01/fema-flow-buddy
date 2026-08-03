@@ -13,6 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FileText, FileSpreadsheet, Printer, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import {
+  ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas,
+  descargarTxt, validarLibro,
+} from "@/lib/arca-libro-iva";
 
 export const Route = createFileRoute("/app/auditoria")({ component: Page });
 
