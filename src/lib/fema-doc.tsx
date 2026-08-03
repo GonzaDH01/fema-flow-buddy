@@ -128,3 +128,47 @@ export function femaClientHTML(rows: { label: string; value: string }[]) {
 export function femaWatermarkHTML(watermarkAbsUrl: string) {
   return `<div class="fema-watermark"><img src="${watermarkAbsUrl}" alt=""/></div>`;
 }
+
+/**
+ * html2canvas (usado por html2pdf) no entiende los colores modernos
+ * (oklch / lab / color-mix) que genera Tailwind v4 y falla con
+ * "Attempting to parse an unsupported color function".
+ * Forzamos una paleta simple en el clon antes de rasterizar.
+ */
+const PDF_SAFE_CSS = `
+  *, *::before, *::after {
+    color: #000 !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: #000 !important;
+    outline-color: #000 !important;
+    text-decoration-color: #000 !important;
+    box-shadow: none !important;
+    filter: none !important;
+  }
+  html, body { background-color: #ffffff !important; }
+`;
+
+export function femaPdfOptions(filename: string, rootSelector: string) {
+  return {
+    margin: 0,
+    filename,
+    image: { type: "jpeg" as const, quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      onclone: (doc: Document) => {
+        const style = doc.createElement("style");
+        style.textContent = PDF_SAFE_CSS;
+        doc.head.appendChild(style);
+        const root = doc.querySelector(rootSelector) as HTMLElement | null;
+        if (root) {
+          root.style.setProperty("background-color", "#ffffff", "important");
+          root.style.setProperty("color", "#000000", "important");
+        }
+      },
+    },
+    jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+  };
+}

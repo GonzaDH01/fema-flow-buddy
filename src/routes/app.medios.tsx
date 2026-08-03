@@ -23,6 +23,7 @@ import {
   FemaDocHeader, FemaClientBox, FemaWatermark,
   femaPrintCSS, femaHeaderHTML, femaClientHTML, femaWatermarkHTML,
   absoluteAssetUrl, femaLogoUrl, femaWatermarkUrl,
+  femaPdfOptions,
 } from "@/lib/fema-doc";
 
 export const Route = createFileRoute("/app/medios")({ component: Page });
@@ -1514,13 +1515,10 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
     if (!el) { toast.error("No se pudo generar el PDF"); return; }
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      await html2pdf().set({
-        margin: 0,
-        filename: `${tituloDoc.replace(/\s+/g, "_")}_${reciboNro}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      }).from(el).save();
+      await html2pdf()
+        .set(femaPdfOptions(`${tituloDoc.replace(/\s+/g, "_")}_${reciboNro}.pdf`, ".recibo-print"))
+        .from(el)
+        .save();
     } catch (e: any) {
       toast.error("Error generando PDF: " + (e?.message ?? ""));
     }
