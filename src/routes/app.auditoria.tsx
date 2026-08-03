@@ -25,7 +25,9 @@ function Page() {
   const { year } = useYear();
   const now = new Date();
   const defaultMes = now.getFullYear() === year ? now.getMonth() + 1 : 12;
-  const [desde, setDesde] = useState<number>(defaultMes);
+  // Por defecto se muestra el acumulado del ejercicio (enero → mes actual),
+  // así no parece que "faltan" comprobantes de meses anteriores.
+  const [desde, setDesde] = useState<number>(1);
   const [hasta, setHasta] = useState<number>(defaultMes);
 
   const enRango = (m: number | null | undefined) => {
