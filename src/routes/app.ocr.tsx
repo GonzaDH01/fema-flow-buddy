@@ -19,6 +19,12 @@ type OCRResult = {
   tipo?: string; letra?: string | null; numero?: string | null;
   fecha?: string | null; emisor?: string | null; receptor?: string | null;
   cuit_emisor?: string | null; cuit_receptor?: string | null;
+  emisor_domicilio?: string | null; emisor_localidad?: string | null;
+  emisor_telefono?: string | null; emisor_email?: string | null;
+  emisor_condicion_iva?: string | null; emisor_iibb?: string | null;
+  receptor_domicilio?: string | null; receptor_localidad?: string | null;
+  receptor_telefono?: string | null; receptor_email?: string | null;
+  receptor_condicion_iva?: string | null; receptor_iibb?: string | null;
   descripcion?: string | null; categoria_sugerida?: string;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
@@ -246,6 +252,32 @@ function Page() {
       const terceroCuitRaw = (kind === "compra" ? result.cuit_emisor : (result.cuit_receptor ?? result.cuit_emisor)) ?? null;
       const terceroCuit = onlyDigits(terceroCuitRaw) || null;
 
+      // Datos de contacto del tercero leídos del comprobante
+      const clean = (v?: string | null) => {
+        const t = (v ?? "").trim();
+        return t && t !== "-" && t.toLowerCase() !== "null" ? t : null;
+      };
+      const contacto: Record<string, string | null> = kind === "compra"
+        ? {
+            domicilio: clean(result.emisor_domicilio),
+            localidad: clean(result.emisor_localidad),
+            telefono: clean(result.emisor_telefono),
+            email: clean(result.emisor_email),
+            condicion_iva: clean(result.emisor_condicion_iva),
+            iibb: clean(result.emisor_iibb),
+          }
+        : {
+            domicilio: clean(result.receptor_domicilio),
+            localidad: clean(result.receptor_localidad),
+            telefono: clean(result.receptor_telefono),
+            email: clean(result.receptor_email),
+            condicion_iva: clean(result.receptor_condicion_iva),
+            iibb: clean(result.receptor_iibb),
+          };
+      const contactoNoVacio = Object.fromEntries(
+        Object.entries(contacto).filter(([, v]) => v !== null),
+      );
+
       // Buscar o crear proveedor/cliente
       let terceroId: string | null = null;
       if (terceroNombre || terceroCuit) {
@@ -281,8 +313,22 @@ function Page() {
         }
         if (existente?.id) {
           terceroId = existente.id;
+          // Completar solo los campos que estén vacíos en el registro existente
+          if (Object.keys(contactoNoVacio).length) {
+            const { data: actual } = await supabase
+              .from(tabla)
+              .select("domicilio,localidad,telefono,email,condicion_iva,iibb")
+              .eq("id", existente.id)
+              .maybeSingle();
+            const faltantes = Object.fromEntries(
+              Object.entries(contactoNoVacio).filter(([k]) => !(actual as any)?.[k]),
+            );
+            if (Object.keys(faltantes).length) {
+              await supabase.from(tabla).update(faltantes as any).eq("id", existente.id);
+            }
+          }
         } else {
-          const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: cuitDisponible };
+          const nuevo: any = { user_id: user.id, nombre: terceroNombre ?? `CUIT ${terceroCuit}`, cuit: cuitDisponible, ...contactoNoVacio };
           if (kind === "compra") nuevo.categoria = (result.es_combustible ? "Gasoil_Combustible" : (result.categoria_sugerida as any)) ?? "Otro";
           const { data: creado, error: errC } = await supabase
             .from(tabla)

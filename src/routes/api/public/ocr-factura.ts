@@ -22,6 +22,8 @@ Reglas para EMISOR / RECEPTOR (muy importante):
 - "cuit_emisor" y "cuit_receptor" son los CUIT/CUIL correspondientes (solo dígitos, 11 caracteres). NO confundir con Ingresos Brutos ni con nº de factura.
 - Si sólo hay un CUIT visible, asumí que es el del emisor.
 - Siempre completá "emisor" si aparece alguna razón social o nombre de fantasía en el encabezado, aunque no encuentres el CUIT.
+- Extraé TAMBIÉN los datos de contacto del emisor que figuran en el encabezado: domicilio comercial (calle y número), localidad/provincia, teléfono, email y condición frente al IVA ("Responsable Inscripto", "Monotributo", "Exento", etc.) y el número de Ingresos Brutos ("IIBB", "Ing. Brutos"). Si no figuran, devolvé null.
+- Hacé lo mismo con el receptor cuando esos datos aparezcan en el bloque del comprador.
 
 Reglas para IMPUESTOS (muy importante):
 - Buscá etiquetas: "Neto Gravado", "Subtotal", "IVA 21%", "IVA 10,5%", "Percepción IIBB", "Percepción IVA", "ITC", "CO2", "Impuestos Internos", "Otros Tributos", "Total".
@@ -53,6 +55,18 @@ Campos exactos:
   "receptor": "string|null",
   "cuit_emisor": "string|null",
   "cuit_receptor": "string|null",
+  "emisor_domicilio": "string|null",
+  "emisor_localidad": "string|null",
+  "emisor_telefono": "string|null",
+  "emisor_email": "string|null",
+  "emisor_condicion_iva": "string|null",
+  "emisor_iibb": "string|null",
+  "receptor_domicilio": "string|null",
+  "receptor_localidad": "string|null",
+  "receptor_telefono": "string|null",
+  "receptor_email": "string|null",
+  "receptor_condicion_iva": "string|null",
+  "receptor_iibb": "string|null",
   "descripcion": "string|null",
   "categoria_sugerida": "Gasoil_Combustible|Repuestos_JD|Repuestos|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Mano_de_Obra|Honorarios|Maquinaria_Rodados|Pago_Creditos|Inversiones|Franco_Particular|Otro",
   // Reglas de categoría:
