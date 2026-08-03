@@ -521,6 +521,8 @@ function Page() {
             onCeder={ceder}
             onCobrar={cobrar}
             onRevertir={revertir}
+            cuentas={cuentas}
+            onDepositar={(m) => setDepositoMov(m)}
           />
         </CardContent>
       </Card>
