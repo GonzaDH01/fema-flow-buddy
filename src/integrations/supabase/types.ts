@@ -501,7 +501,9 @@ export type Database = {
           id: string
           numero_cuenta: string | null
           observaciones: string | null
+          rescate: string | null
           saldo: number
+          tipo_cuenta: string
           updated_at: string
           user_id: string
         }
@@ -514,7 +516,9 @@ export type Database = {
           id?: string
           numero_cuenta?: string | null
           observaciones?: string | null
+          rescate?: string | null
           saldo?: number
+          tipo_cuenta?: string
           updated_at?: string
           user_id: string
         }
@@ -527,7 +531,9 @@ export type Database = {
           id?: string
           numero_cuenta?: string | null
           observaciones?: string | null
+          rescate?: string | null
           saldo?: number
+          tipo_cuenta?: string
           updated_at?: string
           user_id?: string
         }
@@ -1105,6 +1111,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fema_mov_fondos: {
+        Row: {
+          anio: number
+          created_at: string
+          destino_id: string | null
+          fecha: string
+          id: string
+          mes: number
+          monto: number
+          observaciones: string | null
+          origen_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number
+          created_at?: string
+          destino_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number
+          monto?: number
+          observaciones?: string | null
+          origen_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          destino_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number
+          monto?: number
+          observaciones?: string | null
+          origen_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_mov_fondos_destino_id_fkey"
+            columns: ["destino_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_mov_fondos_origen_id_fkey"
+            columns: ["origen_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fema_movimientos_pago: {
         Row: {
