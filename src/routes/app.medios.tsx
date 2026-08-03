@@ -245,6 +245,17 @@ function Page() {
     return movs.filter(m => m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoy);
   }, [movs]);
 
+  // Echeqs / cheques propios emitidos: la factura ya está paga, pero el dinero
+  // recién sale de la caja el día de la fecha de pago del documento.
+  const emitidosPendientes = useMemo(() => {
+    return movs
+      .filter(m => m.direccion === "pago"
+        && (m.instrumento === "echeq" || m.instrumento === "cheque_fisico")
+        && m.estado === "en_cartera")
+      .sort((a, b) => (a.vencimiento ?? "9999").localeCompare(b.vencimiento ?? "9999"));
+  }, [movs]);
+  const totalEmitidosPend = emitidosPendientes.reduce((a, m) => a + Number(m.monto), 0);
+
   const filtrar = (filtro: (m: Mov) => boolean) => {
     const filtrados = movs.filter(m => {
       if (!filtro(m)) return false;
@@ -288,7 +299,7 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
-    if (m.direccion === "cobro" && cuentas.length > 0) {
+    if (cuentas.length > 0) {
       setDepositoMov(m);
       return;
     }
@@ -296,8 +307,10 @@ function Page() {
   };
 
   const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
+    const esPago = m.direccion === "pago";
+    const marca = esPago ? "DEB" : "DEP";
     const obs = cuentaId
-      ? `${(m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "")} [DEP:${cuentaId}]`.trim()
+      ? `${(m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "")} [${marca}:${cuentaId}]`.trim()
       : m.observaciones;
     const { error } = await sb.from("fema_movimientos_pago")
       .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado", observaciones: obs })
@@ -306,11 +319,11 @@ function Page() {
     if (cuentaId) {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
-        const nuevo = Number(cta.saldo || 0) + Number(m.monto);
+        const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
         const { error: e2 } = await sb.from("fema_cuentas_bancarias")
           .update({ saldo: nuevo }).eq("id", cuentaId);
         if (e2) toast.error(`No se pudo actualizar el saldo: ${e2.message}`);
-        else toast.success(`Depositado en ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
+        else toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
     }
@@ -325,19 +338,20 @@ function Page() {
   };
 
   const revertir = async (m: Mov) => {
-    if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
-    const depMatch = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "");
+    if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
+    const depMatch = /\[(DEP|DEB):([^\]]+)\]/.exec(m.observaciones ?? "");
     const { error } = await sb.from("fema_movimientos_pago")
       .update({
         estado: "en_cartera",
-        observaciones: (m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "").trim() || null,
+        observaciones: (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim() || null,
       }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
     if (depMatch) {
-      const cta = cuentas.find((c: any) => c.id === depMatch[1]);
+      const cta = cuentas.find((c: any) => c.id === depMatch[2]);
       if (cta) {
+        const signo = depMatch[1] === "DEB" ? 1 : -1;
         await sb.from("fema_cuentas_bancarias")
-          .update({ saldo: Number(cta.saldo || 0) - Number(m.monto) }).eq("id", cta.id);
+          .update({ saldo: Number(cta.saldo || 0) + signo * Number(m.monto) }).eq("id", cta.id);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
     }
@@ -448,6 +462,15 @@ function Page() {
                 <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1">
                   En fondos de inversión: <b className="text-blue-400">{formatPesos(totalFondos)}</b>
                 </span>
+                <span className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1">
+                  Echeqs propios a debitar: <b className="text-rose-400">{formatPesos(totalEmitidosPend)}</b>
+                </span>
+                <span className="rounded-md border border-border px-2 py-1">
+                  Saldo proyectado (caja − echeqs emitidos):{" "}
+                  <b className={totalVista - totalEmitidosPend < 0 ? "text-rose-400" : "text-foreground"}>
+                    {formatPesos(totalVista - totalEmitidosPend)}
+                  </b>
+                </span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -535,6 +558,70 @@ function Page() {
                 })}
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-rose-500/30">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold">Echeqs / cheques propios emitidos (pendientes de débito)</h3>
+              <p className="text-xs text-muted-foreground">
+                La factura ya queda abonada con el plan de pago elegido. El importe se descuenta de la caja
+                recién el día de la fecha de pago de cada documento: al llegar esa fecha, tocá <b>Debitar de caja</b>.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-rose-400 whitespace-nowrap">
+              {formatPesos(totalEmitidosPend)}
+            </span>
+          </div>
+          {emitidosPendientes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No hay echeqs propios pendientes de débito.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha de pago</TableHead>
+                  <TableHead>Instrumento</TableHead>
+                  <TableHead>Nº</TableHead>
+                  <TableHead>Beneficiario</TableHead>
+                  <TableHead>Banco</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emitidosPendientes.map((m) => {
+                  const hoyStr = new Date().toISOString().split("T")[0];
+                  const vence = m.vencimiento ?? "";
+                  const vencido = vence && vence < hoyStr;
+                  const hoyMismo = vence === hoyStr;
+                  return (
+                    <TableRow key={m.id} className={vencido ? "bg-rose-500/10" : hoyMismo ? "bg-amber-500/10" : ""}>
+                      <TableCell className="whitespace-nowrap">
+                        {vence ? formatFecha(vence) : "—"}
+                        {vencido && <Badge variant="outline" className="ml-2 border-rose-500/50 text-rose-400">A debitar</Badge>}
+                        {hoyMismo && <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-400">Hoy</Badge>}
+                      </TableCell>
+                      <TableCell>{INSTRUMENT_LABEL[m.instrumento]}</TableCell>
+                      <TableCell className="font-mono text-xs">{m.numero || "—"}</TableCell>
+                      <TableCell>{m.contraparte || "—"}</TableCell>
+                      <TableCell className="text-xs">{m.banco || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPesos(Number(m.monto))}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" className="border-rose-500/40 text-rose-400"
+                          onClick={() => cobrar(m)}>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />Debitar de caja
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
@@ -1808,13 +1895,21 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   const lista = vista.length ? vista : activas;
   const [cuentaId, setCuentaId] = useState<string>(lista[0]?.id ?? "");
   const cta = cuentas.find((c: any) => c.id === cuentaId);
+  const esPago = mov.direccion === "pago";
+  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(mov.monto) : 0;
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>Marcar como cobrado</DialogTitle>
+        <DialogTitle>{esPago ? "Debitar de caja" : "Marcar como cobrado"}</DialogTitle>
         <DialogDescription>
-          El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
-          caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.
+          {esPago ? (
+            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""}
+            {mov.vencimiento ? ` con fecha de pago ${formatFecha(mov.vencimiento)}` : ""} se <b>descuenta</b> de la
+            caja a la vista. La factura ya figura abonada; esto solo impacta el saldo del banco el día del cobro.</>
+          ) : (
+            <>El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
+            caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.</>
+          )}
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
@@ -1833,15 +1928,18 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
         {cta && (
           <p className="text-xs text-muted-foreground">
             Saldo actual {formatPesos(Number(cta.saldo || 0))} → nuevo saldo{" "}
-            <b className="text-emerald-400">{formatPesos(Number(cta.saldo || 0) + Number(mov.monto))}</b>
+            <b className={esPago ? "text-rose-400" : "text-emerald-400"}>{formatPesos(nuevoSaldo)}</b>
+            {esPago && nuevoSaldo < 0 && <span className="text-rose-400"> · saldo insuficiente en esa cuenta</span>}
           </p>
         )}
       </div>
       <DialogFooter className="gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button variant="ghost" onClick={() => onConfirm(null)}>Cobrar sin depositar</Button>
+        <Button variant="ghost" onClick={() => onConfirm(null)}>
+          {esPago ? "Marcar pagado sin debitar" : "Cobrar sin depositar"}
+        </Button>
         <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
-          Cobrar y acreditar
+          {esPago ? "Pagar y debitar" : "Cobrar y acreditar"}
         </Button>
       </DialogFooter>
     </DialogContent>
