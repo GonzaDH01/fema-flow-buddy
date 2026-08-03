@@ -367,6 +367,11 @@ function Page() {
                     ) : (
                       <>{r.tipo}-{r.numero ?? "—"}</>
                     )}
+                    {r.tipo_comprobante === "Comprobante provisorio" && (
+                      <Badge variant="outline" className="ml-1 border-amber-500/40 text-amber-500">
+                        s/factura
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
