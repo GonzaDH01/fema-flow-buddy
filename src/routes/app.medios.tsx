@@ -98,6 +98,7 @@ function Page() {
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
+  const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
@@ -257,9 +258,32 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
+    if (m.direccion === "cobro" && cuentas.length > 0) {
+      setDepositoMov(m);
+      return;
+    }
+    await aplicarCobro(m, null);
+  };
+
+  const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
+    const obs = cuentaId
+      ? `${(m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "")} [DEP:${cuentaId}]`.trim()
+      : m.observaciones;
     const { error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado" }).eq("id", m.id);
+      .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado", observaciones: obs })
+      .eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    if (cuentaId) {
+      const cta = cuentas.find((c: any) => c.id === cuentaId);
+      if (cta) {
+        const nuevo = Number(cta.saldo || 0) + Number(m.monto);
+        const { error: e2 } = await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: nuevo }).eq("id", cuentaId);
+        if (e2) toast.error(`No se pudo actualizar el saldo: ${e2.message}`);
+        else toast.success(`Depositado en ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
+        qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+      }
+    }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Estado actualizado");
@@ -270,9 +294,21 @@ function Page() {
 
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera'?")) return;
+    const depMatch = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "");
     const { error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: "en_cartera" }).eq("id", m.id);
+      .update({
+        estado: "en_cartera",
+        observaciones: (m.observaciones ?? "").replace(/\s*\[DEP:[^\]]+\]/g, "").trim() || null,
+      }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    if (depMatch) {
+      const cta = cuentas.find((c: any) => c.id === depMatch[1]);
+      if (cta) {
+        await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: Number(cta.saldo || 0) - Number(m.monto) }).eq("id", cta.id);
+        qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+      }
+    }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     toast.success("Echeq devuelto a cartera");
@@ -363,6 +399,10 @@ function Page() {
               <span className="text-xs text-muted-foreground">
                 Saldo total: <b>{formatPesos(totalSaldoBancos)}</b> · Usado para abonar facturas por transferencia
               </span>
+              <p className="text-xs text-muted-foreground mt-1">
+                Cargá primero el saldo que hoy figura en el banco (antes de marcar echeqs). Cada echeq
+                que marques como cobrado se suma automáticamente a la cuenta que elijas.
+              </p>
             </div>
             <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
               <Plus className="w-4 h-4 mr-2" />Agregar cuenta
@@ -487,6 +527,21 @@ function Page() {
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
               setOpenCta(false); setEditCta(null);
+            }}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!depositoMov} onOpenChange={(v) => { if (!v) setDepositoMov(null); }}>
+        {depositoMov && (
+          <DepositoDialog
+            mov={depositoMov}
+            cuentas={cuentas}
+            onClose={() => setDepositoMov(null)}
+            onConfirm={async (cuentaId) => {
+              const m = depositoMov;
+              setDepositoMov(null);
+              await aplicarCobro(m, cuentaId);
             }}
           />
         )}
@@ -1615,6 +1670,53 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
   );
 }
 
+function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
+  mov: Mov; cuentas: any[];
+  onClose: () => void; onConfirm: (cuentaId: string | null) => void;
+}) {
+  const activas = cuentas.filter((c: any) => c.activa !== false);
+  const [cuentaId, setCuentaId] = useState<string>(activas[0]?.id ?? "");
+  const cta = cuentas.find((c: any) => c.id === cuentaId);
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Marcar como cobrado</DialogTitle>
+        <DialogDescription>
+          Elegí en qué cuenta se acredita {formatPesos(mov.monto)}
+          {mov.numero ? ` del echeq Nº ${mov.numero}` : ""}. El saldo del banco se actualiza automáticamente.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cuenta de depósito">
+          <Select value={cuentaId} onValueChange={setCuentaId}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar cuenta" /></SelectTrigger>
+            <SelectContent>
+              {activas.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        {cta && (
+          <p className="text-xs text-muted-foreground">
+            Saldo actual {formatPesos(Number(cta.saldo || 0))} → nuevo saldo{" "}
+            <b className="text-emerald-400">{formatPesos(Number(cta.saldo || 0) + Number(mov.monto))}</b>
+          </p>
+        )}
+      </div>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="ghost" onClick={() => onConfirm(null)}>Cobrar sin depositar</Button>
+        <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
+          Cobrar y acreditar
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 function CuentaBancariaDialog({
   initial, userId, onClose, onSaved,
 }: {
@@ -1656,7 +1758,10 @@ function CuentaBancariaDialog({
     <DialogContent className="max-w-lg">
       <DialogHeader>
         <DialogTitle>{initial ? "Editar cuenta bancaria" : "Nueva cuenta bancaria"}</DialogTitle>
-        <DialogDescription>Registrá el saldo disponible para abonar por transferencia.</DialogDescription>
+        <DialogDescription>
+          Poné el saldo que hoy figura en el banco (antes de acreditar echeqs). Después, cada echeq
+          cobrado se suma solo a esta cuenta.
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
         <FormField label="Banco *">
@@ -1666,7 +1771,7 @@ function CuentaBancariaDialog({
           <FormField label="Alias / Titular">
             <Input value={alias} onChange={(e) => setAlias(e.target.value)} />
           </FormField>
-          <FormField label="Saldo disponible">
+          <FormField label="Saldo actual en el banco">
             <Input type="number" step="0.01" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
           </FormField>
         </div>
