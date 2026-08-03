@@ -99,6 +99,7 @@ function Page() {
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
+  const [openPase, setOpenPase] = useState(false);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
@@ -112,6 +113,35 @@ function Page() {
   });
   const cuentas = ctasQ.data ?? [];
   const totalSaldoBancos = cuentas.reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+  const totalVista = cuentas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista")
+    .reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+  const totalFondos = cuentas.filter((c: any) => c.tipo_cuenta === "fondo")
+    .reduce((s: number, c: any) => s + Number(c.saldo || 0), 0);
+
+  const fondosQ = useQuery({
+    queryKey: ["fema_mov_fondos", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_mov_fondos")
+        .select("*").order("fecha", { ascending: false }).limit(30);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const movFondos = fondosQ.data ?? [];
+
+  const eliminarMovFondo = async (m: any) => {
+    if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
+    const org = cuentas.find((c: any) => c.id === m.origen_id);
+    const dst = cuentas.find((c: any) => c.id === m.destino_id);
+    const { error } = await sb.from("fema_mov_fondos").delete().eq("id", m.id);
+    if (error) { toast.error(error.message); return; }
+    if (org) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(org.saldo || 0) + Number(m.monto) }).eq("id", org.id);
+    if (dst) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(dst.saldo || 0) - Number(m.monto) }).eq("id", dst.id);
+    toast.success("Pase eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
+  };
 
   const eliminarCta = async (id: string) => {
     if (!confirm("¿Eliminar cuenta bancaria?")) return;
@@ -411,10 +441,23 @@ function Page() {
                 Cargá primero el saldo que hoy figura en el banco (antes de marcar echeqs). Cada echeq
                 que marques como cobrado se suma automáticamente a la cuenta que elijas.
               </p>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+                  Caja a la vista: <b className="text-emerald-400">{formatPesos(totalVista)}</b>
+                </span>
+                <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1">
+                  En fondos de inversión: <b className="text-blue-400">{formatPesos(totalFondos)}</b>
+                </span>
+              </div>
             </div>
-            <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
-              <Plus className="w-4 h-4 mr-2" />Agregar cuenta
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setOpenPase(true)} disabled={cuentas.length < 2}>
+                <ArrowRight className="w-4 h-4 mr-2" />Mover dinero
+              </Button>
+              <Button size="sm" onClick={() => { setEditCta(null); setOpenCta(true); }}>
+                <Plus className="w-4 h-4 mr-2" />Agregar cuenta
+              </Button>
+            </div>
           </div>
           {cuentas.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
@@ -426,6 +469,7 @@ function Page() {
                 <TableRow>
                   <TableHead>Banco</TableHead>
                   <TableHead>Alias / Titular</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Nº Cuenta / CBU</TableHead>
                   <TableHead className="text-right">Saldo disponible</TableHead>
                   <TableHead>Estado</TableHead>
@@ -437,6 +481,15 @@ function Page() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.banco}</TableCell>
                     <TableCell>{c.alias || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.tipo_cuenta === "fondo" ? (
+                        <Badge variant="outline" className="border-blue-500/40 text-blue-400">
+                          Fondo · rescate {c.rescate === "24hs" ? "24 hs" : "inmediato"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-emerald-500/40 text-emerald-400">Caja a la vista</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {c.numero_cuenta || "—"}
                       {c.cbu ? <><br /><span className="text-muted-foreground">CBU: {c.cbu}</span></> : null}
@@ -458,8 +511,48 @@ function Page() {
               </TableBody>
             </Table>
           )}
+
+          {movFondos.length > 0 && (
+            <div className="pt-2">
+              <h4 className="text-xs uppercase text-muted-foreground mb-2">Últimos pases entre caja y fondos</h4>
+              <div className="space-y-1">
+                {movFondos.map((m: any) => {
+                  const org = cuentas.find((c: any) => c.id === m.origen_id);
+                  const dst = cuentas.find((c: any) => c.id === m.destino_id);
+                  const nom = (c: any) => (c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""}` : "—");
+                  return (
+                    <div key={m.id} className="flex items-center gap-2 text-xs border border-border/50 rounded-md px-2 py-1">
+                      <span className="text-muted-foreground">{formatFecha(m.fecha)}</span>
+                      <span>{nom(org)}</span>
+                      <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                      <span>{nom(dst)}</span>
+                      <span className="font-mono text-emerald-400 ml-auto">{formatPesos(Number(m.monto))}</span>
+                      <Button size="sm" variant="ghost" onClick={() => eliminarMovFondo(m)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={openPase} onOpenChange={setOpenPase}>
+        {openPase && user && (
+          <PaseFondosDialog
+            cuentas={cuentas}
+            userId={user.id}
+            onClose={() => setOpenPase(false)}
+            onSaved={() => {
+              setOpenPase(false);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Tabs value={tab} onValueChange={setTab}>
 
@@ -1759,11 +1852,111 @@ function CuentaBancariaDialog({
   initial: any | null; userId: string;
   onClose: () => void; onSaved: () => void;
 }) {
+  return <CuentaBancariaDialogInner initial={initial} userId={userId} onClose={onClose} onSaved={onSaved} />;
+}
+
+function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const vista = cuentas.filter((c) => (c.tipo_cuenta ?? "vista") === "vista");
+  const [origen, setOrigen] = useState<string>(vista[0]?.id ?? cuentas[0]?.id ?? "");
+  const [destino, setDestino] = useState<string>("");
+  const [monto, setMonto] = useState<string>("");
+  const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [obs, setObs] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const ctaOrigen = cuentas.find((c) => c.id === origen);
+  const ctaDestino = cuentas.find((c) => c.id === destino);
+  const importe = Number(monto) || 0;
+  const nom = (c: any) => (c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""} — ${formatPesos(Number(c.saldo || 0))}` : "");
+
+  const guardar = async () => {
+    if (!ctaOrigen || !ctaDestino || ctaOrigen.id === ctaDestino.id) { toast.error("Elegí origen y destino distintos"); return; }
+    if (importe <= 0) { toast.error("Ingresá el monto a mover"); return; }
+    if (importe > Number(ctaOrigen.saldo || 0)) { toast.error("El origen no tiene saldo suficiente"); return; }
+    setSaving(true);
+    const { error } = await sb.from("fema_mov_fondos").insert({
+      user_id: userId, fecha, origen_id: ctaOrigen.id, destino_id: ctaDestino.id,
+      monto: importe, observaciones: obs.trim() || null,
+      anio: Number(fecha.slice(0, 4)), mes: Number(fecha.slice(5, 7)),
+    });
+    if (error) { setSaving(false); toast.error(error.message); return; }
+    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaOrigen.saldo || 0) - importe }).eq("id", ctaOrigen.id);
+    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaDestino.saldo || 0) + importe }).eq("id", ctaDestino.id);
+    setSaving(false);
+    toast.success("Dinero movido");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Mover dinero entre caja y fondos</DialogTitle>
+        <DialogDescription>
+          Pasá plata de la caja a la vista a un fondo (o al revés). Los saldos se actualizan solos.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Desde">
+            <Select value={origen} onValueChange={setOrigen}>
+              <SelectTrigger><SelectValue placeholder="Origen" /></SelectTrigger>
+              <SelectContent>
+                {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{nom(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Hacia">
+            <Select value={destino} onValueChange={setDestino}>
+              <SelectTrigger><SelectValue placeholder="Destino" /></SelectTrigger>
+              <SelectContent>
+                {cuentas.filter((c) => c.id !== origen).map((c) => <SelectItem key={c.id} value={c.id}>{nom(c)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Monto">
+            <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
+          </FormField>
+          <FormField label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Observaciones">
+          <Textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} />
+        </FormField>
+        {ctaOrigen && ctaDestino && importe > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {ctaOrigen.banco}{ctaOrigen.alias ? ` · ${ctaOrigen.alias}` : ""} queda en{" "}
+            <b>{formatPesos(Number(ctaOrigen.saldo || 0) - importe)}</b> ·{" "}
+            {ctaDestino.banco}{ctaDestino.alias ? ` · ${ctaDestino.alias}` : ""} queda en{" "}
+            <b className="text-emerald-400">{formatPesos(Number(ctaDestino.saldo || 0) + importe)}</b>
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>Confirmar pase</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function CuentaBancariaDialogInner({
+  initial, userId, onClose, onSaved,
+}: {
+  initial: any | null; userId: string;
+  onClose: () => void; onSaved: () => void;
+}) {
   const [banco, setBanco] = useState(initial?.banco ?? "");
   const [alias, setAlias] = useState(initial?.alias ?? "");
   const [numeroCuenta, setNumeroCuenta] = useState(initial?.numero_cuenta ?? "");
   const [cbu, setCbu] = useState(initial?.cbu ?? "");
   const [saldo, setSaldo] = useState<string>(String(initial?.saldo ?? "0"));
+  const [tipoCuenta, setTipoCuenta] = useState<string>(initial?.tipo_cuenta ?? "vista");
+  const [rescate, setRescate] = useState<string>(initial?.rescate ?? "inmediato");
   const [observaciones, setObservaciones] = useState(initial?.observaciones ?? "");
   const [activa, setActiva] = useState<boolean>(initial?.activa ?? true);
   const [saving, setSaving] = useState(false);
@@ -1778,6 +1971,8 @@ function CuentaBancariaDialog({
       numero_cuenta: numeroCuenta.trim() || null,
       cbu: cbu.trim() || null,
       saldo: Number(saldo) || 0,
+      tipo_cuenta: tipoCuenta,
+      rescate: tipoCuenta === "fondo" ? rescate : null,
       observaciones: observaciones.trim() || null,
       activa,
     };
@@ -1810,6 +2005,28 @@ function CuentaBancariaDialog({
           <FormField label="Saldo actual en el banco">
             <Input type="number" step="0.01" value={saldo} onChange={(e) => setSaldo(e.target.value)} />
           </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tipo de cuenta">
+            <Select value={tipoCuenta} onValueChange={setTipoCuenta}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vista">Caja a la vista (para transferir)</SelectItem>
+                <SelectItem value="fondo">Fondo de inversión</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          {tipoCuenta === "fondo" && (
+            <FormField label="Plazo de rescate">
+              <Select value={rescate} onValueChange={setRescate}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inmediato">Rescate inmediato</SelectItem>
+                  <SelectItem value="24hs">Rescate en 24 hs</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Nº de cuenta">
