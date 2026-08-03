@@ -41,7 +41,8 @@ type PendienteRow = {
 const CATS_COMPRA = [
   "Gasoil_Combustible", "Repuestos_JD", "Repuestos", "Mecanicos", "Gomeria",
   "Inoculante", "Transportistas", "Seguros", "Servicios", "Herramientas",
-  "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro",
+  "Mano_de_Obra", "Honorarios", "Maquinaria_Rodados", "Pago_Creditos",
+  "Inversiones", "Franco_Particular", "Otro",
 ] as const;
 const CATS_VENTA = [
   "Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro",
@@ -50,6 +51,8 @@ const labelCat = (c: string) => {
   if (c === "Gasoil_Combustible") return "Gasoil / Combustible";
   if (c === "Mano_de_Obra") return "Mano de Obra";
   if (c === "Franco_Particular") return "Franco Particular";
+  if (c === "Maquinaria_Rodados") return "Maquinaria / Rodados";
+  if (c === "Pago_Creditos") return "Pago de créditos";
   return c.replace(/_/g, " ");
 };
 
