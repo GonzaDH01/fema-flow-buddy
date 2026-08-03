@@ -1811,13 +1811,21 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   const lista = vista.length ? vista : activas;
   const [cuentaId, setCuentaId] = useState<string>(lista[0]?.id ?? "");
   const cta = cuentas.find((c: any) => c.id === cuentaId);
+  const esPago = mov.direccion === "pago";
+  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(mov.monto) : 0;
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>Marcar como cobrado</DialogTitle>
+        <DialogTitle>{esPago ? "Debitar de caja" : "Marcar como cobrado"}</DialogTitle>
         <DialogDescription>
-          El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
-          caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.
+          {esPago ? (
+            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""}
+            {mov.vencimiento ? ` con fecha de pago ${formatFecha(mov.vencimiento)}` : ""} se <b>descuenta</b> de la
+            caja a la vista. La factura ya figura abonada; esto solo impacta el saldo del banco el día del cobro.</>
+          ) : (
+            <>El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
+            caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.</>
+          )}
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
@@ -1836,15 +1844,18 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
         {cta && (
           <p className="text-xs text-muted-foreground">
             Saldo actual {formatPesos(Number(cta.saldo || 0))} → nuevo saldo{" "}
-            <b className="text-emerald-400">{formatPesos(Number(cta.saldo || 0) + Number(mov.monto))}</b>
+            <b className={esPago ? "text-rose-400" : "text-emerald-400"}>{formatPesos(nuevoSaldo)}</b>
+            {esPago && nuevoSaldo < 0 && <span className="text-rose-400"> · saldo insuficiente en esa cuenta</span>}
           </p>
         )}
       </div>
       <DialogFooter className="gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button variant="ghost" onClick={() => onConfirm(null)}>Cobrar sin depositar</Button>
+        <Button variant="ghost" onClick={() => onConfirm(null)}>
+          {esPago ? "Marcar pagado sin debitar" : "Cobrar sin depositar"}
+        </Button>
         <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
-          Cobrar y acreditar
+          {esPago ? "Pagar y debitar" : "Cobrar y acreditar"}
         </Button>
       </DialogFooter>
     </DialogContent>
