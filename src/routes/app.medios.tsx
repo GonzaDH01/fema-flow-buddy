@@ -1804,23 +1804,25 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   onClose: () => void; onConfirm: (cuentaId: string | null) => void;
 }) {
   const activas = cuentas.filter((c: any) => c.activa !== false);
-  const [cuentaId, setCuentaId] = useState<string>(activas[0]?.id ?? "");
+  const vista = activas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista");
+  const lista = vista.length ? vista : activas;
+  const [cuentaId, setCuentaId] = useState<string>(lista[0]?.id ?? "");
   const cta = cuentas.find((c: any) => c.id === cuentaId);
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
         <DialogTitle>Marcar como cobrado</DialogTitle>
         <DialogDescription>
-          Elegí en qué cuenta se acredita {formatPesos(mov.monto)}
-          {mov.numero ? ` del echeq Nº ${mov.numero}` : ""}. El saldo del banco se actualiza automáticamente.
+          El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
+          caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
-        <FormField label="Cuenta de depósito">
+        <FormField label="Caja a la vista">
           <Select value={cuentaId} onValueChange={setCuentaId}>
             <SelectTrigger><SelectValue placeholder="Seleccionar cuenta" /></SelectTrigger>
             <SelectContent>
-              {activas.map((c: any) => (
+              {lista.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
                 </SelectItem>
