@@ -361,6 +361,11 @@ function Page() {
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
       const terceroNombre = (kind === "compra" ? result.emisor : (result.receptor ?? result.emisor))?.trim() || null;
+      if (esEmpresaPropia(terceroNombre)) {
+        setSaving(false);
+        toast.error(`"${terceroNombre}" es la empresa propia: no puede ser ${kind === "compra" ? "proveedor" : "cliente"}. Corregí el campo ${kind === "compra" ? "Emisor / proveedor" : "Receptor / cliente"} antes de guardar.`);
+        return;
+      }
       const terceroCuitRaw = (kind === "compra" ? result.cuit_emisor : (result.cuit_receptor ?? result.cuit_emisor)) ?? null;
       const terceroCuit = onlyDigits(terceroCuitRaw) || null;
 
