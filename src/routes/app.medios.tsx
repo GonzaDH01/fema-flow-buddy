@@ -904,6 +904,7 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
 }
 
 function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
+
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
   onDeleteMany?: (ids: string[]) => Promise<boolean>; onRecibo: (m: Mov) => void;
