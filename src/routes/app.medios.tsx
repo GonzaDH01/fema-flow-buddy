@@ -1481,7 +1481,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             if (error) throw error;
           }
           for (const c of filasValidas) {
-            const base: any = {
+            const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
               instrumento: instrumento as any,
               direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
               tipo_movimiento: tipo,
@@ -1490,18 +1490,25 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               numero: c.numero || null,
               banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: Number(c.monto),
-              estado, observaciones: c.obs || observaciones || null,
-              factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-              factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
+              monto: m,
+              estado,
+              observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+              factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
+              factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
               anio: year, mes,
-            };
+            });
             if (c.id) {
-              const { error } = await sb.from("fema_movimientos_pago").update(base).eq("id", c.id);
+              const { error } = await sb.from("fema_movimientos_pago").update(mkBase(facturaSel, Number(c.monto))).eq("id", c.id);
               if (error) throw error;
             } else {
-              const { error } = await sb.from("fema_movimientos_pago").insert({ ...base, user_id: userId });
-              if (error) throw error;
+              const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+              for (const chunk of repartir(Number(c.monto))) {
+                const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
+                const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
+                const { error } = await sb.from("fema_movimientos_pago")
+                  .insert({ ...mkBase(chunk.facturaId, chunk.monto, obsExtra), user_id: userId });
+                if (error) throw error;
+              }
             }
           }
         }
