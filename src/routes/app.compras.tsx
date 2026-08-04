@@ -396,6 +396,11 @@ function Page() {
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
+                    {programadoDe(r.id) > 0.01 && (
+                      <div className="text-[11px] text-amber-500">
+                        +{formatPesos(programadoDe(r.id))} programado
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className={`text-right font-semibold ${saldoDe(r) <= 0.01 ? "text-primary" : "text-accent"}`}>
                     {formatPesos(saldoDe(r))}
@@ -403,13 +408,18 @@ function Page() {
                   <TableCell>
                     {r.estado === "pagada"
                       ? <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
+                      : programadoDe(r.id) > 0.01
+                        ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">
+                            ● Plan de pago ({planDe(r.id)?.docs ?? 0} doc.)
+                            {planDe(r.id)?.prox ? ` · desde ${formatFecha(planDe(r.id)!.prox!)}` : ""}
+                          </Badge>
                       : pagadoDe(r.id) > 0.01
                         ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">● Pago parcial</Badge>
                         : <Badge variant="outline" className="text-accent border-accent/40">● Pendiente</Badge>}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01) && (
+                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
                           <Receipt className="h-3 w-3" /> Recibo
