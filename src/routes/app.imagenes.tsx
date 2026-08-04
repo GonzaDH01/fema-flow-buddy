@@ -317,6 +317,270 @@ function Page() {
           <TabsTrigger value="venta">
             <Receipt className="mr-1.5 h-4 w-4" /> Ventas / Servicios
           </TabsTrigger>
+          <TabsTrigger value="control">
+            <ShieldCheck className="mr-1.5 h-4 w-4" /> Control
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="compra" className="mt-4">
+          <Panel kind="compra" />
+        </TabsContent>
+        <TabsContent value="venta" className="mt-4">
+          <Panel kind="venta" />
+        </TabsContent>
+        <TabsContent value="control" className="mt-4">
+          <ControlPanel />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+type StoredFile = { path: string; size: number | null; created: string | null };
+
+async function listAll(prefix: string): Promise<StoredFile[]> {
+  const out: StoredFile[] = [];
+  const { data, error } = await supabase.storage.from("facturas-img").list(prefix, { limit: 1000 });
+  if (error) throw error;
+  for (const entry of data ?? []) {
+    const full = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.id === null || entry.metadata == null) {
+      out.push(...(await listAll(full)));
+    } else {
+      out.push({
+        path: full,
+        size: (entry.metadata as any)?.size ?? null,
+        created: entry.created_at ?? null,
+      });
+    }
+  }
+  return out;
+}
+
+function useControl() {
+  return useQuery({
+    queryKey: ["imagenes-control"],
+    queryFn: async () => {
+      const [compras, ventas, archivos] = await Promise.all([
+        supabase.from("fema_facturas_compra").select("id, fecha, numero, total, imagen_path"),
+        supabase.from("fema_facturas_venta").select("id, fecha, numero, total, imagen_path"),
+        listAll(""),
+      ]);
+      if (compras.error) throw compras.error;
+      if (ventas.error) throw ventas.error;
+
+      const refs = new Map<string, { kind: Kind; id: string; numero: string | null }>();
+      for (const r of compras.data ?? []) {
+        if (r.imagen_path) refs.set(r.imagen_path, { kind: "compra", id: r.id, numero: r.numero });
+      }
+      for (const r of ventas.data ?? []) {
+        if (r.imagen_path) refs.set(r.imagen_path, { kind: "venta", id: r.id, numero: r.numero });
+      }
+
+      const existentes = new Set(archivos.map((a) => a.path));
+      const huerfanas = archivos.filter((a) => !refs.has(a.path));
+      const rotas = [...(compras.data ?? []), ...(ventas.data ?? [])]
+        .filter((r: any) => r.imagen_path && !existentes.has(r.imagen_path));
+      const sinImagen = (compras.data ?? []).filter((r: any) => !r.imagen_path);
+
+      return {
+        totalArchivos: archivos.length,
+        totalCompras: (compras.data ?? []).length,
+        vinculadas: (compras.data ?? []).filter((r: any) => r.imagen_path).length,
+        huerfanas,
+        rotas,
+        sinImagen,
+      };
+    },
+  });
+}
+
+function ControlPanel() {
+  const qc = useQueryClient();
+  const { data, isLoading, refetch, isFetching } = useControl();
+  const [busy, setBusy] = useState(false);
+
+  const abrir = async (path: string) => {
+    try { window.open(await signedUrl(path), "_blank"); }
+    catch (e: any) { toast.error(e.message ?? "Error al abrir imagen"); }
+  };
+
+  const borrarHuerfanas = async () => {
+    if (!data?.huerfanas.length) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.storage
+        .from("facturas-img")
+        .remove(data.huerfanas.map((h) => h.path));
+      if (error) throw error;
+      toast.success(`${data.huerfanas.length} archivo(s) sin factura eliminados`);
+      qc.invalidateQueries({ queryKey: ["imagenes-control"] });
+      qc.invalidateQueries({ queryKey: ["imagenes"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al eliminar");
+    } finally { setBusy(false); }
+  };
+
+  const limpiarRotas = async () => {
+    if (!data?.rotas.length) return;
+    setBusy(true);
+    try {
+      for (const kind of ["fema_facturas_compra", "fema_facturas_venta"] as const) {
+        const ids = data.rotas.map((r: any) => r.id);
+        await supabase.from(kind).update({ imagen_path: null }).in("id", ids);
+      }
+      toast.success("Referencias rotas limpiadas");
+      qc.invalidateQueries({ queryKey: ["imagenes-control"] });
+      qc.invalidateQueries({ queryKey: ["imagenes"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al limpiar");
+    } finally { setBusy(false); }
+  };
+
+  if (isLoading) return <Skeleton className="h-40 w-full" />;
+  if (!data) return null;
+
+  const ok = data.huerfanas.length === 0 && data.rotas.length === 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+        {ok ? (
+          <span className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+            <CheckCircle2 className="h-4 w-4" /> Todas las imágenes están asociadas a una factura
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-sm font-medium text-amber-600">
+            <AlertTriangle className="h-4 w-4" /> Se detectaron inconsistencias
+          </span>
+        )}
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Badge variant="secondary">{data.totalArchivos} archivo(s) en almacenamiento</Badge>
+          <Badge variant="secondary">{data.vinculadas}/{data.totalCompras} compras con imagen</Badge>
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+            Revisar de nuevo
+          </Button>
+        </div>
+      </div>
+
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <Link2Off className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Imágenes sin factura asociada</h3>
+          <Badge variant={data.huerfanas.length ? "destructive" : "secondary"}>{data.huerfanas.length}</Badge>
+          {data.huerfanas.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive" className="ml-auto" disabled={busy}>
+                  <Trash2 className="mr-1.5 h-4 w-4" /> Eliminar todas
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminar imágenes sin factura</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se eliminarán {data.huerfanas.length} archivo(s) que no están vinculados a
+                    ninguna factura de compra ni de venta. Revisalas antes: esta acción no se
+                    puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={borrarHuerfanas}>Eliminar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+        {data.huerfanas.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">Sin archivos huérfanos.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {data.huerfanas.map((h) => (
+              <li key={h.path} className="flex items-center gap-3 px-4 py-2 text-sm">
+                <span className="truncate">{h.path}</span>
+                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
+                  {h.size ? `${Math.round(h.size / 1024)} KB` : "—"}
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => abrir(h.path)}>
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Facturas con imagen inexistente</h3>
+          <Badge variant={data.rotas.length ? "destructive" : "secondary"}>{data.rotas.length}</Badge>
+          {data.rotas.length > 0 && (
+            <Button size="sm" variant="outline" className="ml-auto" onClick={limpiarRotas} disabled={busy}>
+              Limpiar referencias
+            </Button>
+          )}
+        </div>
+        {data.rotas.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">Sin referencias rotas.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {data.rotas.map((r: any) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                <span>{r.fecha}</span>
+                <span className="text-muted-foreground">{r.numero ?? "—"}</span>
+                <span className="ml-auto truncate text-xs text-muted-foreground">{r.imagen_path}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <FileImage className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Compras sin imagen adjunta</h3>
+          <Badge variant="secondary">{data.sinImagen.length}</Badge>
+        </div>
+        {data.sinImagen.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">Todas las compras tienen comprobante escaneado.</p>
+        ) : (
+          <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+            {data.sinImagen.map((r: any) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                <span>{r.fecha}</span>
+                <span className="text-muted-foreground">{r.numero ?? "—"}</span>
+                <span className="ml-auto">
+                  {r.total != null ? Number(r.total).toLocaleString("es-AR", { style: "currency", currency: "ARS" }) : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PageOld() {
+  return (
+    <div className="p-4 md:p-6">
+      <header className="mb-6">
+        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Facturas</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Archivo de comprobantes escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
+        </p>
+      </header>
+
+      <Tabs defaultValue="compra">
+        <TabsList>
+          <TabsTrigger value="compra">
+            <ShoppingCart className="mr-1.5 h-4 w-4" /> Compras
+          </TabsTrigger>
+          <TabsTrigger value="venta">
+            <Receipt className="mr-1.5 h-4 w-4" /> Ventas / Servicios
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="compra" className="mt-4">
           <Panel kind="compra" />
