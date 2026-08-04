@@ -436,9 +436,10 @@ function Page() {
       }
     }
 
-    if (hijos.length > 0) {
+    const hijosNoSeleccionados = hijos.filter((h) => !idsUnicos.includes(h.id));
+    if (hijosNoSeleccionados.length > 0) {
       const { error } = await sb.from("fema_movimientos_pago").delete()
-        .in("id", hijos.map((h) => h.id));
+        .in("id", hijosNoSeleccionados.map((h) => h.id));
       if (error) { toast.error(`No se pudieron eliminar las cesiones relacionadas: ${error.message}`); return false; }
     }
     const { data: borrados, error } = await sb.from("fema_movimientos_pago")
