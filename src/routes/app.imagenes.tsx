@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 import {
   Image as ImageIcon, Download, Trash2, ShoppingCart, Receipt, FileImage, Loader2,
+  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
