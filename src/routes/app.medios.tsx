@@ -384,39 +384,106 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
   };
 
-  const eliminar = async (m: Mov) => {
-    if (!confirm("¿Eliminar movimiento?")) return;
-    // Si es una cesión, devolver el echeq de origen a cartera
-    if (m.instrumento === "cesion" && m.echeq_origen_id) {
-      await sb.from("fema_movimientos_pago")
-        .update({ estado: "en_cartera", observaciones: null })
-        .eq("id", m.echeq_origen_id);
+  const eliminarMovimientos = async (ids: string[]): Promise<boolean> => {
+    const idsUnicos = Array.from(new Set(ids));
+    if (idsUnicos.length === 0) return false;
+
+    const seleccionados = movs.filter((m) => idsUnicos.includes(m.id));
+    if (seleccionados.length !== idsUnicos.length) {
+      toast.error("La lista cambió. Actualizá la pantalla y volvé a seleccionar los movimientos.");
+      await movsQ.refetch();
+      return false;
     }
-    // Si el echeq fue cedido, borrar primero la cesión que lo referencia
-    await sb.from("fema_movimientos_pago").delete().eq("echeq_origen_id", m.id);
-    const { error: dErr } = await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
-    if (dErr) { toast.error(`No se pudo eliminar: ${dErr.message}`); return; }
-    await reconciliarFactura(m.factura_venta_id, "venta");
-    await reconciliarFactura(m.factura_compra_id, "compra");
-    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
-    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
-    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
-    qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
-    qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
-    toast.success("Eliminado");
+
+    // Las cesiones hijas deben eliminarse antes que el echeq que las originó.
+    const { data: cesionesHijas, error: hijosError } = await sb.from("fema_movimientos_pago")
+      .select("*").in("echeq_origen_id", idsUnicos);
+    if (hijosError) {
+      toast.error(`No se pudieron revisar las cesiones relacionadas: ${hijosError.message}`);
+      return false;
+    }
+    const hijos = (cesionesHijas ?? []) as Mov[];
+    const todosAEliminar = [...seleccionados, ...hijos.filter((h) => !idsUnicos.includes(h.id))];
+    const idsTodos = Array.from(new Set(todosAEliminar.map((m) => m.id)));
+
+    // Si se elimina únicamente la cesión, el echeq original vuelve a cartera.
+    const origenesAReponer = Array.from(new Set(seleccionados
+      .filter((m) => m.instrumento === "cesion" && m.echeq_origen_id && !idsUnicos.includes(m.echeq_origen_id))
+      .map((m) => m.echeq_origen_id)
+      .filter((id): id is string => Boolean(id))));
+    if (origenesAReponer.length > 0) {
+      const { error } = await sb.from("fema_movimientos_pago")
+        .update({ estado: "en_cartera", observaciones: null }).in("id", origenesAReponer);
+      if (error) { toast.error(`No se pudo devolver el echeq a cartera: ${error.message}`); return false; }
+    }
+
+    // Revertir depósitos/débitos bancarios registrados por estos movimientos.
+    const ajustesCuenta = new Map<string, number>();
+    for (const m of todosAEliminar) {
+      const match = /\[(DEP|DEB):([^\]]+)\]/.exec(m.observaciones ?? "");
+      if (!match) continue;
+      const delta = match[1] === "DEB" ? Number(m.monto) : -Number(m.monto);
+      ajustesCuenta.set(match[2], (ajustesCuenta.get(match[2]) ?? 0) + delta);
+    }
+    for (const [cuentaId, delta] of ajustesCuenta) {
+      const { data: cuenta, error: cuentaError } = await sb.from("fema_cuentas_bancarias")
+        .select("id,saldo").eq("id", cuentaId).maybeSingle();
+      if (cuentaError) { toast.error(`No se pudo revisar el saldo bancario: ${cuentaError.message}`); return false; }
+      if (cuenta) {
+        const { error } = await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: Number(cuenta.saldo || 0) + delta }).eq("id", cuentaId);
+        if (error) { toast.error(`No se pudo revertir el saldo bancario: ${error.message}`); return false; }
+      }
+    }
+
+    const hijosNoSeleccionados = hijos.filter((h) => !idsUnicos.includes(h.id));
+    if (hijosNoSeleccionados.length > 0) {
+      const { error } = await sb.from("fema_movimientos_pago").delete()
+        .in("id", hijosNoSeleccionados.map((h) => h.id));
+      if (error) { toast.error(`No se pudieron eliminar las cesiones relacionadas: ${error.message}`); return false; }
+    }
+    const { data: borrados, error } = await sb.from("fema_movimientos_pago")
+      .delete().in("id", idsUnicos).select("id");
+    if (error) { toast.error(`No se pudieron eliminar: ${error.message}`); return false; }
+    if ((borrados ?? []).length !== idsUnicos.length) {
+      toast.error(`Se eliminaron ${(borrados ?? []).length} de ${idsUnicos.length}. La lista se actualizará para evitar inconsistencias.`);
+      await movsQ.refetch();
+      return false;
+    }
+
+    const facturasVenta = Array.from(new Set(todosAEliminar.map((m) => m.factura_venta_id).filter((id): id is string => Boolean(id))));
+    const facturasCompra = Array.from(new Set(todosAEliminar.map((m) => m.factura_compra_id).filter((id): id is string => Boolean(id))));
+    await Promise.all([
+      ...facturasVenta.map((id) => reconciliarFactura(id, "venta")),
+      ...facturasCompra.map((id) => reconciliarFactura(id, "compra")),
+    ]);
+
+    // Quitar inmediatamente las filas y luego confirmar contra la base.
+    qc.setQueryData<Mov[]>(["fema_movimientos_pago", user?.id, year], (actuales) =>
+      (actuales ?? []).filter((m) => !idsTodos.includes(m.id)));
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] }),
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] }),
+      qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] }),
+      qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] }),
+      qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] }),
+      qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      qc.invalidateQueries({ queryKey: ["cashflow-matrix"] }),
+    ]);
+    await movsQ.refetch();
+    toast.success(`${idsUnicos.length} movimiento(s) eliminados y relaciones actualizadas`);
+    return true;
   };
 
-  const eliminarVarios = async (ids: string[]) => {
-    if (ids.length === 0) return;
-    if (!confirm(`¿Eliminar ${ids.length} movimiento(s)? Esta acción no se puede deshacer.`)) return;
-    // liberar referencias de cesiones que apunten a estos movimientos
-    await sb.from("fema_movimientos_pago").delete().in("echeq_origen_id", ids);
-    const { error } = await sb.from("fema_movimientos_pago").delete().in("id", ids);
-    if (error) { toast.error(`No se pudieron eliminar: ${error.message}`); return; }
-    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
-    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
-    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
-    toast.success(`${ids.length} movimiento(s) eliminados`);
+  const eliminar = async (m: Mov) => {
+    if (!confirm("¿Eliminar movimiento? Se actualizarán también sus relaciones, saldos y facturas.")) return;
+    await eliminarMovimientos([m.id]);
+  };
+
+  const eliminarVarios = async (ids: string[]): Promise<boolean> => {
+    if (ids.length === 0) return false;
+    if (!confirm(`¿Eliminar ${ids.length} movimiento(s)? Se actualizarán cesiones, saldos bancarios y facturas relacionadas.`)) return false;
+    return eliminarMovimientos(ids);
   };
 
   const exportar = () => {
@@ -808,9 +875,10 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
 function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
-  onDeleteMany?: (ids: string[]) => void; onRecibo: (m: Mov) => void;
+  onDeleteMany?: (ids: string[]) => Promise<boolean>; onRecibo: (m: Mov) => void;
 }) {
   const [sel, setSel] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
   const visibles = rows.map(r => r.id);
   const seleccionados = sel.filter(id => visibles.includes(id));
   const toggle = (id: string) =>
@@ -832,8 +900,16 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
         <span>{seleccionados.length} seleccionado(s)</span>
         <div className="flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setSel([])}>Cancelar</Button>
-          <Button size="sm" variant="destructive" onClick={() => { onDeleteMany(seleccionados); setSel([]); }}>
-            <Trash2 className="w-3 h-3 mr-1" />Eliminar seleccionados
+          <Button size="sm" variant="destructive" disabled={deleting} onClick={async () => {
+            setDeleting(true);
+            try {
+              const eliminado = await onDeleteMany(seleccionados);
+              if (eliminado) setSel([]);
+            } finally {
+              setDeleting(false);
+            }
+          }}>
+            <Trash2 className="w-3 h-3 mr-1" />{deleting ? "Eliminando…" : "Eliminar seleccionados"}
           </Button>
         </div>
       </div>
