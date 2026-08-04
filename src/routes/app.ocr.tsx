@@ -717,12 +717,27 @@ function Page() {
                   ))}
                 </select>
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Tipo de comprobante (editable)</Label>
+                <select
+                  value={normalizarTipoComprobante(result.tipo)}
+                  onChange={(e) => setResult({ ...result, tipo: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  {TIPOS_COMPROBANTE.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Letra</Label>
+                <Input value={result.letra ?? "—"} readOnly className="mt-1 h-8 text-sm" />
+              </div>
               <EditableOCRField label="Emisor / proveedor" value={result.emisor ?? ""} onChange={(value) => setResult({ ...result, emisor: value })} />
               <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(value) => setResult({ ...result, cuit_emisor: onlyDigits(value) })} />
               <EditableOCRField label="Receptor / cliente" value={result.receptor ?? ""} onChange={(value) => setResult({ ...result, receptor: value })} />
               <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(value) => setResult({ ...result, cuit_receptor: onlyDigits(value) })} />
               {[
-                ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
