@@ -1010,6 +1010,7 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
           </TableHead>
           <TableHead>Tipo</TableHead>
           <TableHead>Dirección</TableHead>
+          <TableHead>Origen</TableHead>
           <TableHead>Fecha emisión</TableHead>
           <TableHead>Fecha de pago</TableHead>
           <TableHead>Origen / Destino</TableHead>
@@ -1035,6 +1036,19 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
               <Badge variant="outline" className={m.direccion === "cobro" ? "border-emerald-500/40 text-emerald-400" : "border-rose-500/40 text-rose-400"}>
                 {m.direccion === "cobro" ? "Cobro" : "Pago"}
               </Badge>
+            </TableCell>
+            <TableCell>
+              {(m.instrumento === "echeq" || m.instrumento === "cheque_fisico") ? (
+                m.direccion === "pago" ? (
+                  <Badge variant="outline" className="border-amber-500/50 text-amber-400">Propio / emitido</Badge>
+                ) : (
+                  <Badge variant="outline" className="border-sky-500/50 text-sky-400">De tercero</Badge>
+                )
+              ) : m.instrumento === "cesion" ? (
+                <Badge variant="outline" className="border-violet-500/50 text-violet-400">Echeq cedido</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </TableCell>
             <TableCell className="text-xs">{formatFecha(m.fecha_emision)}</TableCell>
             <TableCell className="text-xs">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</TableCell>
