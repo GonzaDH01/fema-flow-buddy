@@ -93,6 +93,46 @@ const compatibleName = (a: string | null | undefined, b: string | null | undefin
   return left === right || left.includes(right) || right.includes(left);
 };
 
+// La empresa propia nunca puede ser proveedor (en compras) ni cliente (en ventas).
+const EMPRESA_PROPIA = /fema\s*agro/i;
+const esEmpresaPropia = (nombre?: string | null) => EMPRESA_PROPIA.test((nombre ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
+/** Si el modelo confundió emisor y receptor (típico: pone a FEMA como emisor en una
+ *  factura de compra), invierte los bloques para que el tercero sea el correcto. */
+function corregirPartes(r: OCRResult, kind: DocKind): OCRResult {
+  const debeInvertir = kind === "compra"
+    ? esEmpresaPropia(r.emisor) && !esEmpresaPropia(r.receptor) && !!(r.receptor ?? r.cuit_receptor)
+    : esEmpresaPropia(r.receptor) && !esEmpresaPropia(r.emisor) && !!(r.emisor ?? r.cuit_emisor);
+  if (!debeInvertir) return r;
+  return {
+    ...r,
+    emisor: r.receptor ?? null, receptor: r.emisor ?? null,
+    cuit_emisor: r.cuit_receptor ?? null, cuit_receptor: r.cuit_emisor ?? null,
+    emisor_domicilio: r.receptor_domicilio ?? null, receptor_domicilio: r.emisor_domicilio ?? null,
+    emisor_localidad: r.receptor_localidad ?? null, receptor_localidad: r.emisor_localidad ?? null,
+    emisor_telefono: r.receptor_telefono ?? null, receptor_telefono: r.emisor_telefono ?? null,
+    emisor_email: r.receptor_email ?? null, receptor_email: r.emisor_email ?? null,
+    emisor_condicion_iva: r.receptor_condicion_iva ?? null, receptor_condicion_iva: r.emisor_condicion_iva ?? null,
+    emisor_iibb: r.receptor_iibb ?? null, receptor_iibb: r.emisor_iibb ?? null,
+  };
+}
+
+const TIPOS_COMPROBANTE = [
+  "Factura", "Nota de crédito", "Nota de débito", "Recibo", "Ticket",
+  "Comprobante provisorio", "Remito", "Otro",
+] as const;
+const normalizarTipoComprobante = (t?: string | null) => {
+  const v = (t ?? "").toLowerCase();
+  if (v.includes("credito") || v.includes("crédito")) return "Nota de crédito";
+  if (v.includes("debito") || v.includes("débito")) return "Nota de débito";
+  if (v.includes("recibo")) return "Recibo";
+  if (v.includes("ticket")) return "Ticket";
+  if (v.includes("remito")) return "Remito";
+  if (v.includes("provisor")) return "Comprobante provisorio";
+  if (v.includes("factura")) return "Factura";
+  return "Otro";
+};
+
 function Page() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -278,9 +318,13 @@ function Page() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error al procesar");
-      const parsed = (json.data ?? json) as OCRResult;
+      const crudo = (json.data ?? json) as OCRResult;
+      const parsed = { ...corregirPartes(crudo, kind), tipo: normalizarTipoComprobante(crudo.tipo) };
       setResult(parsed);
-      toast.success("Factura analizada");
+      if (parsed.emisor !== crudo.emisor) {
+        toast.warning("Detecté a FEMA Agronegocios como emisor: invertí emisor y receptor. Revisá los datos.");
+      }
+      toast.success("Comprobante analizado");
       const existente = await buscarDuplicado(parsed);
       if (existente) setDupe(existente);
     } catch (e: any) {
@@ -317,6 +361,11 @@ function Page() {
       const tipo = (["A", "B", "C", "M", "E"].includes(letra) ? letra : "B") as "A"|"B"|"C"|"M"|"E";
       // Nombre del tercero: en compras es el emisor; en ventas el receptor (fallback emisor)
       const terceroNombre = (kind === "compra" ? result.emisor : (result.receptor ?? result.emisor))?.trim() || null;
+      if (esEmpresaPropia(terceroNombre)) {
+        setSaving(false);
+        toast.error(`"${terceroNombre}" es la empresa propia: no puede ser ${kind === "compra" ? "proveedor" : "cliente"}. Corregí el campo ${kind === "compra" ? "Emisor / proveedor" : "Receptor / cliente"} antes de guardar.`);
+        return;
+      }
       const terceroCuitRaw = (kind === "compra" ? result.cuit_emisor : (result.cuit_receptor ?? result.cuit_emisor)) ?? null;
       const terceroCuit = onlyDigits(terceroCuitRaw) || null;
 
@@ -419,7 +468,7 @@ function Page() {
         iva_105: result.iva_105 ?? 0,
         percepciones: result.percepciones ?? 0,
         total: result.total ?? 0,
-        tipo_comprobante: result.tipo ?? "Factura",
+        tipo_comprobante: normalizarTipoComprobante(result.tipo),
         observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
       };
       // Subir imagen al bucket privado
@@ -668,12 +717,27 @@ function Page() {
                   ))}
                 </select>
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Tipo de comprobante (editable)</Label>
+                <select
+                  value={normalizarTipoComprobante(result.tipo)}
+                  onChange={(e) => setResult({ ...result, tipo: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  {TIPOS_COMPROBANTE.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Letra</Label>
+                <Input value={result.letra ?? "—"} readOnly className="mt-1 h-8 text-sm" />
+              </div>
               <EditableOCRField label="Emisor / proveedor" value={result.emisor ?? ""} onChange={(value) => setResult({ ...result, emisor: value })} />
               <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(value) => setResult({ ...result, cuit_emisor: onlyDigits(value) })} />
               <EditableOCRField label="Receptor / cliente" value={result.receptor ?? ""} onChange={(value) => setResult({ ...result, receptor: value })} />
               <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(value) => setResult({ ...result, cuit_receptor: onlyDigits(value) })} />
               {[
-                ["Tipo", result.tipo], ["Letra", result.letra ?? "—"],
                 ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
                 ["Es combustible", result.es_combustible ? "Sí" : "No"],
                 ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
