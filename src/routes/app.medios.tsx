@@ -309,13 +309,28 @@ function Page() {
   const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
     const esPago = m.direccion === "pago";
     const marca = esPago ? "DEB" : "DEP";
+    const nuevoEstado = esPago ? "pagado" : "cobrado";
     const obs = cuentaId
       ? `${(m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "")} [${marca}:${cuentaId}]`.trim()
       : m.observaciones;
-    const { error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: m.direccion === "cobro" ? "cobrado" : "pagado", observaciones: obs })
-      .eq("id", m.id);
+    const { data: upd, error } = await sb.from("fema_movimientos_pago")
+      .update({ estado: nuevoEstado, observaciones: obs })
+      .eq("id", m.id)
+      .select("id,estado,observaciones");
     if (error) { toast.error(error.message); return; }
+    if (!upd || upd.length === 0) {
+      // Verificar si realmente cambió (algunas respuestas no devuelven filas)
+      const { data: check } = await sb.from("fema_movimientos_pago")
+        .select("estado").eq("id", m.id).maybeSingle();
+      if (!check || check.estado !== nuevoEstado) {
+        toast.error("No se pudo actualizar el estado del movimiento.");
+        await movsQ.refetch();
+        return;
+      }
+    }
+    // Actualización inmediata en pantalla
+    qc.setQueryData(["fema_movimientos_pago", user?.id, year], (old: Mov[] | undefined) =>
+      (old ?? []).map(x => x.id === m.id ? { ...x, estado: nuevoEstado as Mov["estado"], observaciones: obs ?? null } : x));
     if (cuentaId) {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
@@ -326,11 +341,12 @@ function Page() {
         else toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
+    } else {
+      toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
     }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
-    toast.success("Estado actualizado");
-    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    await movsQ.refetch();
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
