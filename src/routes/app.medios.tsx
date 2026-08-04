@@ -1182,6 +1182,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [tipo, setTipo] = useState<Tipo>(initial?.tipo_movimiento ?? "cobro_cliente");
   const [busqFact, setBusqFact] = useState("");
   const [facturaSel, setFacturaSel] = useState<string | null>(initial?.factura_venta_id ?? initial?.factura_compra_id ?? null);
+  // Pago a proveedor: selección múltiple de facturas del MISMO proveedor
+  const [facturasMulti, setFacturasMulti] = useState<string[]>(
+    initial?.factura_compra_id ? [initial.factura_compra_id] : []
+  );
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
@@ -1250,10 +1254,28 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     return list.find(f => f.id === facturaSel) ?? null;
   }, [facturaSel, tipo, facturasVenta, facturasCompra]);
 
+  const multiActivo = tipo === "pago_proveedor" && !initial;
+  const facturasSeleccionadas = useMemo(
+    () => facturasMulti.map(id => facturasCompra.find(f => f.id === id)).filter(Boolean) as any[],
+    [facturasMulti, facturasCompra]);
+  const proveedorSel = facturasSeleccionadas[0]?.proveedor_id ?? null;
+  const totalMulti = useMemo(
+    () => facturasSeleccionadas.reduce((a, f) => a + Number(f.total || 0), 0),
+    [facturasSeleccionadas]);
+  const toggleFacturaMulti = (f: any) => {
+    setFacturasMulti(prev => {
+      const next = prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id];
+      setFacturaSel(next[0] ?? null);
+      return next;
+    });
+  };
+
   const totalCargado = useMemo(
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
-  const totalFactura = Number(facturaActual?.total ?? monto ?? 0);
+  const totalFactura = multiActivo && facturasSeleccionadas.length > 0
+    ? totalMulti
+    : Number(facturaActual?.total ?? monto ?? 0);
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
 
@@ -1294,6 +1316,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   useEffect(() => {
     if (initial) return; // edición de un único movimiento
     if (tipo !== "cobro_cliente" && tipo !== "pago_proveedor") return;
+    if (facturasMulti.length > 1) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     if (!facturaSel) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     const col = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
     sb.from("fema_movimientos_pago")
@@ -1318,14 +1341,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         setPlanCargado(true);
         toast.message(`Plan de ${data.length} cuotas cargado desde la factura. Podés editarlo antes de confirmar.`);
       });
-  }, [facturaSel, tipo, initial]);
+  }, [facturaSel, tipo, initial, facturasMulti.length]);
 
   const facturasFiltradas = useMemo(() => {
     const list = tipo === "cobro_cliente" ? facturasVenta : tipo === "pago_proveedor" ? facturasCompra : [];
-    if (!busqFact) return list.slice(0, 6);
-    const q = busqFact.toLowerCase();
-    return list.filter(f => [f.numero, f.trabajo, f.proveedor].some((v: string) => (v ?? "").toLowerCase().includes(q))).slice(0, 6);
-  }, [tipo, busqFact, facturasVenta, facturasCompra]);
+    let out = list;
+    if (busqFact) {
+      const q = busqFact.toLowerCase();
+      out = out.filter(f => [f.numero, f.trabajo, f.proveedor].some((v: string) => (v ?? "").toLowerCase().includes(q)));
+    }
+    // En pago a proveedor con selección múltiple sólo se listan facturas del mismo proveedor
+    if (tipo === "pago_proveedor" && !initial && proveedorSel) {
+      out = out.filter(f => f.proveedor_id === proveedorSel);
+    }
+    return out.slice(0, tipo === "pago_proveedor" && !initial ? 30 : 6);
+  }, [tipo, busqFact, facturasVenta, facturasCompra, proveedorSel, initial]);
 
   const guardar = async () => {
     if (saving) return;
@@ -1355,6 +1385,51 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           toast.error("Cargá al menos una cuota con monto o seleccioná un echeq a ceder");
           return;
         }
+        // Objetivos de imputación: una o varias facturas del mismo proveedor
+        const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        const objetivos: { id: string; restante: number }[] = [];
+        if (idsObjetivo.length > 0) {
+          const { data: previos } = await sb.from("fema_movimientos_pago")
+            .select("factura_compra_id,factura_venta_id,monto,estado")
+            .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
+          const pagado = new Map<string, number>();
+          for (const p of previos ?? []) {
+            if (!["en_cartera", "cobrado", "pagado", "cedido"].includes(p.estado)) continue;
+            const fid = (tipo === "pago_proveedor" ? p.factura_compra_id : p.factura_venta_id) as string | null;
+            if (!fid) continue;
+            pagado.set(fid, (pagado.get(fid) ?? 0) + Number(p.monto));
+          }
+          const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+          for (const fid of idsObjetivo) {
+            const f = lista.find(x => x.id === fid);
+            objetivos.push({ id: fid, restante: Math.max(0, Number(f?.total ?? 0) - (pagado.get(fid) ?? 0)) });
+          }
+        }
+        // Reparte un importe entre las facturas pendientes (en orden de selección)
+        const repartir = (importe: number): { facturaId: string | null; monto: number }[] => {
+          if (objetivos.length <= 1) return [{ facturaId: objetivos[0]?.id ?? facturaSel, monto: importe }];
+          const chunks: { facturaId: string | null; monto: number }[] = [];
+          let resto = importe;
+          for (const o of objetivos) {
+            if (resto <= 0) break;
+            if (o.restante <= 0) continue;
+            const usar = Math.min(o.restante, resto);
+            chunks.push({ facturaId: o.id, monto: Math.round(usar * 100) / 100 });
+            o.restante -= usar; resto -= usar;
+          }
+          if (resto > 0.009) {
+            const ult = objetivos[objetivos.length - 1];
+            chunks.push({ facturaId: ult.id, monto: Math.round(resto * 100) / 100 });
+          }
+          return chunks;
+        };
+        // Un echeq cedido es indivisible: se imputa a la primera factura con saldo
+        const imputarEcheq = (importe: number): string | null => {
+          if (objetivos.length === 0) return facturaSel;
+          const o = objetivos.find(x => x.restante > 0) ?? objetivos[0];
+          o.restante = Math.max(0, o.restante - importe);
+          return o.id;
+        };
         if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
           for (const eid of cesionesAProcesar) {
@@ -1369,7 +1444,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
               contraparte: provNombre, monto: e.monto, estado: "pagado",
               echeq_origen_id: eid,
-              factura_compra_id: facturaSel,
+              factura_compra_id: imputarEcheq(Number(e.monto)),
               observaciones: observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
               anio: year, mes,
             });
@@ -1406,7 +1481,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             if (error) throw error;
           }
           for (const c of filasValidas) {
-            const base: any = {
+            const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
               instrumento: instrumento as any,
               direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
               tipo_movimiento: tipo,
@@ -1415,18 +1490,25 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               numero: c.numero || null,
               banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: Number(c.monto),
-              estado, observaciones: c.obs || observaciones || null,
-              factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-              factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
+              monto: m,
+              estado,
+              observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+              factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
+              factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
               anio: year, mes,
-            };
+            });
             if (c.id) {
-              const { error } = await sb.from("fema_movimientos_pago").update(base).eq("id", c.id);
+              const { error } = await sb.from("fema_movimientos_pago").update(mkBase(facturaSel, Number(c.monto))).eq("id", c.id);
               if (error) throw error;
             } else {
-              const { error } = await sb.from("fema_movimientos_pago").insert({ ...base, user_id: userId });
-              if (error) throw error;
+              const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+              for (const chunk of repartir(Number(c.monto))) {
+                const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
+                const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
+                const { error } = await sb.from("fema_movimientos_pago")
+                  .insert({ ...mkBase(chunk.facturaId, chunk.monto, obsExtra), user_id: userId });
+                if (error) throw error;
+              }
             }
           }
         }
@@ -1449,7 +1531,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       toast.success("Movimiento guardado");
       // Reconcilia estado de la(s) factura(s) afectada(s)
       if (tipo === "cobro_cliente") await reconciliarFactura(facturaSel, "venta");
-      if (tipo === "pago_proveedor") await reconciliarFactura(facturaSel, "compra");
+      if (tipo === "pago_proveedor") {
+        const ids = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        for (const fid of ids) await reconciliarFactura(fid, "compra");
+      }
       if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
       if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
         await reconciliarFactura(initial.factura_venta_id, "venta");
@@ -1488,11 +1573,65 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
-          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Factura de proveedor a pagar"}>
+          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Facturas del proveedor a pagar (selección múltiple)"}>
             <Input placeholder="Buscar por cliente / proveedor / Nº factura..." value={busqFact} onChange={(e) => setBusqFact(e.target.value)} />
           </FormField>
 
-          {facturaActual ? (
+          {multiActivo ? (
+            <div className="space-y-2">
+              {facturasSeleccionadas.length > 0 && (
+                <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-sm uppercase truncate">{facturasSeleccionadas[0].proveedor}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{facturasSeleccionadas.length} factura(s)</span>
+                      <span className="font-mono text-emerald-400 text-base">{formatPesos(totalMulti)}</span>
+                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
+                        <XIcon className="w-3 h-3 mr-1" />Limpiar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {facturasSeleccionadas.map(f => `${f.numero ?? "s/n"} (${formatPesos(f.total)})`).join(" · ")}
+                  </div>
+                </div>
+              )}
+              <div className="max-h-56 overflow-auto border rounded-md divide-y">
+                {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
+                {facturasFiltradas.map(f => {
+                  const sel = facturasMulti.includes(f.id);
+                  return (
+                    <button key={f.id} type="button"
+                      onClick={() => {
+                        toggleFacturaMulti(f);
+                        const nuevos = sel ? facturasMulti.filter(x => x !== f.id) : [...facturasMulti, f.id];
+                        const suma = nuevos.reduce((a, id) => a + Number(facturasCompra.find(x => x.id === id)?.total ?? 0), 0);
+                        setMonto(suma);
+                        setContraparte(f.proveedor ?? "");
+                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: suma, obs: "" }]);
+                      }}
+                      className={`w-full text-left p-3 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${sel ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>{sel ? "✓" : ""}</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{f.proveedor ?? "Proveedor"}</div>
+                            <div className="text-xs text-muted-foreground truncate">Fact. {f.numero ?? "s/n"} · {formatFecha(f.fecha)} {f.trabajo ? `· ${f.trabajo}` : ""}</div>
+                          </div>
+                        </div>
+                        <div className="font-mono text-emerald-400 text-sm shrink-0">{formatPesos(f.total)}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {proveedorSel && (
+                <div className="text-[11px] text-muted-foreground">
+                  Sólo se listan facturas de <b>{facturasSeleccionadas[0]?.proveedor}</b>. Limpiá la selección para cambiar de proveedor.
+                </div>
+              )}
+            </div>
+          ) : facturaActual ? (
             <div className="rounded-md border border-primary/40 bg-primary/5 p-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-sm uppercase truncate">{facturaActual.proveedor ?? "Cliente"}</div>
