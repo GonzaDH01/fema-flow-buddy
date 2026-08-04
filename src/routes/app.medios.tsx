@@ -293,6 +293,7 @@ function Page() {
   const filas = {
     todos: filtrar(() => true),
     echeqs: filtrar(m => m.instrumento === "echeq"),
+    propios: filtrar(m => m.direccion === "pago" && (m.instrumento === "echeq" || m.instrumento === "cheque_fisico")),
     cheques: filtrar(m => m.instrumento === "cheque_fisico"),
     transferencias: filtrar(m => m.instrumento === "transferencia"),
     cesiones: filtrar(m => m.instrumento === "cesion"),
@@ -756,12 +757,13 @@ function Page() {
         <TabsList>
           <TabsTrigger value="todos">Todos</TabsTrigger>
           <TabsTrigger value="echeqs">Echeqs</TabsTrigger>
+          <TabsTrigger value="propios">Echeqs propios / emitidos</TabsTrigger>
           <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
           <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
           <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
         </TabsList>
 
-        {(["todos","echeqs","cheques","transferencias","cesiones"] as const).map(k => (
+        {(["todos","echeqs","propios","cheques","transferencias","cesiones"] as const).map(k => (
           <TabsContent key={k} value={k}>
             <Card>
               <CardContent className="p-4 space-y-3">
@@ -769,6 +771,7 @@ function Page() {
                   <h3 className="font-semibold">
                     {k === "todos" ? "Todos los movimientos"
                       : k === "echeqs" ? "Echeqs"
+                      : k === "propios" ? "Echeqs / cheques propios emitidos"
                       : k === "cheques" ? "Cheques físicos"
                       : k === "transferencias" ? "Transferencias" : "Cesiones"}
                   </h3>
@@ -793,6 +796,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
+                {k === "propios" && <ResumenPropios rows={filas.propios} />}
                 <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
@@ -899,6 +903,61 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
   );
 }
 
+function ResumenPropios({ rows }: { rows: Mov[] }) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const pendientes = rows.filter(m => m.estado === "en_cartera");
+  const debitados = rows.filter(m => m.estado === "pagado");
+  const totalPend = pendientes.reduce((a, m) => a + Number(m.monto), 0);
+  const totalDeb = debitados.reduce((a, m) => a + Number(m.monto), 0);
+  const vencidos = pendientes.filter(m => m.vencimiento && m.vencimiento < hoy);
+  const porBenef = new Map<string, { pend: number; deb: number; cant: number }>();
+  for (const m of rows) {
+    const k = m.contraparte?.trim() || "Sin beneficiario";
+    const acc = porBenef.get(k) ?? { pend: 0, deb: 0, cant: 0 };
+    acc.cant += 1;
+    if (m.estado === "en_cartera") acc.pend += Number(m.monto);
+    if (m.estado === "pagado") acc.deb += Number(m.monto);
+    porBenef.set(k, acc);
+  }
+  const grupos = [...porBenef.entries()].sort((a, b) => b[1].pend - a[1].pend);
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
+      <p className="text-xs text-muted-foreground">
+        Documentos <b>propios de la empresa</b> (echeqs y cheques emitidos a proveedores, incluidos los planes de pago
+        cargados desde facturas). No forman parte de la cartera de echeqs recibidos de clientes.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Pendientes de débito</p>
+          <p className="font-semibold text-rose-400">{formatPesos(totalPend)}</p>
+          <p className="text-xs text-muted-foreground">{pendientes.length} doc. · {vencidos.length} a debitar</p>
+        </div>
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Ya debitados</p>
+          <p className="font-semibold">{formatPesos(totalDeb)}</p>
+          <p className="text-xs text-muted-foreground">{debitados.length} doc.</p>
+        </div>
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Total emitido</p>
+          <p className="font-semibold">{formatPesos(totalPend + totalDeb)}</p>
+          <p className="text-xs text-muted-foreground">{rows.length} doc.</p>
+        </div>
+      </div>
+      <div className="space-y-1">
+        {grupos.map(([nombre, g]) => (
+          <div key={nombre} className="flex flex-wrap items-center gap-2 rounded-md bg-card/60 px-2 py-1 text-sm">
+            <span className="font-medium">{nombre}</span>
+            <span className="text-xs text-muted-foreground">{g.cant} doc.</span>
+            <span className="ml-auto font-mono text-rose-400">{formatPesos(g.pend)} pend.</span>
+            <span className="font-mono text-xs text-muted-foreground">{formatPesos(g.deb)} debitado</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
@@ -951,6 +1010,7 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
           </TableHead>
           <TableHead>Tipo</TableHead>
           <TableHead>Dirección</TableHead>
+          <TableHead>Origen</TableHead>
           <TableHead>Fecha emisión</TableHead>
           <TableHead>Fecha de pago</TableHead>
           <TableHead>Origen / Destino</TableHead>
@@ -976,6 +1036,19 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
               <Badge variant="outline" className={m.direccion === "cobro" ? "border-emerald-500/40 text-emerald-400" : "border-rose-500/40 text-rose-400"}>
                 {m.direccion === "cobro" ? "Cobro" : "Pago"}
               </Badge>
+            </TableCell>
+            <TableCell>
+              {(m.instrumento === "echeq" || m.instrumento === "cheque_fisico") ? (
+                m.direccion === "pago" ? (
+                  <Badge variant="outline" className="border-amber-500/50 text-amber-400">Propio / emitido</Badge>
+                ) : (
+                  <Badge variant="outline" className="border-sky-500/50 text-sky-400">De tercero</Badge>
+                )
+              ) : m.instrumento === "cesion" ? (
+                <Badge variant="outline" className="border-violet-500/50 text-violet-400">Echeq cedido</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </TableCell>
             <TableCell className="text-xs">{formatFecha(m.fecha_emision)}</TableCell>
             <TableCell className="text-xs">{m.vencimiento ? formatFecha(m.vencimiento) : "—"}</TableCell>
