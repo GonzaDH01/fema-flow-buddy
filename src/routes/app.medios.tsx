@@ -903,8 +903,62 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
   );
 }
 
+function ResumenPropios({ rows }: { rows: Mov[] }) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const pendientes = rows.filter(m => m.estado === "en_cartera");
+  const debitados = rows.filter(m => m.estado === "pagado");
+  const totalPend = pendientes.reduce((a, m) => a + Number(m.monto), 0);
+  const totalDeb = debitados.reduce((a, m) => a + Number(m.monto), 0);
+  const vencidos = pendientes.filter(m => m.vencimiento && m.vencimiento < hoy);
+  const porBenef = new Map<string, { pend: number; deb: number; cant: number }>();
+  for (const m of rows) {
+    const k = m.contraparte?.trim() || "Sin beneficiario";
+    const acc = porBenef.get(k) ?? { pend: 0, deb: 0, cant: 0 };
+    acc.cant += 1;
+    if (m.estado === "en_cartera") acc.pend += Number(m.monto);
+    if (m.estado === "pagado") acc.deb += Number(m.monto);
+    porBenef.set(k, acc);
+  }
+  const grupos = [...porBenef.entries()].sort((a, b) => b[1].pend - a[1].pend);
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
+      <p className="text-xs text-muted-foreground">
+        Documentos <b>propios de la empresa</b> (echeqs y cheques emitidos a proveedores, incluidos los planes de pago
+        cargados desde facturas). No forman parte de la cartera de echeqs recibidos de clientes.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Pendientes de débito</p>
+          <p className="font-semibold text-rose-400">{formatPesos(totalPend)}</p>
+          <p className="text-xs text-muted-foreground">{pendientes.length} doc. · {vencidos.length} a debitar</p>
+        </div>
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Ya debitados</p>
+          <p className="font-semibold">{formatPesos(totalDeb)}</p>
+          <p className="text-xs text-muted-foreground">{debitados.length} doc.</p>
+        </div>
+        <div className="rounded-md border border-border bg-card p-2">
+          <p className="text-xs text-muted-foreground">Total emitido</p>
+          <p className="font-semibold">{formatPesos(totalPend + totalDeb)}</p>
+          <p className="text-xs text-muted-foreground">{rows.length} doc.</p>
+        </div>
+      </div>
+      <div className="space-y-1">
+        {grupos.map(([nombre, g]) => (
+          <div key={nombre} className="flex flex-wrap items-center gap-2 rounded-md bg-card/60 px-2 py-1 text-sm">
+            <span className="font-medium">{nombre}</span>
+            <span className="text-xs text-muted-foreground">{g.cant} doc.</span>
+            <span className="ml-auto font-mono text-rose-400">{formatPesos(g.pend)} pend.</span>
+            <span className="font-mono text-xs text-muted-foreground">{formatPesos(g.deb)} debitado</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
-  rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
   onDeleteMany?: (ids: string[]) => Promise<boolean>; onRecibo: (m: Mov) => void;
