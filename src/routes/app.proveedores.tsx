@@ -96,10 +96,21 @@ function Page() {
     <>
       <CrudTable<Row>
         title="Proveedores" description="Catálogo de proveedores"
-        rows={data} loading={isLoading} emptyLabel="proveedores"
+        rows={filtered} loading={isLoading} emptyLabel="proveedores"
         onAdd={() => { setEdit(null); setOpen(true); }}
         onEdit={(r) => { setEdit(r); setOpen(true); }}
         onDelete={onDelete}
+        extraHeader={
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar proveedor..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 w-56 pl-8 md:w-64"
+            />
+          </div>
+        }
         columns={[
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "CUIT", cell: (r) => r.cuit ?? "—" },
