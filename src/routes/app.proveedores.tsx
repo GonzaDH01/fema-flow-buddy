@@ -42,6 +42,7 @@ function Page() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_proveedores"],
@@ -53,6 +54,21 @@ function Page() {
       return data as Row[];
     },
   });
+
+  const filtered = useMemo(() => {
+    const rows = data ?? [];
+    if (!search.trim()) return rows;
+    const q = search.toLowerCase();
+    return rows.filter((r) =>
+      (r.nombre ?? "").toLowerCase().includes(q)
+      || (r.cuit ?? "").toLowerCase().includes(q)
+      || (r.localidad ?? "").toLowerCase().includes(q)
+      || (r.email ?? "").toLowerCase().includes(q)
+      || (r.telefono ?? "").toLowerCase().includes(q)
+      || (r.categoria ?? "").toLowerCase().includes(q),
+    );
+  }, [data, search]);
+
 
   const close = () => { setOpen(false); setEdit(null); };
   const onSubmit = async (v: FormVals) => {
