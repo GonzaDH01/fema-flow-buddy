@@ -468,7 +468,7 @@ function Page() {
         iva_105: result.iva_105 ?? 0,
         percepciones: result.percepciones ?? 0,
         total: result.total ?? 0,
-        tipo_comprobante: result.tipo ?? "Factura",
+        tipo_comprobante: normalizarTipoComprobante(result.tipo),
         observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
       };
       // Subir imagen al bucket privado
