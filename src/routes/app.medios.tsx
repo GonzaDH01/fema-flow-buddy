@@ -1182,6 +1182,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [tipo, setTipo] = useState<Tipo>(initial?.tipo_movimiento ?? "cobro_cliente");
   const [busqFact, setBusqFact] = useState("");
   const [facturaSel, setFacturaSel] = useState<string | null>(initial?.factura_venta_id ?? initial?.factura_compra_id ?? null);
+  // Pago a proveedor: selección múltiple de facturas del MISMO proveedor
+  const [facturasMulti, setFacturasMulti] = useState<string[]>(
+    initial?.factura_compra_id ? [initial.factura_compra_id] : []
+  );
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
