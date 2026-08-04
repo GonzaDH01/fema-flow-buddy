@@ -1316,6 +1316,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   useEffect(() => {
     if (initial) return; // edición de un único movimiento
     if (tipo !== "cobro_cliente" && tipo !== "pago_proveedor") return;
+    if (facturasMulti.length > 1) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     if (!facturaSel) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     const col = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
     sb.from("fema_movimientos_pago")
@@ -1340,14 +1341,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         setPlanCargado(true);
         toast.message(`Plan de ${data.length} cuotas cargado desde la factura. Podés editarlo antes de confirmar.`);
       });
-  }, [facturaSel, tipo, initial]);
+  }, [facturaSel, tipo, initial, facturasMulti.length]);
 
   const facturasFiltradas = useMemo(() => {
     const list = tipo === "cobro_cliente" ? facturasVenta : tipo === "pago_proveedor" ? facturasCompra : [];
-    if (!busqFact) return list.slice(0, 6);
-    const q = busqFact.toLowerCase();
-    return list.filter(f => [f.numero, f.trabajo, f.proveedor].some((v: string) => (v ?? "").toLowerCase().includes(q))).slice(0, 6);
-  }, [tipo, busqFact, facturasVenta, facturasCompra]);
+    let out = list;
+    if (busqFact) {
+      const q = busqFact.toLowerCase();
+      out = out.filter(f => [f.numero, f.trabajo, f.proveedor].some((v: string) => (v ?? "").toLowerCase().includes(q)));
+    }
+    // En pago a proveedor con selección múltiple sólo se listan facturas del mismo proveedor
+    if (tipo === "pago_proveedor" && !initial && proveedorSel) {
+      out = out.filter(f => f.proveedor_id === proveedorSel);
+    }
+    return out.slice(0, tipo === "pago_proveedor" && !initial ? 30 : 6);
+  }, [tipo, busqFact, facturasVenta, facturasCompra, proveedorSel, initial]);
 
   const guardar = async () => {
     if (saving) return;
