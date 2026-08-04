@@ -191,6 +191,7 @@ async function loadKPIs(_userId: string, anio: number) {
     ingresosCobrados, porCobrar, egresosPagados, deudasPendientes, neto,
     countCobradas: ventasCobradas.length, countPendVenta: ventasPendientes.length,
     mensual, pendCobro, pendPago, echeqsEnCartera,
+    cobradoSuelto, carteraSuelta, pagadoSuelto,
   };
 }
 
@@ -204,11 +205,30 @@ function Dashboard() {
   });
 
   const neto = data?.neto ?? 0;
+  const fmt = (n: number) => formatPesos(n);
   const kpis = [
-    { label: "Ingresos cobrados", value: data?.ingresosCobrados ?? 0, sub: `${data?.countCobradas ?? 0} facturas`, icon: TrendingUp, color: "text-primary" },
-    { label: "Por cobrar", value: data?.porCobrar ?? 0, sub: `${data?.countPendVenta ?? 0} pendientes`, icon: Clock, color: "text-accent" },
+    {
+      label: "Ingresos cobrados",
+      value: data?.ingresosCobrados ?? 0,
+      sub: `${data?.countCobradas ?? 0} facturas${(data?.cobradoSuelto ?? 0) > 0 ? ` · ${fmt(data!.cobradoSuelto)} sin factura` : ""}`,
+      icon: TrendingUp,
+      color: "text-primary",
+    },
+    {
+      label: "Por cobrar",
+      value: data?.porCobrar ?? 0,
+      sub: `${data?.countPendVenta ?? 0} facturas pendientes${(data?.carteraSuelta ?? 0) > 0 ? ` · ${fmt(data!.carteraSuelta)} echeqs sin factura` : ""}`,
+      icon: Clock,
+      color: "text-accent",
+    },
     { label: "Echeqs en cartera", value: data?.echeqsEnCartera ?? 0, sub: "cobrados, pendientes de acreditar", icon: FileText, color: "text-blue-400" },
-    { label: "Egresos pagados", value: data?.egresosPagados ?? 0, sub: "compras + sueldos + imp.", icon: TrendingDown, color: "text-destructive" },
+    {
+      label: "Egresos pagados",
+      value: data?.egresosPagados ?? 0,
+      sub: `compras + sueldos + imp.${(data?.pagadoSuelto ?? 0) > 0 ? ` · ${fmt(data!.pagadoSuelto)} sin factura` : ""}`,
+      icon: TrendingDown,
+      color: "text-destructive",
+    },
     { label: "Neto del año", value: neto, sub: "cobrado − pagado", icon: Wallet, color: neto >= 0 ? "text-primary" : "text-destructive" },
     { label: "Deudas pendientes", value: data?.deudasPendientes ?? 0, sub: "proveedores", icon: Landmark, color: "text-destructive" },
   ];
@@ -217,7 +237,9 @@ function Dashboard() {
     <div className="p-4 md:p-6">
       <header className="mb-4 md:mb-6">
         <h2 className="text-xl font-bold tracking-tight md:text-2xl">Resumen {year}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Indicadores y flujo mensual.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Indicadores y flujo mensual. Incluye movimientos de caja sin factura asociada (echeqs, transferencias); no son facturación.
+        </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
