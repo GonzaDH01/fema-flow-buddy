@@ -144,7 +144,7 @@ function Page() {
         .limit(300);
       if (error) throw error;
       // Archivos realmente existentes en el bucket
-      const existentes = new Set((await listAllPaths("")).map((p) => p));
+      const existentes = new Set(await listAllPaths(""));
       const rotos = (data ?? []).filter((r: any) => r.imagen_path && !existentes.has(r.imagen_path));
       if (rotos.length) {
         await supabase
