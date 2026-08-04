@@ -442,11 +442,22 @@ function Page() {
         .in("id", hijosNoSeleccionados.map((h) => h.id));
       if (error) { toast.error(`No se pudieron eliminar las cesiones relacionadas: ${error.message}`); return false; }
     }
-    const { data: borrados, error } = await sb.from("fema_movimientos_pago")
-      .delete().in("id", idsUnicos).select("id");
+    const { error } = await sb.from("fema_movimientos_pago")
+      .delete().in("id", idsUnicos);
     if (error) { toast.error(`No se pudieron eliminar: ${error.message}`); return false; }
-    if ((borrados ?? []).length !== idsUnicos.length) {
-      toast.error(`Se eliminaron ${(borrados ?? []).length} de ${idsUnicos.length}. La lista se actualizará para evitar inconsistencias.`);
+
+    // DELETE puede responder sin representación aunque haya eliminado correctamente.
+    // Verificamos los IDs que realmente siguen existiendo en vez de contar la respuesta.
+    const { data: restantes, error: verificarError } = await sb.from("fema_movimientos_pago")
+      .select("id").in("id", idsUnicos);
+    if (verificarError) {
+      toast.error(`No se pudo verificar la eliminación: ${verificarError.message}`);
+      await movsQ.refetch();
+      return false;
+    }
+    if ((restantes ?? []).length > 0) {
+      const eliminadosCount = idsUnicos.length - (restantes ?? []).length;
+      toast.error(`Se eliminaron ${eliminadosCount} de ${idsUnicos.length}. ${restantes.length} registro(s) continúan vinculados o sin permiso de eliminación.`);
       await movsQ.refetch();
       return false;
     }
