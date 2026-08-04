@@ -392,7 +392,10 @@ function Page() {
         .update({ estado: "en_cartera", observaciones: null })
         .eq("id", m.echeq_origen_id);
     }
-    await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    // Si el echeq fue cedido, borrar primero la cesión que lo referencia
+    await sb.from("fema_movimientos_pago").delete().eq("echeq_origen_id", m.id);
+    const { error: dErr } = await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    if (dErr) { toast.error(`No se pudo eliminar: ${dErr.message}`); return; }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
@@ -401,6 +404,19 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
     toast.success("Eliminado");
+  };
+
+  const eliminarVarios = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!confirm(`¿Eliminar ${ids.length} movimiento(s)? Esta acción no se puede deshacer.`)) return;
+    // liberar referencias de cesiones que apunten a estos movimientos
+    await sb.from("fema_movimientos_pago").delete().in("echeq_origen_id", ids);
+    const { error } = await sb.from("fema_movimientos_pago").delete().in("id", ids);
+    if (error) { toast.error(`No se pudieron eliminar: ${error.message}`); return; }
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+    toast.success(`${ids.length} movimiento(s) eliminados`);
   };
 
   const exportar = () => {
@@ -683,7 +699,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
+                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
