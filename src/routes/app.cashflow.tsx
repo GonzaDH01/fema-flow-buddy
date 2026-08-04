@@ -60,6 +60,7 @@ async function loadCashflow(userId: string, anio: number) {
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
   const movsByFV = new Map<string, any[]>();
   const movsByFC = new Map<string, any[]>();
+  const movsSueltos: any[] = [];
   for (const m of (movs.data ?? []) as any[]) {
     if (!ACTIVOS.has(m.estado)) continue;
     if (m.direccion === "cobro" && m.factura_venta_id) {
@@ -69,6 +70,12 @@ async function loadCashflow(userId: string, anio: number) {
     if (m.direccion === "pago" && m.factura_compra_id) {
       if (!movsByFC.has(m.factura_compra_id)) movsByFC.set(m.factura_compra_id, []);
       movsByFC.get(m.factura_compra_id)!.push(m);
+    }
+    if (
+      (m.direccion === "cobro" && !m.factura_venta_id) ||
+      (m.direccion === "pago" && !m.factura_compra_id)
+    ) {
+      movsSueltos.push(m);
     }
   }
 
@@ -329,6 +336,45 @@ async function loadCashflow(userId: string, anio: number) {
   }
   if (sum(combPorMes) > 0) {
     egPagados.push({ label: "Combustible", values: combPorMes, sign: "-" });
+  }
+
+  // Movimientos de cobro/pago sin factura asociada (echeqs de cartera, transferencias sueltas)
+  type Grp = { label: string; sub: string; values: number[]; tooltips: string[][] };
+  const agrupar = (lista: any[]) => {
+    const map = new Map<string, Grp>();
+    for (const m of lista) {
+      const mes = mesDe(m);
+      if (mes < 1 || mes > 12) continue;
+      const label = m.contraparte || instrLabel(m.instrumento);
+      const key = `${label}||${m.instrumento}`;
+      let g = map.get(key);
+      if (!g) {
+        g = { label, sub: instrLabel(m.instrumento), values: empty12(), tooltips: Array.from({ length: 12 }, () => []) };
+        map.set(key, g);
+      }
+      const monto = Number(m.monto);
+      g.values[mes - 1] += monto;
+      const extra = [m.numero ? `Nº ${m.numero}` : null, m.banco].filter(Boolean).join(" · ");
+      g.tooltips[mes - 1].push(`${extra ? extra + ": " : ""}${formatPesos(monto)} (${m.estado})`);
+    }
+    return Array.from(map.values());
+  };
+  const toRow = (g: Grp, badge: string, sign: "+" | "-"): Row => ({
+    label: g.label,
+    sub: `${g.sub} (sin factura)`,
+    badge,
+    values: g.values,
+    tooltips: g.tooltips.map((t) => (t.length ? t.join("\n") : undefined)),
+    sign,
+  });
+  for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "cobro" && (m.estado === "cobrado" || m.estado === "cedido")))) {
+    ingCobrados.push(toRow(g, "Cobrado", "+"));
+  }
+  for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "cobro" && m.estado === "en_cartera"))) {
+    ingPendientes.push(toRow(g, "En cartera", "+"));
+  }
+  for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "pago" && m.estado === "pagado"))) {
+    egPagados.push(toRow(g, "Pagado", "-"));
   }
 
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
