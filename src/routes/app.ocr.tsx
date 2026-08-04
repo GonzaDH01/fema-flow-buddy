@@ -318,9 +318,13 @@ function Page() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Error al procesar");
-      const parsed = (json.data ?? json) as OCRResult;
+      const crudo = (json.data ?? json) as OCRResult;
+      const parsed = { ...corregirPartes(crudo, kind), tipo: normalizarTipoComprobante(crudo.tipo) };
       setResult(parsed);
-      toast.success("Factura analizada");
+      if (parsed.emisor !== crudo.emisor) {
+        toast.warning("Detecté a FEMA Agronegocios como emisor: invertí emisor y receptor. Revisá los datos.");
+      }
+      toast.success("Comprobante analizado");
       const existente = await buscarDuplicado(parsed);
       if (existente) setDupe(existente);
     } catch (e: any) {
