@@ -293,6 +293,7 @@ function Page() {
   const filas = {
     todos: filtrar(() => true),
     echeqs: filtrar(m => m.instrumento === "echeq"),
+    propios: filtrar(m => m.direccion === "pago" && (m.instrumento === "echeq" || m.instrumento === "cheque_fisico")),
     cheques: filtrar(m => m.instrumento === "cheque_fisico"),
     transferencias: filtrar(m => m.instrumento === "transferencia"),
     cesiones: filtrar(m => m.instrumento === "cesion"),
@@ -756,12 +757,13 @@ function Page() {
         <TabsList>
           <TabsTrigger value="todos">Todos</TabsTrigger>
           <TabsTrigger value="echeqs">Echeqs</TabsTrigger>
+          <TabsTrigger value="propios">Echeqs propios / emitidos</TabsTrigger>
           <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
           <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
           <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
         </TabsList>
 
-        {(["todos","echeqs","cheques","transferencias","cesiones"] as const).map(k => (
+        {(["todos","echeqs","propios","cheques","transferencias","cesiones"] as const).map(k => (
           <TabsContent key={k} value={k}>
             <Card>
               <CardContent className="p-4 space-y-3">
@@ -769,6 +771,7 @@ function Page() {
                   <h3 className="font-semibold">
                     {k === "todos" ? "Todos los movimientos"
                       : k === "echeqs" ? "Echeqs"
+                      : k === "propios" ? "Echeqs / cheques propios emitidos"
                       : k === "cheques" ? "Cheques físicos"
                       : k === "transferencias" ? "Transferencias" : "Cesiones"}
                   </h3>
@@ -793,6 +796,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
+                {k === "propios" && <ResumenPropios rows={filas.propios} />}
                 <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
