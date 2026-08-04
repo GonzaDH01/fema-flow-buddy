@@ -1531,7 +1531,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       toast.success("Movimiento guardado");
       // Reconcilia estado de la(s) factura(s) afectada(s)
       if (tipo === "cobro_cliente") await reconciliarFactura(facturaSel, "venta");
-      if (tipo === "pago_proveedor") await reconciliarFactura(facturaSel, "compra");
+      if (tipo === "pago_proveedor") {
+        const ids = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        for (const fid of ids) await reconciliarFactura(fid, "compra");
+      }
       if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
       if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
         await reconciliarFactura(initial.factura_venta_id, "venta");
