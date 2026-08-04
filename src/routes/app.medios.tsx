@@ -392,7 +392,10 @@ function Page() {
         .update({ estado: "en_cartera", observaciones: null })
         .eq("id", m.echeq_origen_id);
     }
-    await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    // Si el echeq fue cedido, borrar primero la cesión que lo referencia
+    await sb.from("fema_movimientos_pago").delete().eq("echeq_origen_id", m.id);
+    const { error: dErr } = await sb.from("fema_movimientos_pago").delete().eq("id", m.id);
+    if (dErr) { toast.error(`No se pudo eliminar: ${dErr.message}`); return; }
     await reconciliarFactura(m.factura_venta_id, "venta");
     await reconciliarFactura(m.factura_compra_id, "compra");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
@@ -401,6 +404,19 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
     toast.success("Eliminado");
+  };
+
+  const eliminarVarios = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!confirm(`¿Eliminar ${ids.length} movimiento(s)? Esta acción no se puede deshacer.`)) return;
+    // liberar referencias de cesiones que apunten a estos movimientos
+    await sb.from("fema_movimientos_pago").delete().in("echeq_origen_id", ids);
+    const { error } = await sb.from("fema_movimientos_pago").delete().in("id", ids);
+    if (error) { toast.error(`No se pudieron eliminar: ${error.message}`); return; }
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+    toast.success(`${ids.length} movimiento(s) eliminados`);
   };
 
   const exportar = () => {
@@ -683,7 +699,7 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onRecibo={(m) => setReciboMov(m)} />
+                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -789,10 +805,18 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
   );
 }
 
-function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
+function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
   rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
-  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void; onRecibo: (m: Mov) => void;
+  onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
+  onDeleteMany?: (ids: string[]) => void; onRecibo: (m: Mov) => void;
 }) {
+  const [sel, setSel] = useState<string[]>([]);
+  const visibles = rows.map(r => r.id);
+  const seleccionados = sel.filter(id => visibles.includes(id));
+  const toggle = (id: string) =>
+    setSel(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
+  const toggleAll = () =>
+    setSel(seleccionados.length === visibles.length ? [] : visibles);
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-muted-foreground text-sm">
@@ -802,9 +826,26 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
     );
   }
   return (
+    <>
+    {onDeleteMany && seleccionados.length > 0 && (
+      <div className="flex items-center justify-between rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm">
+        <span>{seleccionados.length} seleccionado(s)</span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setSel([])}>Cancelar</Button>
+          <Button size="sm" variant="destructive" onClick={() => { onDeleteMany(seleccionados); setSel([]); }}>
+            <Trash2 className="w-3 h-3 mr-1" />Eliminar seleccionados
+          </Button>
+        </div>
+      </div>
+    )}
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-8">
+            <input type="checkbox" aria-label="Seleccionar todos"
+              checked={seleccionados.length === visibles.length && visibles.length > 0}
+              onChange={toggleAll} />
+          </TableHead>
           <TableHead>Tipo</TableHead>
           <TableHead>Dirección</TableHead>
           <TableHead>Fecha emisión</TableHead>
@@ -823,6 +864,10 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
           return (
           <TableRow key={m.id} className={vencidoSinCobrar ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
+            <TableCell>
+              <input type="checkbox" aria-label="Seleccionar movimiento"
+                checked={sel.includes(m.id)} onChange={() => toggle(m.id)} />
+            </TableCell>
             <TableCell className="font-medium">{INSTRUMENT_LABEL[m.instrumento]}{vencidoSinCobrar && <Badge variant="outline" className="ml-2 border-red-500/50 text-red-400">Vencido</Badge>}</TableCell>
             <TableCell>
               <Badge variant="outline" className={m.direccion === "cobro" ? "border-emerald-500/40 text-emerald-400" : "border-rose-500/40 text-rose-400"}>
@@ -860,6 +905,7 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onRecibo }: {
         })}
       </TableBody>
     </Table>
+    </>
   );
 }
 
