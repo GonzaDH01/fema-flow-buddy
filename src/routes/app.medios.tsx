@@ -1254,10 +1254,28 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     return list.find(f => f.id === facturaSel) ?? null;
   }, [facturaSel, tipo, facturasVenta, facturasCompra]);
 
+  const multiActivo = tipo === "pago_proveedor" && !initial;
+  const facturasSeleccionadas = useMemo(
+    () => facturasMulti.map(id => facturasCompra.find(f => f.id === id)).filter(Boolean) as any[],
+    [facturasMulti, facturasCompra]);
+  const proveedorSel = facturasSeleccionadas[0]?.proveedor_id ?? null;
+  const totalMulti = useMemo(
+    () => facturasSeleccionadas.reduce((a, f) => a + Number(f.total || 0), 0),
+    [facturasSeleccionadas]);
+  const toggleFacturaMulti = (f: any) => {
+    setFacturasMulti(prev => {
+      const next = prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id];
+      setFacturaSel(next[0] ?? null);
+      return next;
+    });
+  };
+
   const totalCargado = useMemo(
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
-  const totalFactura = Number(facturaActual?.total ?? monto ?? 0);
+  const totalFactura = multiActivo && facturasSeleccionadas.length > 0
+    ? totalMulti
+    : Number(facturaActual?.total ?? monto ?? 0);
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
 
