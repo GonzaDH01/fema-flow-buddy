@@ -60,6 +60,7 @@ async function loadCashflow(userId: string, anio: number) {
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
   const movsByFV = new Map<string, any[]>();
   const movsByFC = new Map<string, any[]>();
+  const movsSueltos: any[] = [];
   for (const m of (movs.data ?? []) as any[]) {
     if (!ACTIVOS.has(m.estado)) continue;
     if (m.direccion === "cobro" && m.factura_venta_id) {
@@ -69,6 +70,12 @@ async function loadCashflow(userId: string, anio: number) {
     if (m.direccion === "pago" && m.factura_compra_id) {
       if (!movsByFC.has(m.factura_compra_id)) movsByFC.set(m.factura_compra_id, []);
       movsByFC.get(m.factura_compra_id)!.push(m);
+    }
+    if (
+      (m.direccion === "cobro" && !m.factura_venta_id) ||
+      (m.direccion === "pago" && !m.factura_compra_id)
+    ) {
+      movsSueltos.push(m);
     }
   }
 
