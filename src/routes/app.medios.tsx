@@ -1518,11 +1518,65 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
-          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Factura de proveedor a pagar"}>
+          <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Facturas del proveedor a pagar (selección múltiple)"}>
             <Input placeholder="Buscar por cliente / proveedor / Nº factura..." value={busqFact} onChange={(e) => setBusqFact(e.target.value)} />
           </FormField>
 
-          {facturaActual ? (
+          {multiActivo ? (
+            <div className="space-y-2">
+              {facturasSeleccionadas.length > 0 && (
+                <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-sm uppercase truncate">{facturasSeleccionadas[0].proveedor}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{facturasSeleccionadas.length} factura(s)</span>
+                      <span className="font-mono text-emerald-400 text-base">{formatPesos(totalMulti)}</span>
+                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
+                        <XIcon className="w-3 h-3 mr-1" />Limpiar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {facturasSeleccionadas.map(f => `${f.numero ?? "s/n"} (${formatPesos(f.total)})`).join(" · ")}
+                  </div>
+                </div>
+              )}
+              <div className="max-h-56 overflow-auto border rounded-md divide-y">
+                {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
+                {facturasFiltradas.map(f => {
+                  const sel = facturasMulti.includes(f.id);
+                  return (
+                    <button key={f.id} type="button"
+                      onClick={() => {
+                        toggleFacturaMulti(f);
+                        const nuevos = sel ? facturasMulti.filter(x => x !== f.id) : [...facturasMulti, f.id];
+                        const suma = nuevos.reduce((a, id) => a + Number(facturasCompra.find(x => x.id === id)?.total ?? 0), 0);
+                        setMonto(suma);
+                        setContraparte(f.proveedor ?? "");
+                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: suma, obs: "" }]);
+                      }}
+                      className={`w-full text-left p-3 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${sel ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>{sel ? "✓" : ""}</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{f.proveedor ?? "Proveedor"}</div>
+                            <div className="text-xs text-muted-foreground truncate">Fact. {f.numero ?? "s/n"} · {formatFecha(f.fecha)} {f.trabajo ? `· ${f.trabajo}` : ""}</div>
+                          </div>
+                        </div>
+                        <div className="font-mono text-emerald-400 text-sm shrink-0">{formatPesos(f.total)}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {proveedorSel && (
+                <div className="text-[11px] text-muted-foreground">
+                  Sólo se listan facturas de <b>{facturasSeleccionadas[0]?.proveedor}</b>. Limpiá la selección para cambiar de proveedor.
+                </div>
+              )}
+            </div>
+          ) : facturaActual ? (
             <div className="rounded-md border border-primary/40 bg-primary/5 p-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-sm uppercase truncate">{facturaActual.proveedor ?? "Cliente"}</div>
