@@ -1385,6 +1385,51 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           toast.error("Cargá al menos una cuota con monto o seleccioná un echeq a ceder");
           return;
         }
+        // Objetivos de imputación: una o varias facturas del mismo proveedor
+        const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        const objetivos: { id: string; restante: number }[] = [];
+        if (idsObjetivo.length > 0) {
+          const { data: previos } = await sb.from("fema_movimientos_pago")
+            .select("factura_compra_id,factura_venta_id,monto,estado")
+            .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
+          const pagado = new Map<string, number>();
+          for (const p of previos ?? []) {
+            if (!["en_cartera", "cobrado", "pagado", "cedido"].includes(p.estado)) continue;
+            const fid = (tipo === "pago_proveedor" ? p.factura_compra_id : p.factura_venta_id) as string | null;
+            if (!fid) continue;
+            pagado.set(fid, (pagado.get(fid) ?? 0) + Number(p.monto));
+          }
+          const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+          for (const fid of idsObjetivo) {
+            const f = lista.find(x => x.id === fid);
+            objetivos.push({ id: fid, restante: Math.max(0, Number(f?.total ?? 0) - (pagado.get(fid) ?? 0)) });
+          }
+        }
+        // Reparte un importe entre las facturas pendientes (en orden de selección)
+        const repartir = (importe: number): { facturaId: string | null; monto: number }[] => {
+          if (objetivos.length <= 1) return [{ facturaId: objetivos[0]?.id ?? facturaSel, monto: importe }];
+          const chunks: { facturaId: string | null; monto: number }[] = [];
+          let resto = importe;
+          for (const o of objetivos) {
+            if (resto <= 0) break;
+            if (o.restante <= 0) continue;
+            const usar = Math.min(o.restante, resto);
+            chunks.push({ facturaId: o.id, monto: Math.round(usar * 100) / 100 });
+            o.restante -= usar; resto -= usar;
+          }
+          if (resto > 0.009) {
+            const ult = objetivos[objetivos.length - 1];
+            chunks.push({ facturaId: ult.id, monto: Math.round(resto * 100) / 100 });
+          }
+          return chunks;
+        };
+        // Un echeq cedido es indivisible: se imputa a la primera factura con saldo
+        const imputarEcheq = (importe: number): string | null => {
+          if (objetivos.length === 0) return facturaSel;
+          const o = objetivos.find(x => x.restante > 0) ?? objetivos[0];
+          o.restante = Math.max(0, o.restante - importe);
+          return o.id;
+        };
         if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
           for (const eid of cesionesAProcesar) {
@@ -1399,7 +1444,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
               contraparte: provNombre, monto: e.monto, estado: "pagado",
               echeq_origen_id: eid,
-              factura_compra_id: facturaSel,
+              factura_compra_id: imputarEcheq(Number(e.monto)),
               observaciones: observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
               anio: year, mes,
             });
