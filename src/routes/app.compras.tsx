@@ -141,25 +141,36 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await (supabase as any).from("fema_movimientos_pago")
-        .select("factura_compra_id,monto,estado")
+        .select("factura_compra_id,monto,estado,instrumento,vencimiento")
         .not("factura_compra_id", "is", null);
       if (error) throw error;
-      const map: Record<string, number> = {};
+      const map: Record<string, { pagado: number; programado: number; docs: number; prox: string | null }> = {};
       for (const m of (data ?? []) as any[]) {
-        if (!["pagado", "cedido"].includes(m.estado)) continue;
-        map[m.factura_compra_id] = (map[m.factura_compra_id] ?? 0) + Number(m.monto || 0);
+        const acc = map[m.factura_compra_id] ?? { pagado: 0, programado: 0, docs: 0, prox: null };
+        if (["pagado", "cedido"].includes(m.estado)) {
+          acc.pagado += Number(m.monto || 0);
+        } else if (m.estado === "en_cartera") {
+          // Echeqs / cheques propios emitidos: la factura ya tiene plan de pago,
+          // el dinero sale recién en la fecha de pago de cada documento.
+          acc.programado += Number(m.monto || 0);
+          acc.docs += 1;
+          if (m.vencimiento && (!acc.prox || m.vencimiento < acc.prox)) acc.prox = m.vencimiento;
+        } else continue;
+        map[m.factura_compra_id] = acc;
       }
       return map;
     },
   });
-  const pagadoDe = (id: string) => Number(pagosMap?.[id] ?? 0);
-  const saldoDe = (r: Row) => Math.max(0, Number(r.total) - pagadoDe(r.id));
+  const pagadoDe = (id: string) => Number(pagosMap?.[id]?.pagado ?? 0);
+  const programadoDe = (id: string) => Number(pagosMap?.[id]?.programado ?? 0);
+  const planDe = (id: string) => pagosMap?.[id] ?? null;
+  const saldoDe = (r: Row) => Math.max(0, Number(r.total) - pagadoDe(r.id) - programadoDe(r.id));
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
     if (tab === "parcial") {
       rows = rows.filter((r) => {
-        const p = Number(pagosMap?.[r.id] ?? 0);
+        const p = pagadoDe(r.id) + programadoDe(r.id);
         return p > 0.01 && p < Number(r.total) - 0.01;
       });
     } else if (tab !== "todas") {
@@ -385,6 +396,11 @@ function Page() {
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
+                    {programadoDe(r.id) > 0.01 && (
+                      <div className="text-[11px] text-amber-500">
+                        +{formatPesos(programadoDe(r.id))} programado
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className={`text-right font-semibold ${saldoDe(r) <= 0.01 ? "text-primary" : "text-accent"}`}>
                     {formatPesos(saldoDe(r))}
@@ -392,13 +408,18 @@ function Page() {
                   <TableCell>
                     {r.estado === "pagada"
                       ? <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
+                      : programadoDe(r.id) > 0.01
+                        ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">
+                            ● Plan de pago ({planDe(r.id)?.docs ?? 0} doc.)
+                            {planDe(r.id)?.prox ? ` · desde ${formatFecha(planDe(r.id)!.prox!)}` : ""}
+                          </Badge>
                       : pagadoDe(r.id) > 0.01
                         ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">● Pago parcial</Badge>
                         : <Badge variant="outline" className="text-accent border-accent/40">● Pendiente</Badge>}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01) && (
+                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
                           <Receipt className="h-3 w-3" /> Recibo

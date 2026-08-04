@@ -180,15 +180,82 @@ export function GastosFijos() {
     return p.activo;
   };
 
+  const marcarMes = async (mes: number, pagado: boolean) => {
+    const activos = (plantillas ?? []).filter((p) => activeInMonth(p, mes));
+    if (activos.length === 0) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const updates: string[] = [];
+    const inserts: any[] = [];
+    for (const p of activos) {
+      const mov = movByKey.get(`${p.id}|${mes}`);
+      if (mov) {
+        if (mov.pagado !== pagado) updates.push(mov.id);
+      } else if (pagado) {
+        inserts.push({
+          user_id: user!.id, gasto_fijo_id: p.id, anio: year, mes,
+          monto: p.monto_mensual, pagado: true, fecha_pago: hoy,
+        });
+      }
+    }
+    if (updates.length) {
+      const { error } = await supabase.from("fema_gastos_fijos_mov" as any)
+        .update({ pagado, fecha_pago: pagado ? hoy : null }).in("id", updates);
+      if (error) { toast.error(error.message); return; }
+    }
+    if (inserts.length) {
+      const { error } = await supabase.from("fema_gastos_fijos_mov" as any).insert(inserts);
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success(pagado ? `${MESES[mes - 1]} marcado como abonado` : `${MESES[mes - 1]} marcado como pendiente`);
+    qc.invalidateQueries({ queryKey: ["fema_gastos_fijos_mov"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+  };
+
+  // Totales del año: abonado vs pendiente
+  const resumen = useMemo(() => {
+    let pagado = 0, pendiente = 0;
+    for (const p of plantillas ?? []) {
+      for (let mes = 1; mes <= 12; mes++) {
+        if (!activeInMonth(p, mes)) continue;
+        const mov = movByKey.get(`${p.id}|${mes}`);
+        const monto = mov ? Number(mov.monto) : Number(p.monto_mensual);
+        if (mov?.pagado) pagado += monto; else pendiente += monto;
+      }
+    }
+    return { pagado, pendiente, total: pagado + pendiente };
+  }, [plantillas, movByKey, year]);
+
+  const mesPagadoCompleto = (mes: number) => {
+    const activos = (plantillas ?? []).filter((p) => activeInMonth(p, mes));
+    return activos.length > 0 && activos.every((p) => movByKey.get(`${p.id}|${mes}`)?.pagado);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           Plantilla de gastos mensuales recurrentes. El monto se proyecta cada mes y se puede editar individualmente.
+          Tocá el <b>casillero</b> de cada mes para marcarlo como <b>abonado</b>, o el nombre del mes en el encabezado
+          para marcar/desmarcar todos los gastos de ese mes.
         </div>
         <Button size="sm" onClick={() => { setEdit(null); setOpen(true); }}>
           <Plus className="h-4 w-4" /> Nuevo gasto fijo
         </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Card><CardContent className="p-3">
+          <p className="text-xs text-muted-foreground">Abonado {year}</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{formatPesos(resumen.pagado)}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-3">
+          <p className="text-xs text-muted-foreground">Pendiente de pago</p>
+          <p className="text-lg font-semibold text-accent tabular-nums">{formatPesos(resumen.pendiente)}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-3">
+          <p className="text-xs text-muted-foreground">Total proyectado</p>
+          <p className="text-lg font-semibold tabular-nums">{formatPesos(resumen.total)}</p>
+        </CardContent></Card>
       </div>
 
       <Card>
@@ -201,7 +268,21 @@ export function GastosFijos() {
               <TableRow>
                 <TableHead className="sticky left-0 z-10 bg-card">CONCEPTO</TableHead>
                 <TableHead>CATEGORÍA</TableHead>
-                {MESES.map((m) => <TableHead key={m} className="text-right">{m}</TableHead>)}
+                {MESES.map((m, i) => {
+                  const completo = mesPagadoCompleto(i + 1);
+                  return (
+                    <TableHead key={m} className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => marcarMes(i + 1, !completo)}
+                        title={completo ? "Marcar mes como pendiente" : "Marcar todo el mes como abonado"}
+                        className={`hover:underline ${completo ? "text-primary" : ""}`}
+                      >
+                        {m}{completo ? " ✓" : ""}
+                      </button>
+                    </TableHead>
+                  );
+                })}
                 <TableHead className="text-right">TOTAL</TableHead>
                 <TableHead className="text-right">ACCIONES</TableHead>
               </TableRow>
