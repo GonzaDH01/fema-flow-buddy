@@ -37,6 +37,21 @@ type OCRResult = {
 type DocKind = "compra" | "venta";
 type Modo = "nuevo" | "adjuntar";
 
+async function listAllPaths(prefix: string): Promise<string[]> {
+  const out: string[] = [];
+  const { data, error } = await supabase.storage.from("facturas-img").list(prefix, { limit: 1000 });
+  if (error) return out;
+  for (const entry of data ?? []) {
+    const full = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if ((entry as any).id === null || (entry as any).metadata == null) {
+      out.push(...(await listAllPaths(full)));
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 type PendienteRow = {
   id: string;
   fecha: string;
