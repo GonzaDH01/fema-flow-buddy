@@ -37,6 +37,21 @@ type OCRResult = {
 type DocKind = "compra" | "venta";
 type Modo = "nuevo" | "adjuntar";
 
+async function listAllPaths(prefix: string): Promise<string[]> {
+  const out: string[] = [];
+  const { data, error } = await supabase.storage.from("facturas-img").list(prefix, { limit: 1000 });
+  if (error) return out;
+  for (const entry of data ?? []) {
+    const full = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if ((entry as any).id === null || (entry as any).metadata == null) {
+      out.push(...(await listAllPaths(full)));
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 type PendienteRow = {
   id: string;
   fecha: string;
@@ -96,6 +111,16 @@ function Page() {
 
   const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
 
+  // Verifica si un archivo sigue existiendo en el bucket (puede haber sido eliminado)
+  const existeArchivo = async (path?: string | null) => {
+    if (!path) return false;
+    const idx = path.lastIndexOf("/");
+    const folder = idx > 0 ? path.slice(0, idx) : "";
+    const name = idx > 0 ? path.slice(idx + 1) : path;
+    const { data } = await supabase.storage.from("facturas-img").list(folder, { limit: 100, search: name });
+    return (data ?? []).some((f) => f.name === name);
+  };
+
   // Busca un comprobante ya cargado con el mismo número (y total aproximado)
   const buscarDuplicado = async (r: OCRResult) => {
     if (!r?.numero) return null;
@@ -107,13 +132,18 @@ function Page() {
       .limit(5);
     const match = (data ?? []).find((d: any) => Math.abs((d.total ?? 0) - (r.total ?? 0)) < 1) as any;
     if (!match) return null;
+    const tieneImagen = await existeArchivo(match.imagen_path);
+    // Si la referencia quedó rota (imagen eliminada), la limpiamos para poder re-adjuntar
+    if (match.imagen_path && !tieneImagen) {
+      await supabase.from(tablaKind).update({ imagen_path: null }).eq("id", match.id);
+    }
     return {
       id: match.id as string,
       numero: match.numero ?? null,
       total: match.total ?? null,
       fecha: match.fecha ?? null,
       tercero: kind === "compra" ? (match.fema_proveedores?.nombre ?? null) : (match.fema_clientes?.nombre ?? null),
-      tieneImagen: !!match.imagen_path,
+      tieneImagen,
     };
   };
 
@@ -124,12 +154,21 @@ function Page() {
       const rel = kind === "compra" ? "fema_proveedores(nombre)" : "fema_clientes(nombre)";
       const { data, error } = await supabase
         .from(tablaKind)
-        .select(`id, fecha, numero, total, ${rel}`)
-        .is("imagen_path", null)
+        .select(`id, fecha, numero, total, imagen_path, ${rel}`)
         .order("fecha", { ascending: false })
         .limit(300);
       if (error) throw error;
-      return (data ?? []).map((r: any) => ({
+      // Archivos realmente existentes en el bucket
+      const existentes = new Set(await listAllPaths(""));
+      const rotos = (data ?? []).filter((r: any) => r.imagen_path && !existentes.has(r.imagen_path));
+      if (rotos.length) {
+        await supabase
+          .from(tablaKind)
+          .update({ imagen_path: null })
+          .in("id", rotos.map((r: any) => r.id));
+      }
+      const sinImagen = (data ?? []).filter((r: any) => !r.imagen_path || !existentes.has(r.imagen_path));
+      return sinImagen.map((r: any) => ({
         id: r.id,
         fecha: r.fecha,
         numero: r.numero,
@@ -137,6 +176,7 @@ function Page() {
         tercero: kind === "compra" ? (r.fema_proveedores?.nombre ?? null) : (r.fema_clientes?.nombre ?? null),
       }));
     },
+    staleTime: 0,
   });
 
   const filtrados = (pendientes ?? []).filter((r) => {
