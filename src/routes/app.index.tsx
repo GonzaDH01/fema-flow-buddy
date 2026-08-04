@@ -33,7 +33,7 @@ async function loadKPIs(_userId: string, anio: number) {
       .eq("anio", anio),
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio,mes,vencimiento,fecha_emision")
-      .eq("anio", anio),
+      ,
   ]);
   if (ventas.error) throw ventas.error;
   if (compras.error) throw compras.error;
@@ -62,6 +62,30 @@ async function loadKPIs(_userId: string, anio: number) {
     .filter((m) => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")
     .reduce((a, m) => a + Number(m.monto), 0);
 
+  // Movimientos no vinculados a una factura (ej. echeqs importados del banco):
+  // también son operaciones reales de caja y deben verse en los indicadores.
+  const anioDeMov = (m: any): number | null => {
+    const s = m.vencimiento ?? m.fecha_emision;
+    if (s) return Number(String(s).slice(0, 4));
+    return m.anio ?? null;
+  };
+  const sueltos = mv.filter(
+    (m) =>
+      ACTIVOS.has(m.estado) &&
+      ((m.direccion === "cobro" && !m.factura_venta_id) ||
+        (m.direccion === "pago" && !m.factura_compra_id)),
+  );
+  const sueltosAnio = sueltos.filter((m) => anioDeMov(m) === anio);
+  const cobradoSuelto = sueltosAnio
+    .filter((m) => m.direccion === "cobro" && (m.estado === "cobrado" || m.estado === "cedido"))
+    .reduce((a, m) => a + Number(m.monto), 0);
+  const carteraSuelta = sueltosAnio
+    .filter((m) => m.direccion === "cobro" && m.estado === "en_cartera")
+    .reduce((a, m) => a + Number(m.monto), 0);
+  const pagadoSuelto = sueltosAnio
+    .filter((m) => m.direccion === "pago" && m.estado === "pagado")
+    .reduce((a, m) => a + Number(m.monto), 0);
+
   const vsEff = vs.map((x: any) => {
     const pagado = cobradoPorFV.get(x.id) ?? 0;
     const estado = x.estado === "cobrada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "cobrada" : x.estado;
@@ -78,15 +102,16 @@ async function loadKPIs(_userId: string, anio: number) {
   const comprasPagadas = csEff.filter((x) => x.estado === "pagada");
   const comprasPendientes = csEff.filter((x) => x.estado === "pendiente");
 
-  const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0);
-  const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0);
+  const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0) + cobradoSuelto;
+  const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0) + carteraSuelta;
   const totalSueldos = su.reduce((a, x) => a + Number(x.sueldo_bruto ?? 0) + Number(x.cargas_sociales ?? 0), 0);
   const totalImpuestos = im.reduce(
     (a, x) => a + Number(x.ingresos_brutos ?? 0) + Number(x.ganancias_estimadas ?? 0) +
       Math.max(0, Number(x.iva_debito ?? 0) - Number(x.iva_credito ?? 0)),
     0,
   );
-  const egresosPagados = comprasPagadas.reduce((a, x) => a + Number(x.total), 0) + totalSueldos + totalImpuestos;
+  const egresosPagados =
+    comprasPagadas.reduce((a, x) => a + Number(x.total), 0) + totalSueldos + totalImpuestos + pagadoSuelto;
   const deudasPendientes = comprasPendientes.reduce((a, x) => a + Number(x.total), 0);
   const neto = ingresosCobrados - egresosPagados;
 
@@ -141,6 +166,16 @@ async function loadKPIs(_userId: string, anio: number) {
     if (c.estado === "pagada") {
       const resto = Number(c.total) - cubierto;
       if (resto > 0.01) egresosMes[fallback] += resto;
+    }
+  }
+  for (const m of sueltosAnio) {
+    const s = m.vencimiento ?? m.fecha_emision;
+    const idx = s ? Number(String(s).slice(5, 7)) - 1 : (Number(m.mes) || 1) - 1;
+    if (idx < 0 || idx > 11) continue;
+    if (m.direccion === "cobro" && (m.estado === "cobrado" || m.estado === "cedido")) {
+      ingresosMes[idx] += Number(m.monto);
+    } else if (m.direccion === "pago" && m.estado === "pagado") {
+      egresosMes[idx] += Number(m.monto);
     }
   }
   const mensual = Array.from({ length: 12 }, (_, i) => ({
