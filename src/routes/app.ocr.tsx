@@ -93,6 +93,46 @@ const compatibleName = (a: string | null | undefined, b: string | null | undefin
   return left === right || left.includes(right) || right.includes(left);
 };
 
+// La empresa propia nunca puede ser proveedor (en compras) ni cliente (en ventas).
+const EMPRESA_PROPIA = /fema\s*agro/i;
+const esEmpresaPropia = (nombre?: string | null) => EMPRESA_PROPIA.test((nombre ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
+/** Si el modelo confundió emisor y receptor (típico: pone a FEMA como emisor en una
+ *  factura de compra), invierte los bloques para que el tercero sea el correcto. */
+function corregirPartes(r: OCRResult, kind: DocKind): OCRResult {
+  const debeInvertir = kind === "compra"
+    ? esEmpresaPropia(r.emisor) && !esEmpresaPropia(r.receptor) && !!(r.receptor ?? r.cuit_receptor)
+    : esEmpresaPropia(r.receptor) && !esEmpresaPropia(r.emisor) && !!(r.emisor ?? r.cuit_emisor);
+  if (!debeInvertir) return r;
+  return {
+    ...r,
+    emisor: r.receptor ?? null, receptor: r.emisor ?? null,
+    cuit_emisor: r.cuit_receptor ?? null, cuit_receptor: r.cuit_emisor ?? null,
+    emisor_domicilio: r.receptor_domicilio ?? null, receptor_domicilio: r.emisor_domicilio ?? null,
+    emisor_localidad: r.receptor_localidad ?? null, receptor_localidad: r.emisor_localidad ?? null,
+    emisor_telefono: r.receptor_telefono ?? null, receptor_telefono: r.emisor_telefono ?? null,
+    emisor_email: r.receptor_email ?? null, receptor_email: r.emisor_email ?? null,
+    emisor_condicion_iva: r.receptor_condicion_iva ?? null, receptor_condicion_iva: r.emisor_condicion_iva ?? null,
+    emisor_iibb: r.receptor_iibb ?? null, receptor_iibb: r.emisor_iibb ?? null,
+  };
+}
+
+const TIPOS_COMPROBANTE = [
+  "Factura", "Nota de crédito", "Nota de débito", "Recibo", "Ticket",
+  "Comprobante provisorio", "Remito", "Otro",
+] as const;
+const normalizarTipoComprobante = (t?: string | null) => {
+  const v = (t ?? "").toLowerCase();
+  if (v.includes("credito") || v.includes("crédito")) return "Nota de crédito";
+  if (v.includes("debito") || v.includes("débito")) return "Nota de débito";
+  if (v.includes("recibo")) return "Recibo";
+  if (v.includes("ticket")) return "Ticket";
+  if (v.includes("remito")) return "Remito";
+  if (v.includes("provisor")) return "Comprobante provisorio";
+  if (v.includes("factura")) return "Factura";
+  return "Otro";
+};
+
 function Page() {
   const { user } = useAuth();
   const qc = useQueryClient();
