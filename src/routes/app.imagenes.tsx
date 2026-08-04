@@ -562,33 +562,3 @@ function ControlPanel() {
     </div>
   );
 }
-
-function PageOld() {
-  return (
-    <div className="p-4 md:p-6">
-      <header className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Facturas</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Archivo de comprobantes escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
-        </p>
-      </header>
-
-      <Tabs defaultValue="compra">
-        <TabsList>
-          <TabsTrigger value="compra">
-            <ShoppingCart className="mr-1.5 h-4 w-4" /> Compras
-          </TabsTrigger>
-          <TabsTrigger value="venta">
-            <Receipt className="mr-1.5 h-4 w-4" /> Ventas / Servicios
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="compra" className="mt-4">
-          <Panel kind="compra" />
-        </TabsContent>
-        <TabsContent value="venta" className="mt-4">
-          <Panel kind="venta" />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
