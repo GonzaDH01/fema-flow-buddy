@@ -729,8 +729,8 @@ function Page() {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Resultado extraído</h3>
             {result && (
-              <Badge className={confianzaOk ? "bg-primary/15 text-primary" : "bg-accent/15 text-accent"}>
-                {confianzaOk ? "Datos completos" : "Revisar datos"}
+              <Badge className={errores.length ? "bg-destructive/15 text-destructive" : avisos.length ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}>
+                {errores.length ? `${errores.length} dato(s) a corregir` : avisos.length ? `${avisos.length} advertencia(s)` : "Datos completos"}
               </Badge>
             )}
           </div>
@@ -772,23 +772,43 @@ function Page() {
               <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(value) => setResult({ ...result, cuit_emisor: onlyDigits(value) })} />
               <EditableOCRField label="Receptor / cliente" value={result.receptor ?? ""} onChange={(value) => setResult({ ...result, receptor: value })} />
               <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(value) => setResult({ ...result, cuit_receptor: onlyDigits(value) })} />
-              {[
-                ["Número", result.numero ?? "—"], ["Fecha", result.fecha ?? "—"],
-                ["Es combustible", result.es_combustible ? "Sí" : "No"],
-                ["Neto", result.neto ?? 0], ["IVA 21%", result.iva_21 ?? 0],
-                ["IVA 10.5%", result.iva_105 ?? 0], ["Percepciones", result.percepciones ?? 0],
-                ["Total", result.total ?? 0], ["Moneda", result.moneda ?? "ARS"],
-              ].map(([k, v]) => (
-                <div key={String(k)}>
-                  <Label className="text-xs text-muted-foreground">{k}</Label>
-                  <Input value={String(v ?? "")} readOnly className="mt-1 h-8 text-sm" />
+              <EditableOCRField label="Número" value={result.numero ?? ""} onChange={(v) => setResult({ ...result, numero: v })} />
+              <div>
+                <Label className="text-xs text-muted-foreground">Fecha</Label>
+                <Input type="date" value={result.fecha ?? ""} onChange={(e) => setResult({ ...result, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
+              </div>
+              <EditableOCRField label="Neto" value={String(result.neto ?? 0)} onChange={(v) => setResult({ ...result, neto: num(v) })} />
+              <EditableOCRField label="IVA 21%" value={String(result.iva_21 ?? 0)} onChange={(v) => setResult({ ...result, iva_21: num(v) })} />
+              <EditableOCRField label="IVA 10.5%" value={String(result.iva_105 ?? 0)} onChange={(v) => setResult({ ...result, iva_105: num(v) })} />
+              <EditableOCRField label="Percepciones" value={String(result.percepciones ?? 0)} onChange={(v) => setResult({ ...result, percepciones: num(v) })} />
+              <EditableOCRField label="Total" value={String(result.total ?? 0)} onChange={(v) => setResult({ ...result, total: num(v) })} />
+              <div>
+                <Label className="text-xs text-muted-foreground">Moneda</Label>
+                <Input value={result.moneda ?? "ARS"} readOnly className="mt-1 h-8 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Es combustible</Label>
+                <Input value={result.es_combustible ? "Sí" : "No"} readOnly className="mt-1 h-8 text-sm" />
+              </div>
+
+              {avisos.length > 0 && (
+                <div className="col-span-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">Revisión previa</p>
+                  {avisos.map((a, i) => (
+                    <p key={i} className={`text-xs ${a.nivel === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                      {a.nivel === "error" ? "✕" : "!"} <b>{a.campo}:</b> {a.msg}
+                    </p>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
           {result && (
-            <div className="mt-4 flex justify-end">
-              <Button onClick={guardar} disabled={saving || modo === "adjuntar"}>
+            <div className="mt-4 flex items-center justify-end gap-3">
+              {errores.length > 0 && modo !== "adjuntar" && (
+                <span className="text-xs text-destructive">Corregí los datos marcados para poder guardar.</span>
+              )}
+              <Button onClick={guardar} disabled={saving || modo === "adjuntar" || errores.length > 0}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 Guardar como {kind === "compra" ? "compra" : "venta"}
               </Button>
