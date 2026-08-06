@@ -1025,6 +1025,9 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
         {rows.map(m => {
           const hoyStr = new Date().toISOString().slice(0,10);
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
+          const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
+          const sinImpactoCaja = (m.estado === "pagado" || m.estado === "cobrado")
+            && m.instrumento !== "cesion" && !yaImpactoCaja;
           return (
           <TableRow key={m.id} className={vencidoSinCobrar ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
             <TableCell>
@@ -1056,7 +1059,12 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
             <TableCell className="text-xs">{m.numero ?? "—"}</TableCell>
             <TableCell className="text-xs">{m.banco ?? "—"}</TableCell>
             <TableCell className="text-right font-mono">{formatPesos(m.monto)}</TableCell>
-            <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
+            <TableCell>
+              <Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge>
+              {sinImpactoCaja && (
+                <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
+              )}
+            </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
                 {m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera" && (
@@ -1065,6 +1073,11 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
                 {m.estado === "en_cartera" && (
                   <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
                     <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "cobro" ? "Cobrar" : "Pagar"}
+                  </Button>
+                )}
+                {sinImpactoCaja && (
+                  <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-amber-500/40 text-amber-400">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "pago" ? "Debitar de caja" : "Acreditar en banco"}
                   </Button>
                 )}
                 {(m.estado === "cobrado" || m.estado === "pagado" || m.estado === "en_cartera") && (
