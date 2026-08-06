@@ -2469,6 +2469,158 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   );
 }
 
+function ConciliarDialog({ mov, onClose, onSaved }: {
+  mov: Mov; onClose: () => void; onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const esCobro = mov.direccion === "cobro";
+  const tabla = esCobro ? "fema_facturas_venta" : "fema_facturas_compra";
+  const colFact = esCobro ? "factura_venta_id" : "factura_compra_id";
+  const entidadCol = esCobro ? "cliente_id" : "proveedor_id";
+  const entidadTabla = esCobro ? "fema_clientes" : "fema_proveedores";
+
+  const factsQ = useQuery({
+    queryKey: ["fema_facturas_pendientes_conciliar", user?.id, esCobro],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from(tabla)
+        .select("id,numero,fecha,total,estado," + entidadCol)
+        .eq("estado", "pendiente")
+        .order("fecha", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const entidadesQ = useQuery({
+    queryKey: [entidadTabla, user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from(entidadTabla).select("id,nombre");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const impsQ = useQuery({
+    queryKey: ["fema_imputaciones_mov", mov.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_imputaciones")
+        .select("*").eq("movimiento_pago_id", mov.id);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const [dist, setDist] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!factsQ.data) return;
+    const existentes = Object.fromEntries(
+      (impsQ.data ?? []).map(i => [i[colFact], Number(i.monto)])
+    );
+    const propuesta = proponerImputaciones(
+      Number(mov.monto),
+      factsQ.data.map(f => ({ id: f.id, saldo: Number(f.total) }))
+    );
+    const merged: Record<string, number> = {};
+    for (const p of propuesta) merged[p.facturaId] = existentes[p.facturaId] ?? p.monto;
+    for (const [fid, monto] of Object.entries(existentes)) {
+      if (!(fid in merged)) merged[fid] = monto;
+    }
+    setDist(merged);
+  }, [factsQ.data, impsQ.data, mov.monto, colFact]);
+
+  const totalDistribuido = Object.values(dist).reduce((a, b) => a + b, 0);
+  const restante = Number(mov.monto) - totalDistribuido;
+  const entidades = Object.fromEntries((entidadesQ.data ?? []).map(e => [e.id, e.nombre]));
+
+  const guardar = async () => {
+    if (!user) return;
+    const rows = Object.entries(dist)
+      .filter(([_, m]) => m > 0.01)
+      .map(([facturaId, monto]) => ({
+        user_id: user.id,
+        movimiento_pago_id: mov.id,
+        [colFact]: facturaId,
+        monto,
+        anio: mov.anio,
+        mes: mov.mes,
+      }));
+    const { error: delErr } = await sb.from("fema_imputaciones").delete().eq("movimiento_pago_id", mov.id);
+    if (delErr) throw delErr;
+    if (rows.length > 0) {
+      const { error } = await sb.from("fema_imputaciones").insert(rows);
+      if (error) throw error;
+    }
+    const afectadas = new Set<string>([
+      ...(impsQ.data ?? []).map(i => i[colFact]),
+      ...rows.map(r => r[colFact]),
+    ]);
+    for (const fid of afectadas) {
+      if (fid) await reconciliarFactura(fid, esCobro ? "venta" : "compra");
+    }
+    toast.success("Imputaciones guardadas");
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Conciliar {esCobro ? "cobro" : "pago"}</DialogTitle>
+        <DialogDescription>
+          Distribuís {formatPesos(mov.monto)} del {INSTRUMENT_LABEL[mov.instrumento].toLowerCase()} a {mov.contraparte ?? "—"} entre facturas pendientes.
+        </DialogDescription>
+      </DialogHeader>
+      {factsQ.isLoading ? (
+        <div className="text-sm text-muted-foreground py-4">Cargando facturas…</div>
+      ) : (factsQ.data ?? []).length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4">No hay facturas pendientes para conciliar.</div>
+      ) : (
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          {(factsQ.data ?? []).map(f => {
+            const entidad = entidades[f[entidadCol]] ?? "—";
+            const val = dist[f.id] ?? 0;
+            return (
+              <div key={f.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{entidad}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Factura {f.numero ?? "sin nº"} · {formatFecha(f.fecha)} · total {formatPesos(Number(f.total))}
+                  </div>
+                </div>
+                <Input
+                  type="number"
+                  className="w-32 text-right"
+                  value={val || ""}
+                  onChange={(e) => {
+                    const v = Math.max(0, Number(e.target.value));
+                    setDist(d => ({ ...d, [f.id]: v }));
+                  }}
+                />
+              </div>
+            );
+          })}
+          <div className="flex justify-between text-sm pt-2 border-t border-border/50">
+            <span className="text-muted-foreground">Distribuido</span>
+            <span className={Math.abs(restante) < 0.01 ? "text-emerald-400" : "text-amber-400"}>
+              {formatPesos(totalDistribuido)} {Math.abs(restante) < 0.01 ? "(completo)" : `· restante ${formatPesos(restante)}`}
+            </span>
+          </div>
+        </div>
+      )}
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={Math.abs(restante) < -0.01 || factsQ.isLoading}>
+          Guardar imputaciones
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 function CuentaBancariaDialog({
   initial, userId, onClose, onSaved,
 }: {
