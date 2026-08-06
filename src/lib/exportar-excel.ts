@@ -1,9 +1,19 @@
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
-import { saveAs } from "file-saver";
 
 const sb = supabase as any;
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export type ModuloExport =
   | "cashflow"
