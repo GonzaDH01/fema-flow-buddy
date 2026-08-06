@@ -1316,6 +1316,36 @@ export type Database = {
           },
         ]
       }
+      fema_periodos_cierre: {
+        Row: {
+          anio: number
+          cerrado_por: string | null
+          created_at: string
+          id: string
+          mes: number
+          observaciones: string | null
+          updated_at: string
+        }
+        Insert: {
+          anio: number
+          cerrado_por?: string | null
+          created_at?: string
+          id?: string
+          mes: number
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anio?: number
+          cerrado_por?: string | null
+          created_at?: string
+          id?: string
+          mes?: number
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fema_presupuesto_items: {
         Row: {
           alicuota_iva: number
@@ -2169,6 +2199,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fema_periodo_cerrado: { Args: { _fecha: string }; Returns: boolean }
       fema_reconciliar_factura: {
         Args: { _factura_id: string; _tipo: string }
         Returns: undefined
