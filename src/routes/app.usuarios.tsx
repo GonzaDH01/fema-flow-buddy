@@ -16,6 +16,7 @@ const MODULOS: { key: string; label: string }[] = [
   { key: "cashflow", label: "Cash Flow" },
   { key: "tesoreria", label: "Tesorería proyectada" },
   { key: "cuentas", label: "Cuentas corrientes" },
+  { key: "rentabilidad", label: "Rentabilidad operativa" },
   { key: "alertas", label: "Alertas" },
   { key: "facturas", label: "Facturas" },
   { key: "clientes", label: "Clientes" },
