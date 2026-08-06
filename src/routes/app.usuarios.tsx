@@ -178,7 +178,7 @@ function ModulesDialog({ user, onClose, onSaved }: { user: UserRow; onClose: () 
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Módulos permitidos · {user.full_name ?? user.email}</DialogTitle>
         </DialogHeader>
