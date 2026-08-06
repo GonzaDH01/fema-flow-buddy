@@ -10,7 +10,8 @@ import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import {
   estadoFactura, construirObjetivos, repartirImporte, imputarIndivisible,
-  esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
+  proponerImputaciones, esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
+  redondear,
 } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Edit3, Receipt, Printer } from "lucide-react";
+import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Edit3, Receipt, Printer, Link2 } from "lucide-react";
 import { Sparkles, X as XIcon } from "lucide-react";
 import {
   FemaDocHeader, FemaClientBox, FemaWatermark,
@@ -49,7 +50,7 @@ type Mov = {
 
 const sb = supabase as any;
 
-// Reconcilia el estado de una factura (venta/compra) según los movimientos activos asociados.
+// Reconcilia el estado de una factura (venta/compra) según movimientos directos + imputaciones.
 // Si la suma cubre el total → marca cobrada/pagada; si no → vuelve a pendiente.
 async function reconciliarFactura(facturaId: string | null | undefined, tipo: "venta" | "compra") {
   if (!facturaId) return;
@@ -57,10 +58,17 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
   const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
   const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
   if (!fact) return;
-  const { data: movs } = await sb.from("fema_movimientos_pago")
-    .select("monto,estado").eq(col, facturaId);
-  // La regla de negocio vive en src/lib/finanzas.ts (pura y testeada).
-  const nuevo = estadoFactura(fact.total, (movs ?? []) as any, tipo);
+  const [{ data: movs }, { data: imps }] = await Promise.all([
+    sb.from("fema_movimientos_pago").select("monto,estado").eq(col, facturaId),
+    sb.from("fema_imputaciones").select("monto").eq(col, facturaId),
+  ]);
+  const confirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
+  const cubiertoDirecto = (movs ?? []).reduce((s: number, m: any) => s + (confirmados.includes(m.estado) ? Number(m.monto) : 0), 0);
+  const cubiertoImputaciones = (imps ?? []).reduce((s: number, i: any) => s + Number(i.monto), 0);
+  const cubierto = cubiertoDirecto + cubiertoImputaciones;
+  const nuevo = cubierto >= Number(fact.total) - 0.01 && Number(fact.total) > 0
+    ? (tipo === "venta" ? "cobrada" : "pagada")
+    : "pendiente";
   if (fact.estado !== nuevo) {
     await sb.from(tabla).update({ estado: nuevo }).eq("id", facturaId);
   }
@@ -94,6 +102,7 @@ function Page() {
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
+  const [conciliarMov, setConciliarMov] = useState<Mov | null>(null);
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
@@ -175,6 +184,16 @@ function Page() {
         .order("fecha_emision", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Mov[];
+    },
+  });
+
+  const impsQ = useQuery({
+    queryKey: ["fema_imputaciones", user?.id, year],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_imputaciones").select("*").eq("anio", year);
+      if (error) throw error;
+      return (data ?? []) as any[];
     },
   });
 
@@ -867,7 +886,7 @@ function Page() {
                   </div>
                 </div>
                 {k === "propios" && <ResumenPropios rows={filas.propios} />}
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
+                <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} onConciliar={(m) => setConciliarMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -933,8 +952,9 @@ function Page() {
             onClose={() => { setOpenMov(false); setEditMov(null); }}
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
-    qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
-    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+              qc.invalidateQueries({ queryKey: ["fema_imputaciones"] });
+              qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
               setOpenMov(false); setEditMov(null);
@@ -952,6 +972,24 @@ function Page() {
             facturasCompra={facturasCompraQ.data ?? []}
             emisor="FEMA — Gestión Agropecuaria"
             onClose={() => setReciboMov(null)}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={!!conciliarMov} onOpenChange={(v) => { if (!v) setConciliarMov(null); }}>
+        {conciliarMov && (
+          <ConciliarDialog
+            mov={conciliarMov}
+            onClose={() => setConciliarMov(null)}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["fema_imputaciones"] });
+              qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
+              setConciliarMov(null);
+            }}
           />
         )}
       </Dialog>
@@ -1029,10 +1067,11 @@ function ResumenPropios({ rows }: { rows: Mov[] }) {
   );
 }
 
-function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
-  rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
+function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo, onConciliar }: {
+  rows: Mov[]; imputaciones?: any[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
   onDeleteMany?: (ids: string[]) => Promise<boolean>; onRecibo: (m: Mov) => void;
+  onConciliar?: (m: Mov) => void;
 }) {
   const [sel, setSel] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
@@ -1099,6 +1138,8 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
           const sinImpactoCaja = (m.estado === "pagado" || m.estado === "cobrado")
             && m.instrumento !== "cesion" && !yaImpactoCaja;
+          const impsMov = imputaciones.filter(i => i.movimiento_pago_id === m.id);
+          const tieneImps = impsMov.length > 0;
           return (
           <TableRow key={m.id} className={vencidoSinCobrar ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
             <TableCell>
@@ -1135,6 +1176,9 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
               {sinImpactoCaja && (
                 <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
               )}
+              {tieneImps && (
+                <div className="mt-1 text-[10px] text-sky-400">imputado a {impsMov.length} factura{impsMov.length > 1 ? "s" : ""}</div>
+              )}
             </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
@@ -1154,6 +1198,11 @@ function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, on
                 {(m.estado === "cobrado" || m.estado === "pagado" || m.estado === "en_cartera") && (
                   <Button size="sm" variant="outline" onClick={() => onRecibo(m)} className="border-primary/40 text-primary">
                     <Receipt className="w-3 h-3 mr-1" />Recibo
+                  </Button>
+                )}
+                {onConciliar && !m.factura_venta_id && !m.factura_compra_id && (
+                  <Button size="sm" variant="outline" onClick={() => onConciliar(m)} className="border-sky-500/40 text-sky-400">
+                    <Link2 className="w-3 h-3 mr-1" />Conciliar
                   </Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => onEdit(m)}><Pencil className="w-3 h-3" /></Button>
@@ -1550,14 +1599,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         // Objetivos de imputación: una o varias facturas del mismo proveedor
         const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         let objetivos: { id: string; restante: number }[] = [];
+        let previos: any[] = [];
         if (idsObjetivo.length > 0) {
-          const { data: previos } = await sb.from("fema_movimientos_pago")
+          const { data } = await sb.from("fema_movimientos_pago")
             .select("factura_compra_id,factura_venta_id,monto,estado")
             .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
+          previos = (data ?? []) as any;
           const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
           objetivos = construirObjetivos(
             idsObjetivo.map(fid => ({ id: fid, total: lista.find(x => x.id === fid)?.total ?? 0 })),
-            (previos ?? []) as any,
+            previos,
             tipo === "cobro_cliente" ? "venta" : "compra",
           );
         }
@@ -1590,59 +1641,84 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           }
         }
         if (filasValidas.length > 0) {
-        if (initial) {
-          // edición: actualiza única fila
-          const c = filasValidas[0];
-          const payload: any = {
-            id: initial.id,
-            instrumento: instrumento as any,
-            direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
-            tipo_movimiento: tipo,
-            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-            vencimiento: c.vencimiento || null,
-            numero: c.numero || null, banco: c.banco || bancoGlobal || null,
-            contraparte: contraparte || (fact?.proveedor ?? null),
-            monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
-            factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-            factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
-            anio: year, mes,
-          };
-          opUpdate.push(payload);
-        } else {
-          // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
-          // Filas sin id → INSERT (nuevas)
-          // ids originales que ya no están → DELETE
-          const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
-          opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
-          for (const c of filasValidas) {
-            const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
+          const esMulti = idsObjetivo.length > 1;
+          const colF = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+          const listaFacturas = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+          if (initial) {
+            // edición: actualiza única fila
+            const c = filasValidas[0];
+            const payload: any = {
+              id: initial.id,
               instrumento: instrumento as any,
               direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
               tipo_movimiento: tipo,
               fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
               vencimiento: c.vencimiento || null,
-              numero: c.numero || null,
-              banco: c.banco || bancoGlobal || null,
+              numero: c.numero || null, banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: m,
-              estado,
-              observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
-              factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
-              factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
+              monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
+              factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
+              factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
               anio: year, mes,
-            });
-            if (c.id) {
-              opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
-            } else {
-              const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
-              for (const chunk of repartir(Number(c.monto))) {
-                const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
-                const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
-                opInsert.push(mkBase(chunk.facturaId, chunk.monto, obsExtra));
+            };
+            opUpdate.push(payload);
+          } else {
+            // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
+            // Filas sin id → INSERT (nuevas)
+            // ids originales que ya no están → DELETE
+            const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
+            opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
+            for (const c of filasValidas) {
+              const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
+                instrumento: instrumento as any,
+                direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
+                tipo_movimiento: tipo,
+                fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+                vencimiento: c.vencimiento || null,
+                numero: c.numero || null,
+                banco: c.banco || bancoGlobal || null,
+                contraparte: contraparte || (fact?.proveedor ?? null),
+                monto: m,
+                estado,
+                observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+                factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
+                factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
+                anio: year, mes,
+              });
+              if (c.id) {
+                opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
+              } else if (esMulti) {
+                // Pago/cobro distribuido en varias facturas: un solo movimiento + imputaciones.
+                const propuesta = proponerImputaciones(
+                  idsObjetivo.map(fid => {
+                    const f = listaFacturas.find(x => x.id === fid);
+                    return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                  }),
+                  (previos ?? []) as any,
+                  Number(c.monto),
+                  tipo === "cobro_cliente" ? "venta" : "compra",
+                );
+                const nros = propuesta.imputaciones.map(i => i.numero).filter(Boolean);
+                const obsExtra = nros.length > 1 ? `Imputado a facturas: ${nros.join(", ")}` : undefined;
+                opInsert.push({
+                  ...mkBase(null, Number(c.monto), obsExtra),
+                  imputaciones: propuesta.imputaciones.map(i => ({
+                    [colF]: i.facturaId,
+                    monto: i.monto,
+                    fecha: fechaEmision || new Date().toISOString().split("T")[0],
+                  })),
+                });
+              } else {
+                // Factura única: vínculo directo (compatibilidad con datos existentes).
+                const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+                for (const chunk of repartir(Number(c.monto))) {
+                  const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
+                  const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
+                  opInsert.push(mkBase(chunk.facturaId, chunk.monto, obsExtra));
+                }
               }
             }
           }
-        }
         }
         // Un solo viaje al servidor: si algo falla, no queda nada a medias.
         const { error: rpcErr } = await (sb as any).rpc("fema_registrar_pago", {
@@ -1989,6 +2065,45 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </div>
             </div>
           </div>
+
+          {multiActivo && facturasMulti.length > 1 && totalCargado > 0 && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-[11px] uppercase tracking-wider text-primary font-semibold">Distribución propuesta entre facturas</div>
+              <div className="space-y-1">
+                {(() => {
+                  const lista = facturasCompra;
+                  const prop = proponerImputaciones(
+                    facturasMulti.map((fid: string) => {
+                      const f = lista.find((x: any) => x.id === fid);
+                      return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                    }),
+                    [],
+                    totalCargado,
+                    "compra",
+                  );
+                  return (
+                    <>
+                      {prop.imputaciones.map((imp, idx) => {
+                        const f = lista.find((x: any) => x.id === imp.facturaId);
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="truncate">Fact. {imp.numero ?? "s/n"} · {f?.proveedor ?? "—"}</span>
+                            <span className="font-mono">{formatPesos(imp.monto)}</span>
+                          </div>
+                        );
+                      })}
+                      {prop.saldoACuenta > 0.01 && (
+                        <div className="flex items-center justify-between text-xs text-amber-400 pt-1 border-t border-primary/20">
+                          <span>Saldo a cuenta / anticipo</span>
+                          <span className="font-mono">{formatPesos(prop.saldoACuenta)}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <FormField label="Mes asociado">
@@ -2367,6 +2482,163 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
         </Button>
         <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
           {esPago ? "Pagar y debitar" : "Cobrar y acreditar"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function ConciliarDialog({ mov, onClose, onSaved }: {
+  mov: Mov; onClose: () => void; onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const esCobro = mov.direccion === "cobro";
+  const tabla = esCobro ? "fema_facturas_venta" : "fema_facturas_compra";
+  const colFact = esCobro ? "factura_venta_id" : "factura_compra_id";
+  const entidadCol = esCobro ? "cliente_id" : "proveedor_id";
+  const entidadTabla = esCobro ? "fema_clientes" : "fema_proveedores";
+
+  const factsQ = useQuery({
+    queryKey: ["fema_facturas_pendientes_conciliar", user?.id, esCobro],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from(tabla)
+        .select("id,numero,fecha,total,estado," + entidadCol)
+        .eq("estado", "pendiente")
+        .order("fecha", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const entidadesQ = useQuery({
+    queryKey: [entidadTabla, user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from(entidadTabla).select("id,nombre");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const impsQ = useQuery({
+    queryKey: ["fema_imputaciones_mov", mov.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_imputaciones")
+        .select("*").eq("movimiento_pago_id", mov.id);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const [dist, setDist] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!factsQ.data) return;
+    const existentes: Record<string, number> = Object.fromEntries(
+      (impsQ.data ?? []).map(i => [i[colFact] as string, Number(i.monto)])
+    );
+    let resto = Number(mov.monto);
+    const ordenadas = [...factsQ.data].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+    const propuesta: Record<string, number> = {};
+    for (const f of ordenadas) {
+      if (resto <= 0) break;
+      const usar = Math.min(Number(f.total), resto);
+      propuesta[f.id] = usar;
+      resto = redondear(resto - usar);
+    }
+    const merged: Record<string, number> = {};
+    for (const [fid, monto] of Object.entries(propuesta)) merged[fid] = existentes[fid] ?? monto;
+    for (const [fid, monto] of Object.entries(existentes)) {
+      if (!(fid in merged)) merged[fid] = monto;
+    }
+    setDist(merged);
+  }, [factsQ.data, impsQ.data, mov.monto, colFact]);
+
+  const totalDistribuido = Object.values(dist).reduce((a, b) => a + b, 0);
+  const restante = Number(mov.monto) - totalDistribuido;
+  const entidades = Object.fromEntries((entidadesQ.data ?? []).map(e => [e.id, e.nombre]));
+
+  const guardar = async () => {
+    if (!user) return;
+    const rows = Object.entries(dist)
+      .filter(([_, m]) => m > 0.01)
+      .map(([facturaId, monto]) => ({
+        user_id: user.id,
+        movimiento_pago_id: mov.id,
+        [colFact]: facturaId,
+        monto,
+        anio: mov.anio,
+        mes: mov.mes,
+      }));
+    const { error: delErr } = await sb.from("fema_imputaciones").delete().eq("movimiento_pago_id", mov.id);
+    if (delErr) throw delErr;
+    if (rows.length > 0) {
+      const { error } = await sb.from("fema_imputaciones").insert(rows);
+      if (error) throw error;
+    }
+    const afectadas = new Set<string>([
+      ...(impsQ.data ?? []).map(i => i[colFact]),
+      ...rows.map(r => r[colFact]),
+    ]);
+    for (const fid of afectadas) {
+      if (fid) await reconciliarFactura(fid, esCobro ? "venta" : "compra");
+    }
+    toast.success("Imputaciones guardadas");
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Conciliar {esCobro ? "cobro" : "pago"}</DialogTitle>
+        <DialogDescription>
+          Distribuís {formatPesos(mov.monto)} del {INSTRUMENT_LABEL[mov.instrumento].toLowerCase()} a {mov.contraparte ?? "—"} entre facturas pendientes.
+        </DialogDescription>
+      </DialogHeader>
+      {factsQ.isLoading ? (
+        <div className="text-sm text-muted-foreground py-4">Cargando facturas…</div>
+      ) : (factsQ.data ?? []).length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4">No hay facturas pendientes para conciliar.</div>
+      ) : (
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          {(factsQ.data ?? []).map(f => {
+            const entidad = entidades[f[entidadCol]] ?? "—";
+            const val = dist[f.id] ?? 0;
+            return (
+              <div key={f.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{entidad}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Factura {f.numero ?? "sin nº"} · {formatFecha(f.fecha)} · total {formatPesos(Number(f.total))}
+                  </div>
+                </div>
+                <Input
+                  type="number"
+                  className="w-32 text-right"
+                  value={val || ""}
+                  onChange={(e) => {
+                    const v = Math.max(0, Number(e.target.value));
+                    setDist(d => ({ ...d, [f.id]: v }));
+                  }}
+                />
+              </div>
+            );
+          })}
+          <div className="flex justify-between text-sm pt-2 border-t border-border/50">
+            <span className="text-muted-foreground">Distribuido</span>
+            <span className={Math.abs(restante) < 0.01 ? "text-emerald-400" : "text-amber-400"}>
+              {formatPesos(totalDistribuido)} {Math.abs(restante) < 0.01 ? "(completo)" : `· restante ${formatPesos(restante)}`}
+            </span>
+          </div>
+        </div>
+      )}
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={Math.abs(restante) < -0.01 || factsQ.isLoading}>
+          Guardar imputaciones
         </Button>
       </DialogFooter>
     </DialogContent>

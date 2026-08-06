@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   construirObjetivos, estadoFactura, esEmitidoPendiente, esVencidoSinCobrar,
-  imputarIndivisible, origenDocumento, repartirImporte, saldoFactura,
+  imputarIndivisible, origenDocumento, proponerImputaciones, repartirImporte, saldoFactura,
   saldoProyectado, totalConfirmado, totalProgramado,
 } from "./finanzas";
 
@@ -70,6 +70,44 @@ describe("imputación de pagos a varias facturas", () => {
     expect(imputarIndivisible(objs, 400, null)).toBe("b");
     expect(objs[1].restante).toBe(100);
     expect(imputarIndivisible([], 400, "fallback")).toBe("fallback");
+  });
+
+  it("proponer imputaciones respeta saldos y deja excedente a cuenta", () => {
+    const facturas = [
+      { id: "a", total: 600, numero: "A-001" },
+      { id: "b", total: 500, numero: "A-002" },
+    ];
+    const previos = [{ monto: 100, estado: "pagado", factura_compra_id: "a" }];
+    const prop = proponerImputaciones(facturas, previos, 1000, "compra");
+    expect(prop.totalDistribuido).toBe(1000);
+    expect(prop.saldoACuenta).toBe(0);
+    expect(prop.imputaciones).toEqual([
+      { facturaId: "a", monto: 500, numero: "A-001", total: 600, yaAplicado: 100 },
+      { facturaId: "b", monto: 500, numero: "A-002", total: 500, yaAplicado: 0 },
+    ]);
+  });
+
+  it("proponer imputaciones deja saldo a cuenta cuando el pago excede la deuda", () => {
+    const facturas = [{ id: "a", total: 600, numero: "A-001" }];
+    const prop = proponerImputaciones(facturas, [], 1000, "compra");
+    expect(prop.totalDistribuido).toBe(600);
+    expect(prop.saldoACuenta).toBe(400);
+    expect(prop.imputaciones).toEqual([
+      { facturaId: "a", monto: 600, numero: "A-001", total: 600, yaAplicado: 0 },
+    ]);
+  });
+
+  it("proponer imputaciones funciona para ventas", () => {
+    const facturas = [
+      { id: "v1", total: 1000, numero: "V-001" },
+      { id: "v2", total: 300, numero: "V-002" },
+    ];
+    const prop = proponerImputaciones(facturas, [], 1100, "venta");
+    expect(prop.totalDistribuido).toBe(1100);
+    expect(prop.imputaciones).toEqual([
+      { facturaId: "v1", monto: 1000, numero: "V-001", total: 1000, yaAplicado: 0 },
+      { facturaId: "v2", monto: 100, numero: "V-002", total: 300, yaAplicado: 0 },
+    ]);
   });
 });
 

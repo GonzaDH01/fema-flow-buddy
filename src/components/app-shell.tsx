@@ -3,6 +3,7 @@ import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
+  FileDown,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -64,6 +65,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app/ocr", label: "OCR Facturas", icon: ScanLine, key: "ocr" },
       { to: "/app/imagenes", label: "Imágenes", icon: ImageIcon, key: "imagenes" },
       { to: "/app/auditoria", label: "Auditoría", icon: Shield, key: "auditoria" },
+      { to: "/app/exportaciones", label: "Exportaciones", icon: FileDown, key: "exportaciones" },
     ],
   },
   {
@@ -94,6 +96,7 @@ const titleByPath: Record<string, string> = {
   "/app/ocr": "OCR de Facturas",
   "/app/imagenes": "Imágenes de Facturas",
   "/app/auditoria": "Auditoría / Reportes Contables",
+  "/app/exportaciones": "Exportaciones masivas",
   "/app/usuarios": "Gestión de Usuarios",
 };
 

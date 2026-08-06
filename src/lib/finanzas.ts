@@ -129,6 +129,57 @@ export function imputarIndivisible(
   return o.id;
 }
 
+export type ImputacionPropuesta = {
+  facturaId: string;
+  monto: number;
+  numero?: string;
+  total?: number;
+  yaAplicado?: number;
+};
+
+export type PropuestaImputacion = {
+  imputaciones: ImputacionPropuesta[];
+  saldoACuenta: number;
+  totalDistribuido: number;
+};
+
+/**
+ * Propone imputaciones para un pago/cobro sobre un conjunto de facturas.
+ * Respeta el saldo pendiente de cada una y deja el excedente como saldo a cuenta.
+ * Mantiene la misma semántica de `repartirImporte` (orden cronológico de facturas).
+ */
+export function proponerImputaciones(
+  facturas: { id: string; total: unknown; numero?: string }[],
+  previos: MovLite[],
+  importe: number,
+  tipo: "venta" | "compra",
+): PropuestaImputacion {
+  const objetivos = construirObjetivos(facturas, previos, tipo);
+  const totalPendiente = redondear(objetivos.reduce((s, o) => s + o.restante, 0));
+  const aDistribuir = Math.min(importe, totalPendiente);
+  const chunks = repartirImporte(objetivos, aDistribuir, null);
+  const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
+  const validos = estadosComprometidos(tipo);
+  const imputaciones = chunks
+    .filter(c => c.facturaId)
+    .map(c => {
+      const f = facturas.find(x => x.id === c.facturaId);
+      const yaAplicado = previos
+        .filter(p => validos.includes(p.estado) && (p as Record<string, unknown>)[col] === c.facturaId)
+        .reduce((s, p) => s + num(p.monto), 0);
+      return {
+        facturaId: c.facturaId!,
+        monto: c.monto,
+        numero: f?.numero,
+        total: num(f?.total),
+        yaAplicado: redondear(yaAplicado),
+      };
+    });
+  const totalDistribuido = imputaciones.reduce((s, i) => s + i.monto, 0);
+  const saldoACuenta = redondear(importe - totalDistribuido);
+  return { imputaciones, saldoACuenta, totalDistribuido };
+}
+
 export const hoyISO = () => new Date().toISOString().split("T")[0];
 
 /** Documento a cobrar cuya fecha de pago ya pasó y sigue en cartera. */
