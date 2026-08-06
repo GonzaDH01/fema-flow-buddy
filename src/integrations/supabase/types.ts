@@ -2057,6 +2057,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fema_eliminar_mov_fondo: { Args: { _id: string }; Returns: Json }
+      fema_impactar_caja: {
+        Args: {
+          _cuenta_id?: string
+          _es_pago?: boolean
+          _mov_id: string
+          _nuevo_estado: string
+        }
+        Returns: Json
+      }
+      fema_mover_fondos: {
+        Args: {
+          _destino_id: string
+          _fecha?: string
+          _monto: number
+          _observaciones?: string
+          _origen_id: string
+        }
+        Returns: Json
+      }
       fema_reconciliar_factura: {
         Args: { _factura_id: string; _tipo: string }
         Returns: undefined
@@ -2068,6 +2088,10 @@ export type Database = {
           _inserts?: Json
           _updates?: Json
         }
+        Returns: Json
+      }
+      fema_revertir_caja: {
+        Args: { _estado?: string; _mov_id: string }
         Returns: Json
       }
       has_role: {
