@@ -110,7 +110,15 @@ export function AppShell() {
   const loc = useLocation();
   const [openMobile, setOpenMobile] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("fema_sidebar_collapsed") === "true";
+  });
   const title = titleByPath[loc.pathname] ?? "FEMA";
+
+  useEffect(() => {
+    window.localStorage.setItem("fema_sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
 
   const handleExport = async () => {
     if (!user) return;
