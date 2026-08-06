@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
+import { saldoFactura } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,7 +165,8 @@ function Page() {
   const pagadoDe = (id: string) => Number(pagosMap?.[id]?.pagado ?? 0);
   const programadoDe = (id: string) => Number(pagosMap?.[id]?.programado ?? 0);
   const planDe = (id: string) => pagosMap?.[id] ?? null;
-  const saldoDe = (r: Row) => Math.max(0, Number(r.total) - pagadoDe(r.id) - programadoDe(r.id));
+  // Regla compartida y testeada (src/lib/finanzas.ts)
+  const saldoDe = (r: Row) => saldoFactura(r.total, pagadoDe(r.id), programadoDe(r.id));
 
   const filtered = useMemo(() => {
     let rows = data ?? [];

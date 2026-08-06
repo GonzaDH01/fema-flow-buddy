@@ -8,6 +8,10 @@ import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
+import {
+  estadoFactura, construirObjetivos, repartirImporte, imputarIndivisible,
+  esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
+} from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,18 +55,12 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
   if (!facturaId) return;
   const tabla = tipo === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
   const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
-  const estadoOk = tipo === "venta" ? "cobrada" : "pagada";
-  // Solo cuentan como pago confirmado: cobrado (venta) / pagado o cedido (compra).
-  // En_cartera = pendiente de cobro (no marca factura como cobrada).
-  const estadosConfirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
   const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
   if (!fact) return;
   const { data: movs } = await sb.from("fema_movimientos_pago")
     .select("monto,estado").eq(col, facturaId);
-  const activos = (movs ?? []).filter((m: any) => estadosConfirmados.includes(m.estado));
-  const cubierto = activos.reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
-  const totalFac = Number(fact.total || 0);
-  const nuevo = cubierto >= totalFac - 0.01 && totalFac > 0 ? estadoOk : "pendiente";
+  // La regla de negocio vive en src/lib/finanzas.ts (pura y testeada).
+  const nuevo = estadoFactura(fact.total, (movs ?? []) as any, tipo);
   if (fact.estado !== nuevo) {
     await sb.from(tabla).update({ estado: nuevo }).eq("id", facturaId);
   }
@@ -241,17 +239,15 @@ function Page() {
     () => movs.filter(m => m.estado === "en_cartera"),
     [movs]);
   const vencidosSinCobrar = useMemo(() => {
-    const hoy = new Date().toISOString().split("T")[0];
-    return movs.filter(m => m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoy);
+    const hoy = hoyISO();
+    return movs.filter(m => esVencidoSinCobrar(m as any, hoy));
   }, [movs]);
 
   // Echeqs / cheques propios emitidos: la factura ya está paga, pero el dinero
   // recién sale de la caja el día de la fecha de pago del documento.
   const emitidosPendientes = useMemo(() => {
     return movs
-      .filter(m => m.direccion === "pago"
-        && (m.instrumento === "echeq" || m.instrumento === "cheque_fisico")
-        && m.estado === "en_cartera")
+      .filter(m => esEmitidoPendiente(m as any))
       .sort((a, b) => (a.vencimiento ?? "9999").localeCompare(b.vencimiento ?? "9999"));
   }, [movs]);
   const totalEmitidosPend = emitidosPendientes.reduce((a, m) => a + Number(m.monto), 0);
@@ -1473,49 +1469,22 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         }
         // Objetivos de imputación: una o varias facturas del mismo proveedor
         const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
-        const objetivos: { id: string; restante: number }[] = [];
+        let objetivos: { id: string; restante: number }[] = [];
         if (idsObjetivo.length > 0) {
           const { data: previos } = await sb.from("fema_movimientos_pago")
             .select("factura_compra_id,factura_venta_id,monto,estado")
             .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
-          const pagado = new Map<string, number>();
-          for (const p of previos ?? []) {
-            if (!["en_cartera", "cobrado", "pagado", "cedido"].includes(p.estado)) continue;
-            const fid = (tipo === "pago_proveedor" ? p.factura_compra_id : p.factura_venta_id) as string | null;
-            if (!fid) continue;
-            pagado.set(fid, (pagado.get(fid) ?? 0) + Number(p.monto));
-          }
           const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
-          for (const fid of idsObjetivo) {
-            const f = lista.find(x => x.id === fid);
-            objetivos.push({ id: fid, restante: Math.max(0, Number(f?.total ?? 0) - (pagado.get(fid) ?? 0)) });
-          }
+          objetivos = construirObjetivos(
+            idsObjetivo.map(fid => ({ id: fid, total: lista.find(x => x.id === fid)?.total ?? 0 })),
+            (previos ?? []) as any,
+            tipo === "cobro_cliente" ? "venta" : "compra",
+          );
         }
-        // Reparte un importe entre las facturas pendientes (en orden de selección)
-        const repartir = (importe: number): { facturaId: string | null; monto: number }[] => {
-          if (objetivos.length <= 1) return [{ facturaId: objetivos[0]?.id ?? facturaSel, monto: importe }];
-          const chunks: { facturaId: string | null; monto: number }[] = [];
-          let resto = importe;
-          for (const o of objetivos) {
-            if (resto <= 0) break;
-            if (o.restante <= 0) continue;
-            const usar = Math.min(o.restante, resto);
-            chunks.push({ facturaId: o.id, monto: Math.round(usar * 100) / 100 });
-            o.restante -= usar; resto -= usar;
-          }
-          if (resto > 0.009) {
-            const ult = objetivos[objetivos.length - 1];
-            chunks.push({ facturaId: ult.id, monto: Math.round(resto * 100) / 100 });
-          }
-          return chunks;
-        };
+        // Reparte un importe entre las facturas pendientes (lógica pura y testeada)
+        const repartir = (importe: number) => repartirImporte(objetivos, importe, facturaSel);
         // Un echeq cedido es indivisible: se imputa a la primera factura con saldo
-        const imputarEcheq = (importe: number): string | null => {
-          if (objetivos.length === 0) return facturaSel;
-          const o = objetivos.find(x => x.restante > 0) ?? objetivos[0];
-          o.restante = Math.max(0, o.restante - importe);
-          return o.id;
-        };
+        const imputarEcheq = (importe: number) => imputarIndivisible(objetivos, importe, facturaSel);
         if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
           for (const eid of cesionesAProcesar) {
