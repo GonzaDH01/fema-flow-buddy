@@ -101,6 +101,7 @@ function Page() {
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
   const [reciboMov, setReciboMov] = useState<Mov | null>(null);
+  const [conciliarMov, setConciliarMov] = useState<Mov | null>(null);
   const [openCta, setOpenCta] = useState(false);
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
