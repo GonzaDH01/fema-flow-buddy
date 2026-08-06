@@ -1158,6 +1158,75 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_imputaciones: {
+        Row: {
+          created_at: string
+          factura_compra_id: string | null
+          factura_venta_id: string | null
+          fecha: string
+          id: string
+          monto: number
+          movimiento_pago_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          factura_compra_id?: string | null
+          factura_venta_id?: string | null
+          fecha?: string
+          id?: string
+          monto: number
+          movimiento_pago_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          factura_compra_id?: string | null
+          factura_venta_id?: string | null
+          fecha?: string
+          id?: string
+          monto?: number
+          movimiento_pago_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_imputaciones_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_imputaciones_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_imputaciones_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_venta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_imputaciones_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_venta"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_imputaciones_movimiento_pago_id_fkey"
+            columns: ["movimiento_pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_medios_pago: {
         Row: {
           created_at: string
