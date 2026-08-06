@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -246,6 +247,7 @@ function Page() {
   };
 
   const exportXlsx = () => {
+    void 0;
     const rows = (data ?? []).map((r) => ({
       "N° Factura": `${r.tipo}-${r.numero ?? ""}`,
       Proveedor: r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : ""),
@@ -447,6 +449,8 @@ function Page() {
               ))}
             </TableBody>
           </Table>
+          <Paginacion page={pag.page} totalPages={pag.totalPages} total={pag.total} pageSize={pag.pageSize}
+            onPage={pag.setPage} label="compras" />
         </CardContent>
       </Card>
 
