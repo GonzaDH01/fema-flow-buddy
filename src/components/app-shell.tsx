@@ -96,6 +96,7 @@ const titleByPath: Record<string, string> = {
   "/app/ocr": "OCR de Facturas",
   "/app/imagenes": "Imágenes de Facturas",
   "/app/auditoria": "Auditoría / Reportes Contables",
+  "/app/exportaciones": "Exportaciones masivas",
   "/app/usuarios": "Gestión de Usuarios",
 };
 
