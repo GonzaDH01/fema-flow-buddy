@@ -10,7 +10,7 @@ import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import {
   estadoFactura, construirObjetivos, repartirImporte, imputarIndivisible,
-  esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
+  proponerImputaciones, esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
 } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
