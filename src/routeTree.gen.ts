@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAlertasRouteImport } from './routes/app.alertas'
 import { Route as AppAuditoriaRouteImport } from './routes/app.auditoria'
 import { Route as AppCashflowRouteImport } from './routes/app.cashflow'
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
@@ -55,6 +56,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAlertasRoute = AppAlertasRouteImport.update({
+  id: '/alertas',
+  path: '/alertas',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAuditoriaRoute = AppAuditoriaRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/app/alertas': typeof AppAlertasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/app/alertas': typeof AppAlertasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/app/alertas': typeof AppAlertasRoute
   '/app/auditoria': typeof AppAuditoriaRoute
   '/app/cashflow': typeof AppCashflowRoute
   '/app/clientes': typeof AppClientesRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/reset-password'
+    | '/app/alertas'
     | '/app/auditoria'
     | '/app/cashflow'
     | '/app/clientes'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/app/alertas'
     | '/app/auditoria'
     | '/app/cashflow'
     | '/app/clientes'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/reset-password'
+    | '/app/alertas'
     | '/app/auditoria'
     | '/app/cashflow'
     | '/app/clientes'
@@ -332,6 +344,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/alertas': {
+      id: '/app/alertas'
+      path: '/alertas'
+      fullPath: '/app/alertas'
+      preLoaderRoute: typeof AppAlertasRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/auditoria': {
@@ -457,6 +476,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAlertasRoute: typeof AppAlertasRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppCashflowRoute: typeof AppCashflowRoute
   AppClientesRoute: typeof AppClientesRoute
@@ -477,6 +497,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAlertasRoute: AppAlertasRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppCashflowRoute: AppCashflowRoute,
   AppClientesRoute: AppClientesRoute,
@@ -508,13 +529,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

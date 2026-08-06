@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
-  Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen,
+  Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -23,6 +23,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true, key: "dashboard" },
       { to: "/app/cashflow", label: "Cash Flow", icon: TrendingUp, key: "cashflow" },
       { to: "/app/cuentas", label: "Cuentas corrientes", icon: BookOpen, key: "cuentas" },
+      { to: "/app/alertas", label: "Alertas", icon: Bell, key: "alertas" },
     ],
   },
   {
@@ -75,6 +76,7 @@ const titleByPath: Record<string, string> = {
   "/app": "Dashboard",
   "/app/cashflow": "Cash Flow",
   "/app/cuentas": "Cuentas Corrientes",
+  "/app/alertas": "Centro de Alertas",
   "/app/facturas": "Facturas de Venta",
   "/app/clientes": "Clientes",
   "/app/compras": "Compras",
