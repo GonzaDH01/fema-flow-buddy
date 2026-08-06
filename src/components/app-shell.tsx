@@ -3,6 +3,7 @@ import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
+  FileDown,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
