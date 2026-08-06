@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, FileDown } from "lucide-react";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/lib/form-helpers";
@@ -215,7 +216,7 @@ function Page() {
                 <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay clientes</TableCell></TableRow>
-              ) : filtered.map((r) => (
+              ) : pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.codigo ?? "—"}</TableCell>
                   <TableCell className="font-semibold uppercase">{r.nombre}</TableCell>
@@ -252,6 +253,14 @@ function Page() {
               ))}
             </TableBody>
           </Table>
+          <Paginacion
+            page={pag.page}
+            totalPages={pag.totalPages}
+            total={pag.total}
+            pageSize={pag.pageSize}
+            onPage={pag.setPage}
+            label="clientes"
+          />
         </section>
       ) : (
         <ClienteForm
