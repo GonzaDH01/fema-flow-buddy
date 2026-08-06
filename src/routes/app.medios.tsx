@@ -1557,14 +1557,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         // Objetivos de imputación: una o varias facturas del mismo proveedor
         const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         let objetivos: { id: string; restante: number }[] = [];
+        let previos: any[] = [];
         if (idsObjetivo.length > 0) {
-          const { data: previos } = await sb.from("fema_movimientos_pago")
+          const { data } = await sb.from("fema_movimientos_pago")
             .select("factura_compra_id,factura_venta_id,monto,estado")
             .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
+          previos = (data ?? []) as any;
           const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
           objetivos = construirObjetivos(
             idsObjetivo.map(fid => ({ id: fid, total: lista.find(x => x.id === fid)?.total ?? 0 })),
-            (previos ?? []) as any,
+            previos,
             tipo === "cobro_cliente" ? "venta" : "compra",
           );
         }
