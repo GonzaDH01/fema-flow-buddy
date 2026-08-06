@@ -30,6 +30,7 @@ import { Route as AppMediosRouteImport } from './routes/app.medios'
 import { Route as AppOcrRouteImport } from './routes/app.ocr'
 import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
 import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
+import { Route as AppTesoreriaRouteImport } from './routes/app.tesoreria'
 import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
 
@@ -138,6 +139,11 @@ const AppProveedoresRoute = AppProveedoresRouteImport.update({
   path: '/proveedores',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTesoreriaRoute = AppTesoreriaRouteImport.update({
+  id: '/tesoreria',
+  path: '/tesoreria',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUsuariosRoute = AppUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
   '/app/proveedores': typeof AppProveedoresRoute
+  '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
     | '/api/public/ocr-factura'
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/tesoreria'
     | '/app/usuarios'
     | '/app'
     | '/api/public/ocr-factura'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/app/ocr'
     | '/app/presupuestos'
     | '/app/proveedores'
+    | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
     | '/api/public/ocr-factura'
@@ -458,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProveedoresRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/tesoreria': {
+      id: '/app/tesoreria'
+      path: '/tesoreria'
+      fullPath: '/app/tesoreria'
+      preLoaderRoute: typeof AppTesoreriaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/usuarios': {
       id: '/app/usuarios'
       path: '/usuarios'
@@ -492,6 +511,7 @@ interface AppRouteChildren {
   AppOcrRoute: typeof AppOcrRoute
   AppPresupuestosRoute: typeof AppPresupuestosRoute
   AppProveedoresRoute: typeof AppProveedoresRoute
+  AppTesoreriaRoute: typeof AppTesoreriaRoute
   AppUsuariosRoute: typeof AppUsuariosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -513,6 +533,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOcrRoute: AppOcrRoute,
   AppPresupuestosRoute: AppPresupuestosRoute,
   AppProveedoresRoute: AppProveedoresRoute,
+  AppTesoreriaRoute: AppTesoreriaRoute,
   AppUsuariosRoute: AppUsuariosRoute,
   AppIndexRoute: AppIndexRoute,
 }

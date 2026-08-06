@@ -14,6 +14,7 @@ export const Route = createFileRoute("/app/usuarios")({ component: Page });
 const MODULOS: { key: string; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "cashflow", label: "Cash Flow" },
+  { key: "tesoreria", label: "Tesorería proyectada" },
   { key: "cuentas", label: "Cuentas corrientes" },
   { key: "alertas", label: "Alertas" },
   { key: "facturas", label: "Facturas" },
