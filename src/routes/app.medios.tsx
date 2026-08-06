@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -1249,6 +1250,7 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
   }, [rows, orden, desde, hasta, estadoFiltro]);
 
   const totalFiltrado = filtradas.reduce((a, m) => a + Number(m.monto), 0);
+  const pagCartera = usePaginacion(filtradas, 50);
 
   return (
     <div className="space-y-3">
