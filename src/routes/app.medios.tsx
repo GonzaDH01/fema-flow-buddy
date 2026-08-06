@@ -128,6 +128,25 @@ function Page() {
   });
   const movFondos = fondosQ.data ?? [];
 
+  // Libro de caja: extracto real de ingresos/egresos por cuenta.
+  const cajaQ = useQuery({
+    queryKey: ["fema_caja_mov", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (sb as any).from("fema_caja_mov")
+        .select("*").order("fecha", { ascending: false }).limit(200);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const cajaMovs = cajaQ.data ?? [];
+  const [cajaCta, setCajaCta] = useState<string>("__all");
+  const cajaFiltrada = cajaMovs.filter((m: any) => cajaCta === "__all" || m.cuenta_id === cajaCta);
+  const cajaIngresos = cajaFiltrada.filter((m: any) => m.tipo === "ingreso")
+    .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+  const cajaEgresos = cajaFiltrada.filter((m: any) => m.tipo === "egreso")
+    .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
     const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
