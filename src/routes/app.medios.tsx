@@ -975,6 +975,24 @@ function Page() {
           />
         )}
       </Dialog>
+
+      <Dialog open={!!conciliarMov} onOpenChange={(v) => { if (!v) setConciliarMov(null); }}>
+        {conciliarMov && (
+          <ConciliarDialog
+            mov={conciliarMov}
+            onClose={() => setConciliarMov(null)}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["fema_imputaciones"] });
+              qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
+              qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
+              setConciliarMov(null);
+            }}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }
