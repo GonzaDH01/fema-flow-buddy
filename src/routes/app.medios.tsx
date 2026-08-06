@@ -884,7 +884,7 @@ function Page() {
                   </div>
                 </div>
                 {k === "propios" && <ResumenPropios rows={filas.propios} />}
-                <MovsTable rows={filas[k]} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
+                <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} />
               </CardContent>
             </Card>
           </TabsContent>
