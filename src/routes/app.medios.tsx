@@ -1446,16 +1446,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       if (tipo === "ceder_echeq") {
         if (!echeqId) { toast.error("Seleccioná un echeq"); return; }
         const e = echeqsCartera.find(x => x.id === echeqId)!;
-        await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", echeqId);
-        const { error } = await sb.from("fema_movimientos_pago").insert({
-          user_id: userId, instrumento: "cesion", direccion: "pago",
-          tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
-          vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
-          contraparte: proveedorCesion || "Proveedor", monto: e.monto, estado: "pagado",
-          echeq_origen_id: echeqId,
-          factura_compra_id: facturaCompraCesion || null,
-          observaciones: observaciones || `Cesión de echeq Nº ${e.numero ?? ""}`,
-          anio: year, mes: new Date().getMonth() + 1,
+        // Atómico: el echeq sale de cartera y se crea la cesión en la misma operación.
+        const { error } = await (sb as any).rpc("fema_registrar_pago", {
+          _borrar: [],
+          _ceder: [echeqId],
+          _inserts: [{
+            instrumento: "cesion", direccion: "pago",
+            tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
+            vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
+            contraparte: proveedorCesion || "Proveedor", monto: e.monto, estado: "pagado",
+            echeq_origen_id: echeqId,
+            factura_compra_id: facturaCompraCesion || null,
+            observaciones: observaciones || `Cesión de echeq Nº ${e.numero ?? ""}`,
+            anio: year, mes: new Date().getMonth() + 1,
+          }],
+          _updates: [],
         });
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
@@ -1485,15 +1490,19 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         const repartir = (importe: number) => repartirImporte(objetivos, importe, facturaSel);
         // Un echeq cedido es indivisible: se imputa a la primera factura con saldo
         const imputarEcheq = (importe: number) => imputarIndivisible(objetivos, importe, facturaSel);
+        // Operación única y atómica: cesiones + altas + bajas + reconciliación de facturas.
+        const opCeder: string[] = [];
+        const opInsert: any[] = [];
+        const opUpdate: any[] = [];
+        const opBorrar: string[] = [];
         if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
           for (const eid of cesionesAProcesar) {
             const e = echeqsCartera.find(x => x.id === eid);
             if (!e) continue;
-            const { error: uErr } = await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", eid);
-            if (uErr) throw uErr;
-            const { error: iErr } = await sb.from("fema_movimientos_pago").insert({
-              user_id: userId, instrumento: "cesion", direccion: "pago",
+            opCeder.push(eid);
+            opInsert.push({
+              instrumento: "cesion", direccion: "pago",
               tipo_movimiento: "ceder_echeq",
               fecha_emision: new Date().toISOString().split("T")[0],
               vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
@@ -1503,7 +1512,6 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               observaciones: observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
               anio: year, mes,
             });
-            if (iErr) throw iErr;
           }
         }
         if (filasValidas.length > 0) {
@@ -1511,6 +1519,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           // edición: actualiza única fila
           const c = filasValidas[0];
           const payload: any = {
+            id: initial.id,
             instrumento: instrumento as any,
             direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
             tipo_movimiento: tipo,
@@ -1523,18 +1532,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
             anio: year, mes,
           };
-          const { error } = await sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id);
-          if (error) throw error;
+          opUpdate.push(payload);
         } else {
           // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
           // Filas sin id → INSERT (nuevas)
           // ids originales que ya no están → DELETE
           const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
-          const toDelete = planOriginalIds.filter(id => !keepIds.includes(id));
-          if (toDelete.length > 0) {
-            const { error } = await sb.from("fema_movimientos_pago").delete().in("id", toDelete);
-            if (error) throw error;
-          }
+          opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
           for (const c of filasValidas) {
             const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
               instrumento: instrumento as any,
@@ -1553,21 +1557,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               anio: year, mes,
             });
             if (c.id) {
-              const { error } = await sb.from("fema_movimientos_pago").update(mkBase(facturaSel, Number(c.monto))).eq("id", c.id);
-              if (error) throw error;
+              opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
             } else {
               const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
               for (const chunk of repartir(Number(c.monto))) {
                 const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
                 const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
-                const { error } = await sb.from("fema_movimientos_pago")
-                  .insert({ ...mkBase(chunk.facturaId, chunk.monto, obsExtra), user_id: userId });
-                if (error) throw error;
+                opInsert.push(mkBase(chunk.facturaId, chunk.monto, obsExtra));
               }
             }
           }
         }
         }
+        // Un solo viaje al servidor: si algo falla, no queda nada a medias.
+        const { error: rpcErr } = await (sb as any).rpc("fema_registrar_pago", {
+          _borrar: opBorrar,
+          _ceder: opCeder,
+          _inserts: opInsert,
+          _updates: opUpdate,
+        });
+        if (rpcErr) throw rpcErr;
       } else {
         // libre
         const payload: any = {

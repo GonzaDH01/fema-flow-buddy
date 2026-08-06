@@ -2057,6 +2057,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fema_reconciliar_factura: {
+        Args: { _factura_id: string; _tipo: string }
+        Returns: undefined
+      }
+      fema_registrar_pago: {
+        Args: {
+          _borrar?: string[]
+          _ceder?: string[]
+          _inserts?: Json
+          _updates?: Json
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
