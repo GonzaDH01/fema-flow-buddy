@@ -100,6 +100,8 @@ function Page() {
     );
   }, [rows, search]);
 
+  const pag = usePaginacion(filtered, 50);
+
   const nextCodigo = useMemo(() => {
     const max = rows.reduce((m, r) => {
       const n = parseInt(r.codigo ?? "", 10);
