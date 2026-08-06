@@ -1,0 +1,315 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, ChevronDown, ChevronRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
+import { useYear } from "@/lib/year-context";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatPesos, formatFecha } from "@/lib/format";
+import { saldoFactura } from "@/lib/finanzas";
+
+export const Route = createFileRoute("/app/cuentas")({ component: Page });
+
+type Fact = {
+  id: string;
+  fecha: string;
+  numero: string | null;
+  total: number;
+  tercero_id: string | null;
+};
+type SaldoRow = { pagado: number; programado: number; prox: string | null };
+type Linea = Fact & { pagado: number; programado: number; saldo: number; dias: number; prox: string | null };
+type Cuenta = {
+  id: string;
+  nombre: string;
+  cuit: string | null;
+  lineas: Linea[];
+  total: number;
+  pagado: number;
+  programado: number;
+  saldo: number;
+  vencido: number;
+  aVencer: number;
+};
+
+const diasDesde = (f: string) => {
+  const ms = Date.now() - new Date(`${f}T00:00:00`).getTime();
+  return Math.floor(ms / 86_400_000);
+};
+
+function useCuentas(tipo: "compra" | "venta", anio: number) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["fema_cuentas_corrientes", tipo, anio, user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<Cuenta[]> => {
+      const esCompra = tipo === "compra";
+      const tablaFact = esCompra ? "fema_facturas_compra" : "fema_facturas_venta";
+      const tablaEnt = esCompra ? "fema_proveedores" : "fema_clientes";
+      const vista = esCompra ? "fema_v_saldos_compra" : "fema_v_saldos_venta";
+      const fk = esCompra ? "proveedor_id" : "cliente_id";
+
+      const [fRes, eRes, sRes] = await Promise.all([
+        (supabase as any)
+          .from(tablaFact)
+          .select(`id,fecha,numero,total,${fk}`)
+          .lte("fecha", `${anio}-12-31`)
+          .order("fecha", { ascending: true }),
+        supabase.from(tablaEnt as any).select("id,nombre,cuit"),
+        (supabase as any)
+          .from(vista)
+          .select(
+            esCompra
+              ? "factura_id,pagado,programado,proximo_vencimiento"
+              : "factura_id,cobrado,programado,proximo_vencimiento",
+          ),
+      ]);
+      if (fRes.error) throw fRes.error;
+      if (eRes.error) throw eRes.error;
+      if (sRes.error) throw sRes.error;
+
+      const saldos: Record<string, SaldoRow> = {};
+      for (const r of (sRes.data ?? []) as any[]) {
+        saldos[r.factura_id] = {
+          pagado: Number((esCompra ? r.pagado : r.cobrado) || 0),
+          programado: Number(r.programado || 0),
+          prox: r.proximo_vencimiento ?? null,
+        };
+      }
+      const ents = Object.fromEntries(
+        ((eRes.data ?? []) as any[]).map((e) => [e.id, e]),
+      );
+
+      const acc: Record<string, Cuenta> = {};
+      for (const raw of ((fRes.data ?? []) as any[])) {
+        const f: Fact = {
+          id: raw.id,
+          fecha: raw.fecha,
+          numero: raw.numero,
+          total: Number(raw.total || 0),
+          tercero_id: raw[fk] ?? null,
+        };
+        const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
+        const saldo = saldoFactura(f.total, s.pagado, s.programado);
+        if (saldo <= 0.01) continue;
+        const key = f.tercero_id ?? "__sin__";
+        const ent = f.tercero_id ? ents[f.tercero_id] : null;
+        acc[key] ??= {
+          id: key,
+          nombre: ent?.nombre ?? "Sin asignar",
+          cuit: ent?.cuit ?? null,
+          lineas: [],
+          total: 0,
+          pagado: 0,
+          programado: 0,
+          saldo: 0,
+          vencido: 0,
+          aVencer: 0,
+        };
+        const dias = diasDesde(f.fecha);
+        const linea: Linea = { ...f, pagado: s.pagado, programado: s.programado, saldo, dias, prox: s.prox };
+        const c = acc[key]!;
+        c.lineas.push(linea);
+        c.total += f.total;
+        c.pagado += s.pagado;
+        c.programado += s.programado;
+        c.saldo += saldo;
+        if (dias > 30) c.vencido += saldo;
+        else c.aVencer += saldo;
+      }
+      return Object.values(acc).sort((a, b) => b.saldo - a.saldo);
+    },
+  });
+}
+
+function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
+  const { data, isLoading } = useCuentas(tipo, anio);
+  const [q, setQ] = useState("");
+  const [abierta, setAbierta] = useState<string | null>(null);
+  const esCompra = tipo === "compra";
+
+  const rows = useMemo(() => {
+    const all = data ?? [];
+    if (!q.trim()) return all;
+    const s = q.toLowerCase();
+    return all.filter(
+      (c) => c.nombre.toLowerCase().includes(s) || (c.cuit ?? "").toLowerCase().includes(s),
+    );
+  }, [data, q]);
+
+  const tot = useMemo(
+    () =>
+      rows.reduce(
+        (a, c) => ({
+          saldo: a.saldo + c.saldo,
+          vencido: a.vencido + c.vencido,
+          programado: a.programado + c.programado,
+        }),
+        { saldo: 0, vencido: 0, programado: 0 },
+      ),
+    [rows],
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {esCompra ? "Total a pagar" : "Total a cobrar"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatPesos(tot.saldo)}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Vencido (+30 días)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold text-destructive">
+            {formatPesos(tot.vencido)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Con plan / documentos emitidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">{formatPesos(tot.programado)}</CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <CardTitle className="text-base">
+            {esCompra ? "Cuenta corriente de proveedores" : "Cuenta corriente de clientes"}
+          </CardTitle>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={esCompra ? "Buscar proveedor..." : "Buscar cliente..."}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-9 w-52 pl-8 md:w-64"
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left">{esCompra ? "Proveedor" : "Cliente"}</th>
+                <th className="px-3 py-2 text-right">Comprob.</th>
+                <th className="px-3 py-2 text-right">Facturado</th>
+                <th className="px-3 py-2 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
+                <th className="px-3 py-2 text-right">Programado</th>
+                <th className="px-3 py-2 text-right">Vencido</th>
+                <th className="px-3 py-2 text-right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Cargando...</td></tr>
+              )}
+              {!isLoading && rows.length === 0 && (
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Sin saldos pendientes</td></tr>
+              )}
+              {rows.map((c) => {
+                const open = abierta === c.id;
+                return (
+                  <>
+                    <tr
+                      key={c.id}
+                      className="cursor-pointer border-b hover:bg-muted/40"
+                      onClick={() => setAbierta(open ? null : c.id)}
+                    >
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          {c.nombre}
+                        </div>
+                        {c.cuit && <div className="pl-5.5 text-xs text-muted-foreground">{c.cuit}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-right">{c.lineas.length}</td>
+                      <td className="px-3 py-2 text-right">{formatPesos(c.total)}</td>
+                      <td className="px-3 py-2 text-right">{formatPesos(c.pagado)}</td>
+                      <td className="px-3 py-2 text-right">{formatPesos(c.programado)}</td>
+                      <td className="px-3 py-2 text-right">
+                        {c.vencido > 0.01
+                          ? <span className="font-medium text-destructive">{formatPesos(c.vencido)}</span>
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold">{formatPesos(c.saldo)}</td>
+                    </tr>
+                    {open && (
+                      <tr key={`${c.id}-det`} className="border-b bg-muted/20">
+                        <td colSpan={7} className="px-3 py-3">
+                          <table className="w-full text-xs">
+                            <thead className="text-muted-foreground">
+                              <tr>
+                                <th className="py-1 text-left">Fecha</th>
+                                <th className="py-1 text-left">Comprobante</th>
+                                <th className="py-1 text-right">Total</th>
+                                <th className="py-1 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
+                                <th className="py-1 text-right">Programado</th>
+                                <th className="py-1 text-right">Saldo</th>
+                                <th className="py-1 text-right">Antigüedad</th>
+                                <th className="py-1 text-right">Próx. vto.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {c.lineas.map((l) => (
+                                <tr key={l.id} className="border-t border-border/60">
+                                  <td className="py-1">{formatFecha(l.fecha)}</td>
+                                  <td className="py-1">{l.numero ?? "—"}</td>
+                                  <td className="py-1 text-right">{formatPesos(l.total)}</td>
+                                  <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
+                                  <td className="py-1 text-right">{formatPesos(l.programado)}</td>
+                                  <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
+                                  <td className="py-1 text-right">
+                                    <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
+                                      {l.dias} días
+                                    </Badge>
+                                  </td>
+                                  <td className="py-1 text-right">{formatFecha(l.prox)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Page() {
+  const { year } = useYear();
+  return (
+    <Tabs defaultValue="proveedores" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="proveedores">Proveedores (a pagar)</TabsTrigger>
+        <TabsTrigger value="clientes">Clientes (a cobrar)</TabsTrigger>
+      </TabsList>
+      <TabsContent value="proveedores">
+        <Panel tipo="compra" anio={year} />
+      </TabsContent>
+      <TabsContent value="clientes">
+        <Panel tipo="venta" anio={year} />
+      </TabsContent>
+    </Tabs>
+  );
+}
