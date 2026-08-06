@@ -363,7 +363,6 @@ function Page() {
     }
   };
 
-  const confianzaOk = result && (result.total ?? 0) > 0 && !!result.fecha;
   const avisos = result ? revisarOCR(result, kind) : [];
   const errores = avisos.filter((a) => a.nivel === "error");
   const num = (v: string) => {
