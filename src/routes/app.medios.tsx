@@ -1597,59 +1597,84 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           }
         }
         if (filasValidas.length > 0) {
-        if (initial) {
-          // edición: actualiza única fila
-          const c = filasValidas[0];
-          const payload: any = {
-            id: initial.id,
-            instrumento: instrumento as any,
-            direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
-            tipo_movimiento: tipo,
-            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-            vencimiento: c.vencimiento || null,
-            numero: c.numero || null, banco: c.banco || bancoGlobal || null,
-            contraparte: contraparte || (fact?.proveedor ?? null),
-            monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
-            factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
-            factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
-            anio: year, mes,
-          };
-          opUpdate.push(payload);
-        } else {
-          // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
-          // Filas sin id → INSERT (nuevas)
-          // ids originales que ya no están → DELETE
-          const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
-          opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
-          for (const c of filasValidas) {
-            const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
+          const esMulti = idsObjetivo.length > 1;
+          const colF = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+          const listaFacturas = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+          if (initial) {
+            // edición: actualiza única fila
+            const c = filasValidas[0];
+            const payload: any = {
+              id: initial.id,
               instrumento: instrumento as any,
               direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
               tipo_movimiento: tipo,
               fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
               vencimiento: c.vencimiento || null,
-              numero: c.numero || null,
-              banco: c.banco || bancoGlobal || null,
+              numero: c.numero || null, banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: m,
-              estado,
-              observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
-              factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
-              factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
+              monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
+              factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
+              factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
               anio: year, mes,
-            });
-            if (c.id) {
-              opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
-            } else {
-              const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
-              for (const chunk of repartir(Number(c.monto))) {
-                const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
-                const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
-                opInsert.push(mkBase(chunk.facturaId, chunk.monto, obsExtra));
+            };
+            opUpdate.push(payload);
+          } else {
+            // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
+            // Filas sin id → INSERT (nuevas)
+            // ids originales que ya no están → DELETE
+            const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
+            opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
+            for (const c of filasValidas) {
+              const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
+                instrumento: instrumento as any,
+                direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
+                tipo_movimiento: tipo,
+                fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+                vencimiento: c.vencimiento || null,
+                numero: c.numero || null,
+                banco: c.banco || bancoGlobal || null,
+                contraparte: contraparte || (fact?.proveedor ?? null),
+                monto: m,
+                estado,
+                observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+                factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
+                factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
+                anio: year, mes,
+              });
+              if (c.id) {
+                opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
+              } else if (esMulti) {
+                // Pago/cobro distribuido en varias facturas: un solo movimiento + imputaciones.
+                const propuesta = proponerImputaciones(
+                  idsObjetivo.map(fid => {
+                    const f = listaFacturas.find(x => x.id === fid);
+                    return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                  }),
+                  (previos ?? []) as any,
+                  Number(c.monto),
+                  tipo === "cobro_cliente" ? "venta" : "compra",
+                );
+                const nros = propuesta.imputaciones.map(i => i.numero).filter(Boolean);
+                const obsExtra = nros.length > 1 ? `Imputado a facturas: ${nros.join(", ")}` : undefined;
+                opInsert.push({
+                  ...mkBase(null, Number(c.monto), obsExtra),
+                  imputaciones: propuesta.imputaciones.map(i => ({
+                    [colF]: i.facturaId,
+                    monto: i.monto,
+                    fecha: fechaEmision || new Date().toISOString().split("T")[0],
+                  })),
+                });
+              } else {
+                // Factura única: vínculo directo (compatibilidad con datos existentes).
+                const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+                for (const chunk of repartir(Number(c.monto))) {
+                  const nro = lista.find(x => x.id === chunk.facturaId)?.numero;
+                  const obsExtra = objetivos.length > 1 && nro ? `Imputado a Fact. ${nro}` : undefined;
+                  opInsert.push(mkBase(chunk.facturaId, chunk.monto, obsExtra));
+                }
               }
             }
           }
-        }
         }
         // Un solo viaje al servidor: si algo falla, no queda nada a medias.
         const { error: rpcErr } = await (sb as any).rpc("fema_registrar_pago", {
