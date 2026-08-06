@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileSpreadsheet, Printer, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { CierrePeriodos } from "@/components/cierre-periodos";
 import * as XLSX from "xlsx";
@@ -575,7 +576,18 @@ function Page() {
                     <TableCell>{nombreProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{cuitProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{f.categoria}</TableCell>
-                    <TableCell>{f.descripcion || "—"}</TableCell>
+                    <TableCell className="max-w-[180px] lg:max-w-[260px]">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-help truncate text-sm">
+                            {f.descripcion || "—"}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-md whitespace-pre-wrap">
+                          {f.descripcion || "—"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell className="text-right">{formatPesos(resumen.netoDe(f))}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_21)}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_105)}</TableCell>
