@@ -271,6 +271,73 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_caja_mov: {
+        Row: {
+          concepto: string | null
+          created_at: string
+          cuenta_id: string
+          fecha: string
+          id: string
+          monto: number
+          mov_fondo_id: string | null
+          movimiento_pago_id: string | null
+          saldo_resultante: number | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concepto?: string | null
+          created_at?: string
+          cuenta_id: string
+          fecha?: string
+          id?: string
+          monto: number
+          mov_fondo_id?: string | null
+          movimiento_pago_id?: string | null
+          saldo_resultante?: number | null
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concepto?: string | null
+          created_at?: string
+          cuenta_id?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          mov_fondo_id?: string | null
+          movimiento_pago_id?: string | null
+          saldo_resultante?: number | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_caja_mov_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_caja_mov_mov_fondo_id_fkey"
+            columns: ["mov_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_mov_fondos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_caja_mov_movimiento_pago_id_fkey"
+            columns: ["movimiento_pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_clientes: {
         Row: {
           codigo: string | null
