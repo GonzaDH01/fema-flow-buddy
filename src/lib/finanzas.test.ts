@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   construirObjetivos, estadoFactura, esEmitidoPendiente, esVencidoSinCobrar,
-  imputarIndivisible, origenDocumento, repartirImporte, saldoFactura,
+  imputarIndivisible, origenDocumento, proponerImputaciones, repartirImporte, saldoFactura,
   saldoProyectado, totalConfirmado, totalProgramado,
 } from "./finanzas";
 
