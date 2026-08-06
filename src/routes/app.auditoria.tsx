@@ -576,7 +576,18 @@ function Page() {
                     <TableCell>{nombreProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{cuitProveedor(f.proveedor_id)}</TableCell>
                     <TableCell>{f.categoria}</TableCell>
-                    <TableCell>{f.descripcion || "—"}</TableCell>
+                    <TableCell className="max-w-[180px] lg:max-w-[260px]">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-help truncate text-sm">
+                            {f.descripcion || "—"}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-md whitespace-pre-wrap">
+                          {f.descripcion || "—"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell className="text-right">{formatPesos(resumen.netoDe(f))}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_21)}</TableCell>
                     <TableCell className="text-right">{formatPesos(f.iva_105)}</TableCell>
