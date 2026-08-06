@@ -65,6 +65,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app/ocr", label: "OCR Facturas", icon: ScanLine, key: "ocr" },
       { to: "/app/imagenes", label: "Imágenes", icon: ImageIcon, key: "imagenes" },
       { to: "/app/auditoria", label: "Auditoría", icon: Shield, key: "auditoria" },
+      { to: "/app/exportaciones", label: "Exportaciones", icon: FileDown, key: "exportaciones" },
     ],
   },
   {
