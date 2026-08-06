@@ -278,6 +278,15 @@ export function AppShell() {
           >
             <Menu className="h-5 w-5" />
           </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="hidden md:flex"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+          >
+            {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          </Button>
           <h1 className="truncate text-sm font-semibold text-foreground md:text-base">{title}</h1>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2">
             <BuscadorGlobal />
