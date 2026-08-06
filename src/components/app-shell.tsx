@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
-  Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet,
+  Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -24,6 +24,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app/cashflow", label: "Cash Flow", icon: TrendingUp, key: "cashflow" },
       { to: "/app/tesoreria", label: "Tesorería 13 sem.", icon: Wallet, key: "tesoreria" },
       { to: "/app/cuentas", label: "Cuentas corrientes", icon: BookOpen, key: "cuentas" },
+      { to: "/app/rentabilidad", label: "Rentabilidad", icon: PieChart, key: "rentabilidad" },
       { to: "/app/alertas", label: "Alertas", icon: Bell, key: "alertas" },
     ],
   },
@@ -78,6 +79,7 @@ const titleByPath: Record<string, string> = {
   "/app/cashflow": "Cash Flow",
   "/app/tesoreria": "Tesorería Proyectada",
   "/app/cuentas": "Cuentas Corrientes",
+  "/app/rentabilidad": "Rentabilidad Operativa",
   "/app/alertas": "Centro de Alertas",
   "/app/facturas": "Facturas de Venta",
   "/app/clientes": "Clientes",
