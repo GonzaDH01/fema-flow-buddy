@@ -2304,14 +2304,14 @@ function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
     if (importe <= 0) { toast.error("Ingresá el monto a mover"); return; }
     if (importe > Number(ctaOrigen.saldo || 0)) { toast.error("El origen no tiene saldo suficiente"); return; }
     setSaving(true);
-    const { error } = await sb.from("fema_mov_fondos").insert({
-      user_id: userId, fecha, origen_id: ctaOrigen.id, destino_id: ctaDestino.id,
-      monto: importe, observaciones: obs.trim() || null,
-      anio: Number(fecha.slice(0, 4)), mes: Number(fecha.slice(5, 7)),
+    const { error } = await (sb as any).rpc("fema_mover_fondos", {
+      _origen_id: ctaOrigen.id,
+      _destino_id: ctaDestino.id,
+      _monto: importe,
+      _fecha: fecha,
+      _observaciones: obs.trim() || null,
     });
     if (error) { setSaving(false); toast.error(error.message); return; }
-    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaOrigen.saldo || 0) - importe }).eq("id", ctaOrigen.id);
-    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaDestino.saldo || 0) + importe }).eq("id", ctaDestino.id);
     setSaving(false);
     toast.success("Dinero movido");
     onSaved();
