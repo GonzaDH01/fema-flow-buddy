@@ -191,6 +191,8 @@ function Page() {
     return rows;
   }, [data, tab, search, provsMap, fechaDesde, fechaHasta, filtroProv, filtroCat, pagosMap]);
 
+  const pag = usePaginacion(filtered, 50);
+
   const close = () => { setOpen(false); setEdit(null); };
 
   const ensureProveedor = async (nombre: string): Promise<string | null> => {
@@ -247,7 +249,6 @@ function Page() {
   };
 
   const exportXlsx = () => {
-    void 0;
     const rows = (data ?? []).map((r) => ({
       "N° Factura": `${r.tipo}-${r.numero ?? ""}`,
       Proveedor: r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "" : ""),
