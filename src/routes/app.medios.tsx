@@ -2518,8 +2518,8 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
 
   useEffect(() => {
     if (!factsQ.data) return;
-    const existentes = Object.fromEntries(
-      (impsQ.data ?? []).map(i => [i[colFact], Number(i.monto)])
+    const existentes: Record<string, number> = Object.fromEntries(
+      (impsQ.data ?? []).map(i => [i[colFact] as string, Number(i.monto)])
     );
     let resto = Number(mov.monto);
     const ordenadas = [...factsQ.data].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
