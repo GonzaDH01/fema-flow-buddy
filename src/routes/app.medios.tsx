@@ -1181,6 +1181,11 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
                     <Receipt className="w-3 h-3 mr-1" />Recibo
                   </Button>
                 )}
+                {onConciliar && !m.factura_venta_id && !m.factura_compra_id && (
+                  <Button size="sm" variant="outline" onClick={() => onConciliar(m)} className="border-sky-500/40 text-sky-400">
+                    <Link2 className="w-3 h-3 mr-1" />Conciliar
+                  </Button>
+                )}
                 <Button size="icon" variant="ghost" onClick={() => onEdit(m)}><Pencil className="w-3 h-3" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => onDelete(m)} className="text-rose-400"><Trash2 className="w-3 h-3" /></Button>
               </div>
