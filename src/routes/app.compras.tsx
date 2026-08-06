@@ -534,9 +534,20 @@ function ReciboCompraDialog({ row, proveedor, onClose }: {
       return data as any[];
     },
   });
+  const { data: imps } = useQuery({
+    queryKey: ["compra-imps", row.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_imputaciones")
+        .select("monto,movimiento_pago_id")
+        .eq("factura_compra_id", row.id);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   const items = movs ?? [];
-  const totalPagado = items.reduce((a, m) => a + Number(m.monto), 0);
+  const totalPagado = items.reduce((a, m) => a + Number(m.monto), 0) + (imps ?? []).reduce((a, i) => a + Number(i.monto), 0);
   const total = items.length > 0 ? totalPagado : Number(row.total);
   const reciboNro = `RP-${new Date().getFullYear()}-${row.id.slice(0, 8).toUpperCase()}`;
   const hoy = new Date().toISOString().split("T")[0];
