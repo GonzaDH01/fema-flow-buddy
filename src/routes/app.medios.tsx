@@ -2520,12 +2520,17 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
     const existentes = Object.fromEntries(
       (impsQ.data ?? []).map(i => [i[colFact], Number(i.monto)])
     );
-    const propuesta = proponerImputaciones(
-      Number(mov.monto),
-      factsQ.data.map(f => ({ id: f.id, saldo: Number(f.total) }))
-    );
+    let resto = Number(mov.monto);
+    const ordenadas = [...factsQ.data].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+    const propuesta: Record<string, number> = {};
+    for (const f of ordenadas) {
+      if (resto <= 0) break;
+      const usar = Math.min(Number(f.total), resto);
+      propuesta[f.id] = usar;
+      resto = redondear(resto - usar);
+    }
     const merged: Record<string, number> = {};
-    for (const p of propuesta) merged[p.facturaId] = existentes[p.facturaId] ?? p.monto;
+    for (const [fid, monto] of Object.entries(propuesta)) merged[fid] = existentes[fid] ?? monto;
     for (const [fid, monto] of Object.entries(existentes)) {
       if (!(fid in merged)) merged[fid] = monto;
     }
