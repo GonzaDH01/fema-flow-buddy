@@ -130,12 +130,8 @@ function Page() {
 
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
-    const org = cuentas.find((c: any) => c.id === m.origen_id);
-    const dst = cuentas.find((c: any) => c.id === m.destino_id);
-    const { error } = await sb.from("fema_mov_fondos").delete().eq("id", m.id);
+    const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
     if (error) { toast.error(error.message); return; }
-    if (org) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(org.saldo || 0) + Number(m.monto) }).eq("id", org.id);
-    if (dst) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(dst.saldo || 0) - Number(m.monto) }).eq("id", dst.id);
     toast.success("Pase eliminado");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
     qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
@@ -305,25 +301,22 @@ function Page() {
 
   const aplicarCobro = async (m: Mov, cuentaId: string | null) => {
     const esPago = m.direccion === "pago";
-    const marca = esPago ? "DEB" : "DEP";
     const nuevoEstado = esPago ? "pagado" : "cobrado";
+    const marca = esPago ? "DEB" : "DEP";
     const obs = cuentaId
       ? `${(m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "")} [${marca}:${cuentaId}]`.trim()
-      : m.observaciones;
-    const { data: upd, error } = await sb.from("fema_movimientos_pago")
-      .update({ estado: nuevoEstado, observaciones: obs })
-      .eq("id", m.id)
-      .select("id,estado,observaciones");
-    if (error) { toast.error(error.message); return; }
-    if (!upd || upd.length === 0) {
-      // Verificar si realmente cambió (algunas respuestas no devuelven filas)
-      const { data: check } = await sb.from("fema_movimientos_pago")
-        .select("estado").eq("id", m.id).maybeSingle();
-      if (!check || check.estado !== nuevoEstado) {
-        toast.error("No se pudo actualizar el estado del movimiento.");
-        await movsQ.refetch();
-        return;
-      }
+      : ((m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim() || null);
+    // Operación única en el servidor: estado + saldo bancario + estado de la factura
+    const { error } = await (sb as any).rpc("fema_impactar_caja", {
+      _mov_id: m.id,
+      _nuevo_estado: nuevoEstado,
+      _cuenta_id: cuentaId,
+      _es_pago: esPago,
+    });
+    if (error) {
+      toast.error(`No se pudo registrar el movimiento: ${error.message}`);
+      await movsQ.refetch();
+      return;
     }
     // Actualización inmediata en pantalla
     qc.setQueryData(["fema_movimientos_pago", user?.id, year], (old: Mov[] | undefined) =>
@@ -332,17 +325,12 @@ function Page() {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
         const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
-        const { error: e2 } = await sb.from("fema_cuentas_bancarias")
-          .update({ saldo: nuevo }).eq("id", cuentaId);
-        if (e2) toast.error(`No se pudo actualizar el saldo: ${e2.message}`);
-        else toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
+        toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
       }
     } else {
       toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
     }
-    await reconciliarFactura(m.factura_venta_id, "venta");
-    await reconciliarFactura(m.factura_compra_id, "compra");
     await movsQ.refetch();
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
@@ -352,24 +340,12 @@ function Page() {
 
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
-    const depMatch = /\[(DEP|DEB):([^\]]+)\]/.exec(m.observaciones ?? "");
-    const { error } = await sb.from("fema_movimientos_pago")
-      .update({
-        estado: "en_cartera",
-        observaciones: (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim() || null,
-      }).eq("id", m.id);
+    const { error } = await (sb as any).rpc("fema_revertir_caja", {
+      _mov_id: m.id,
+      _estado: "en_cartera",
+    });
     if (error) { toast.error(error.message); return; }
-    if (depMatch) {
-      const cta = cuentas.find((c: any) => c.id === depMatch[2]);
-      if (cta) {
-        const signo = depMatch[1] === "DEB" ? 1 : -1;
-        await sb.from("fema_cuentas_bancarias")
-          .update({ saldo: Number(cta.saldo || 0) + signo * Number(m.monto) }).eq("id", cta.id);
-        qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
-      }
-    }
-    await reconciliarFactura(m.factura_venta_id, "venta");
-    await reconciliarFactura(m.factura_compra_id, "compra");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
     toast.success("Echeq devuelto a cartera");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
@@ -2328,14 +2304,14 @@ function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
     if (importe <= 0) { toast.error("Ingresá el monto a mover"); return; }
     if (importe > Number(ctaOrigen.saldo || 0)) { toast.error("El origen no tiene saldo suficiente"); return; }
     setSaving(true);
-    const { error } = await sb.from("fema_mov_fondos").insert({
-      user_id: userId, fecha, origen_id: ctaOrigen.id, destino_id: ctaDestino.id,
-      monto: importe, observaciones: obs.trim() || null,
-      anio: Number(fecha.slice(0, 4)), mes: Number(fecha.slice(5, 7)),
+    const { error } = await (sb as any).rpc("fema_mover_fondos", {
+      _origen_id: ctaOrigen.id,
+      _destino_id: ctaDestino.id,
+      _monto: importe,
+      _fecha: fecha,
+      _observaciones: obs.trim() || null,
     });
     if (error) { setSaving(false); toast.error(error.message); return; }
-    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaOrigen.saldo || 0) - importe }).eq("id", ctaOrigen.id);
-    await sb.from("fema_cuentas_bancarias").update({ saldo: Number(ctaDestino.saldo || 0) + importe }).eq("id", ctaDestino.id);
     setSaving(false);
     toast.success("Dinero movido");
     onSaved();
