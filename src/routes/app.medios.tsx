@@ -153,6 +153,7 @@ function Page() {
     if (error) { toast.error(error.message); return; }
     toast.success("Pase eliminado");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
     qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
   };
 
@@ -162,6 +163,7 @@ function Page() {
     if (error) { toast.error(error.message); return; }
     toast.success("Cuenta eliminada");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
   };
 
   const movsQ = useQuery({
@@ -346,6 +348,7 @@ function Page() {
         const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
         toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
       }
     } else {
       toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
@@ -365,6 +368,7 @@ function Page() {
     });
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
     toast.success("Echeq devuelto a cartera");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
@@ -486,6 +490,7 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] }),
       qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] }),
       qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] }),
+      qc.invalidateQueries({ queryKey: ["fema_caja_mov"] }),
       qc.invalidateQueries({ queryKey: ["dashboard"] }),
       qc.invalidateQueries({ queryKey: ["cashflow-matrix"] }),
     ]);
@@ -810,6 +815,7 @@ function Page() {
             onSaved={() => {
               setOpenPase(false);
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
               qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
             }}
           />
@@ -894,6 +900,7 @@ function Page() {
             onClose={() => { setOpenCta(false); setEditCta(null); }}
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
               setOpenCta(false); setEditCta(null);
             }}
           />
