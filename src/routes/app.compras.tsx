@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
+import { saldoFactura } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
