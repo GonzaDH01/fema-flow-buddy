@@ -130,12 +130,8 @@ function Page() {
 
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
-    const org = cuentas.find((c: any) => c.id === m.origen_id);
-    const dst = cuentas.find((c: any) => c.id === m.destino_id);
-    const { error } = await sb.from("fema_mov_fondos").delete().eq("id", m.id);
+    const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
     if (error) { toast.error(error.message); return; }
-    if (org) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(org.saldo || 0) + Number(m.monto) }).eq("id", org.id);
-    if (dst) await sb.from("fema_cuentas_bancarias").update({ saldo: Number(dst.saldo || 0) - Number(m.monto) }).eq("id", dst.id);
     toast.success("Pase eliminado");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
     qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
