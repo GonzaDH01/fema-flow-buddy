@@ -1155,6 +1155,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
               {sinImpactoCaja && (
                 <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
               )}
+              {tieneImps && (
+                <div className="mt-1 text-[10px] text-sky-400">imputado a {impsMov.length} factura{impsMov.length > 1 ? "s" : ""}</div>
+              )}
             </TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1">
