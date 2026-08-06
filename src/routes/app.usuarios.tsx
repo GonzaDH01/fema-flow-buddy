@@ -11,28 +11,28 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 
 export const Route = createFileRoute("/app/usuarios")({ component: Page });
 
-const MODULOS: { key: string; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "cashflow", label: "Cash Flow" },
-  { key: "tesoreria", label: "Tesorería proyectada" },
-  { key: "cuentas", label: "Cuentas corrientes" },
-  { key: "rentabilidad", label: "Rentabilidad operativa" },
-  { key: "alertas", label: "Alertas" },
-  { key: "facturas", label: "Facturas" },
-  { key: "clientes", label: "Clientes" },
-  { key: "compras", label: "Compras" },
-  { key: "combustible", label: "Combustible" },
-  { key: "proveedores", label: "Proveedores" },
-  { key: "franco", label: "Franco (tarjeta personal)" },
-  { key: "creditos", label: "Créditos / Financiación" },
-  { key: "empleados", label: "Empleados" },
-  { key: "impuestos", label: "Impuestos" },
-  { key: "presupuestos", label: "Presupuestos" },
-  { key: "medios", label: "Medios de Pago" },
-  { key: "ocr", label: "OCR Facturas" },
-  { key: "imagenes", label: "Imágenes" },
-  { key: "auditoria", label: "Auditoría" },
-  { key: "usuarios", label: "Usuarios (admin)" },
+const MODULOS: { key: string; label: string; desc: string; uso: string }[] = [
+  { key: "dashboard", label: "Dashboard", desc: "Resumen general de ventas, compras, cobros y pagos del período.", uso: "Se usa como pantalla de inicio: elegí el mes/año y revisá los KPIs y gráficos." },
+  { key: "cashflow", label: "Cash Flow", desc: "Proyección mensual de ingresos y egresos (cobrados, pendientes y estimados).", uso: "Revisá cada mes para ver qué falta cobrar o pagar según los planes de pago cargados." },
+  { key: "tesoreria", label: "Tesorería proyectada", desc: "Proyección semanal (13 semanas) de saldos de caja y fondos.", uso: "Sirve para anticipar faltantes de fondos antes de comprometer pagos." },
+  { key: "cuentas", label: "Cuentas corrientes", desc: "Saldo por cliente y por proveedor con su detalle de facturas e imputaciones.", uso: "Buscá la razón social y revisá el saldo pendiente y los comprobantes que lo componen." },
+  { key: "rentabilidad", label: "Rentabilidad operativa", desc: "Compara ingresos por servicio contra costos directos del período.", uso: "Se consulta por período para medir margen por trabajo (picado, embolsado, transporte)." },
+  { key: "alertas", label: "Alertas", desc: "Centro de avisos: vencimientos, echeqs vencidos, facturas sin imagen o sin pagar.", uso: "Ingresá periódicamente y resolvé cada alerta desde el enlace al módulo correspondiente." },
+  { key: "facturas", label: "Facturas", desc: "Facturas de venta y comprobantes estimados a clientes.", uso: "Cargá nueva factura o estimado, definí plan de pago y luego seguí su estado de cobro." },
+  { key: "clientes", label: "Clientes", desc: "Padrón de clientes con datos fiscales y de contacto.", uso: "Usá el buscador para editar datos; se vinculan automáticamente a facturas y presupuestos." },
+  { key: "compras", label: "Compras", desc: "Facturas de proveedores, comprobantes provisorios y gastos fijos.", uso: "Cargá la compra, asignale categoría y controlá las columnas PAGADO y SALDO." },
+  { key: "combustible", label: "Combustible", desc: "Cargas de gasoil, tanque, consumos por equipo y viajes de transportistas.", uso: "Registrá cada carga o viaje y sacá el reporte de transportistas por período." },
+  { key: "proveedores", label: "Proveedores", desc: "Padrón de proveedores con CUIT, domicilio y condición de IVA.", uso: "Buscá el proveedor y completá o corregí los datos que el OCR no haya detectado." },
+  { key: "franco", label: "Franco (tarjeta personal)", desc: "Facturas a nombre de la empresa abonadas con fondos personales de Franco.", uso: "No afecta caja: solo marcá cada comprobante como pendiente o abonado; sí impacta en IVA." },
+  { key: "creditos", label: "Créditos / Financiación", desc: "Créditos de maquinaria y sus cuotas con vencimientos.", uso: "Cargá el crédito y luego marcá cada cuota como pagada al transferirla." },
+  { key: "empleados", label: "Empleados", desc: "Legajos, horas trabajadas y sueldos del personal.", uso: "Cargá el empleado, sus horas por período y liquidá los sueldos del mes." },
+  { key: "impuestos", label: "Impuestos", desc: "Posiciones de IVA, IIBB y ganancias estimadas por período.", uso: "Se completa mes a mes con débito y crédito fiscal para el control impositivo." },
+  { key: "presupuestos", label: "Presupuestos", desc: "Presupuestos con ítems, descuentos e impresión/PDF.", uso: "Armá el presupuesto por ítems, imprimilo o descargalo y luego pasalo a factura." },
+  { key: "medios", label: "Medios de Pago", desc: "Echeqs en cartera y emitidos, transferencias, bancos y fondos de inversión.", uso: "Registrá cobros y pagos, marcá echeqs cobrados/cedidos y mové dinero entre caja y fondos." },
+  { key: "ocr", label: "OCR Facturas", desc: "Lectura automática de comprobantes desde imagen o cámara del celular.", uso: "Elegí si es compra o venta, sacá la foto y confirmá los datos; detecta duplicados." },
+  { key: "imagenes", label: "Imágenes", desc: "Archivo de imágenes de comprobantes de compras y ventas.", uso: "Descargá por rango de fechas en ZIP y liberá espacio; la pestaña Control detecta faltantes." },
+  { key: "auditoria", label: "Auditoría", desc: "Reportes contables, libros de IVA compras/ventas y export ARCA.", uso: "Elegí el período y exportá los libros o reportes que necesite el contador." },
+  { key: "usuarios", label: "Usuarios (admin)", desc: "Aprobación de usuarios y asignación de permisos por módulo.", uso: "Aprobá al usuario nuevo y tildá solo los módulos que debe utilizar." },
 ];
 
 type UserRow = {
@@ -182,11 +182,24 @@ function ModulesDialog({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         <DialogHeader>
           <DialogTitle>Módulos permitidos · {user.full_name ?? user.email}</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-2 py-2">
+        <p className="text-xs text-muted-foreground">
+          Tildá los módulos que este usuario podrá ver. Cada uno incluye su descripción y cómo se utiliza.
+        </p>
+        <div className="grid grid-cols-1 gap-2 py-2 sm:grid-cols-2">
           {MODULOS.map((m) => (
-            <label key={m.key} className="flex items-center gap-2 rounded border border-border p-2 text-sm">
-              <Checkbox checked={selected.includes(m.key)} onCheckedChange={() => toggle(m.key)} />
-              {m.label}
+            <label
+              key={m.key}
+              className="flex cursor-pointer items-start gap-2 rounded border border-border p-2 text-sm hover:bg-muted/50"
+            >
+              <Checkbox className="mt-0.5" checked={selected.includes(m.key)} onCheckedChange={() => toggle(m.key)} />
+              <span className="min-w-0">
+                <span className="block font-medium leading-tight">{m.label}</span>
+                <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{m.desc}</span>
+                <span className="mt-1 block text-xs leading-snug text-muted-foreground">
+                  <span className="font-medium text-foreground/70">Cómo usarlo: </span>
+                  {m.uso}
+                </span>
+              </span>
             </label>
           ))}
         </div>
