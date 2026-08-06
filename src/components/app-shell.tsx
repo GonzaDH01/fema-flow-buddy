@@ -3,9 +3,9 @@ import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
-  FileDown,
+  FileDown, ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { exportarExcelCompleto } from "@/lib/exportar-excel";
 import { BuscadorGlobal } from "@/components/buscador-global";
