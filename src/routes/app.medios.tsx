@@ -185,6 +185,16 @@ function Page() {
     },
   });
 
+  const impsQ = useQuery({
+    queryKey: ["fema_imputaciones", user?.id, year],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_imputaciones").select("*").eq("anio", year);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
   const facturasVentaQ = useQuery({
     queryKey: ["fema_facturas_venta_pendientes", user?.id],
     enabled: !!user,
