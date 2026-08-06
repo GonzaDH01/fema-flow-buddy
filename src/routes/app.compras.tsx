@@ -164,7 +164,8 @@ function Page() {
   const pagadoDe = (id: string) => Number(pagosMap?.[id]?.pagado ?? 0);
   const programadoDe = (id: string) => Number(pagosMap?.[id]?.programado ?? 0);
   const planDe = (id: string) => pagosMap?.[id] ?? null;
-  const saldoDe = (r: Row) => Math.max(0, Number(r.total) - pagadoDe(r.id) - programadoDe(r.id));
+  // Regla compartida y testeada (src/lib/finanzas.ts)
+  const saldoDe = (r: Row) => saldoFactura(r.total, pagadoDe(r.id), programadoDe(r.id));
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
