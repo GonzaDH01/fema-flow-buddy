@@ -90,6 +90,8 @@ function Panel({ kind }: { kind: Kind }) {
 
   const { data: rows, isLoading } = useImagenes(kind, desde, hasta);
 
+  const pag = usePaginacion(rows ?? [], 50);
+
   const selectedRows = useMemo(
     () => (rows ?? []).filter((r) => selected[r.id]),
     [rows, selected],
@@ -263,7 +265,7 @@ function Panel({ kind }: { kind: Kind }) {
                 </td>
               </tr>
             ) : (
-              rows!.map((r) => (
+              pag.pageItems.map((r) => (
                 <tr key={r.id} className="border-t border-border">
                   <td className="px-3 py-2">
                     <Checkbox
@@ -294,6 +296,14 @@ function Panel({ kind }: { kind: Kind }) {
             )}
           </tbody>
         </table>
+        <Paginacion
+          page={pag.page}
+          totalPages={pag.totalPages}
+          total={pag.total}
+          pageSize={pag.pageSize}
+          onPage={pag.setPage}
+          label="imágenes"
+        />
       </div>
     </div>
   );
