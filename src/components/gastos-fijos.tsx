@@ -449,7 +449,7 @@ function FormDialog({ initial, provNombre, onSubmit }: {
             <Input type="number" step="0.01" {...f.register("monto_mensual")} />
           </FormField>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <FormField label="Día venc.">
             <Input type="number" min={1} max={31} {...f.register("dia_vencimiento")} />
           </FormField>

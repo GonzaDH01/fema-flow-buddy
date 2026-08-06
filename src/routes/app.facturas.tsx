@@ -869,7 +869,7 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de picado
           </legend>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
             <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
             <FormField label="Importe">
@@ -882,7 +882,7 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de embolsado
           </legend>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
             <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
             <FormField label="Importe">

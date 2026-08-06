@@ -1936,7 +1936,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   return (
                     <label key={e.id} className={`flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/10" : ""} ${vencido && !checked ? "bg-red-500/10" : ""}`}>
                       <input type="checkbox" checked={checked} onChange={() => toggleEcheqCedido(e.id)} />
-                      <div className="flex-1 min-w-0 grid grid-cols-6 gap-3 text-xs items-center">
+                      <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-6 text-xs items-center">
                         <div className="font-mono truncate">Nº {e.numero ?? "s/n"}</div>
                         <div className="truncate text-muted-foreground">{e.contraparte ?? "—"}</div>
                         <div className="truncate text-muted-foreground">{e.banco ?? "—"}</div>
@@ -1962,7 +1962,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           )}
 
           <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Tipo documento">
               <Select value={instrumento} onValueChange={setInstrumento}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2114,7 +2114,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Mes asociado">
               <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
