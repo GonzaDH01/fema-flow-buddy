@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -190,6 +191,8 @@ function Page() {
     return rows;
   }, [data, tab, search, provsMap, fechaDesde, fechaHasta, filtroProv, filtroCat, pagosMap]);
 
+  const pag = usePaginacion(filtered, 50);
+
   const close = () => { setOpen(false); setEdit(null); };
 
   const ensureProveedor = async (nombre: string): Promise<string | null> => {
@@ -363,7 +366,7 @@ function Page() {
               {!isLoading && filtered.length === 0 && (
                 <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
               )}
-              {filtered.map((r) => (
+              {pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">
                     {r.imagen_path ? (
@@ -447,6 +450,8 @@ function Page() {
               ))}
             </TableBody>
           </Table>
+          <Paginacion page={pag.page} totalPages={pag.totalPages} total={pag.total} pageSize={pag.pageSize}
+            onPage={pag.setPage} label="compras" />
         </CardContent>
       </Card>
 
