@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw, Wallet, TrendingDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPesos, formatFecha } from "@/lib/format";
-import { proyectar, primerDeficit, hoyLunes, type Flujo, type Semana } from "@/lib/tesoreria-adapter";
+import { proyectar, primerDeficit, type Flujo, type Semana } from "@/lib/tesoreria";
 
 export const Route = createFileRoute("/app/tesoreria")({ component: Page });
 
@@ -205,9 +205,8 @@ function Page() {
               {semanas.map((w, i) => {
                 const open = abierta === w.inicio;
                 return (
-                  <>
+                  <Fragment key={w.inicio}>
                     <tr
-                      key={w.inicio}
                       className={`cursor-pointer border-t border-border hover:bg-muted/40 ${w.saldoFinal < 0 ? "bg-destructive/5" : ""}`}
                       onClick={() => setAbierta(open ? null : w.inicio)}
                     >
@@ -230,7 +229,7 @@ function Page() {
                       <td className="px-3 py-2 text-right text-xs text-muted-foreground">{w.detalle.length || ""}</td>
                     </tr>
                     {open && w.detalle.length > 0 ? (
-                      <tr key={`${w.inicio}-d`} className="border-t border-border bg-muted/20">
+                      <tr className="border-t border-border bg-muted/20">
                         <td colSpan={6} className="px-3 py-2">
                           <div className="space-y-1">
                             {w.detalle.map((f, k) => (
@@ -247,7 +246,7 @@ function Page() {
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
