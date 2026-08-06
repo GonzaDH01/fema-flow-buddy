@@ -196,7 +196,7 @@ export async function exportarSeleccion(userId: string, opts: OpcionesExport) {
     XLSX.writeFile(wb, fname);
   } else if (zip) {
     const blob = await zip.generateAsync({ type: "blob" });
-    saveAs(blob, `FEMA_export_${dateSuffix}.zip`);
+    downloadBlob(blob, `FEMA_export_${dateSuffix}.zip`);
   }
 }
 
