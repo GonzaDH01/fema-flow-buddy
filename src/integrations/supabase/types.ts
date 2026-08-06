@@ -1160,31 +1160,37 @@ export type Database = {
       }
       fema_imputaciones: {
         Row: {
+          anio: number | null
           created_at: string
           factura_compra_id: string | null
           factura_venta_id: string | null
           fecha: string
           id: string
+          mes: number | null
           monto: number
           movimiento_pago_id: string
           user_id: string
         }
         Insert: {
+          anio?: number | null
           created_at?: string
           factura_compra_id?: string | null
           factura_venta_id?: string | null
           fecha?: string
           id?: string
+          mes?: number | null
           monto: number
           movimiento_pago_id: string
           user_id: string
         }
         Update: {
+          anio?: number | null
           created_at?: string
           factura_compra_id?: string | null
           factura_venta_id?: string | null
           fecha?: string
           id?: string
+          mes?: number | null
           monto?: number
           movimiento_pago_id?: string
           user_id?: string
