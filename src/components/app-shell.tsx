@@ -3,9 +3,9 @@ import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
-  FileDown,
+  FileDown, ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { exportarExcelCompleto } from "@/lib/exportar-excel";
 import { BuscadorGlobal } from "@/components/buscador-global";
@@ -109,7 +110,15 @@ export function AppShell() {
   const loc = useLocation();
   const [openMobile, setOpenMobile] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("fema_sidebar_collapsed") === "true";
+  });
   const title = titleByPath[loc.pathname] ?? "FEMA";
+
+  useEffect(() => {
+    window.localStorage.setItem("fema_sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
 
   const handleExport = async () => {
     if (!user) return;
@@ -136,59 +145,87 @@ export function AppShell() {
     .filter((s) => s.items.length > 0);
 
   const Sidebar = (
-    <aside className="flex h-full w-[220px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-[image:var(--gradient-primary)] font-bold text-primary-foreground">
+    <aside
+      className={`flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out ${
+        collapsed ? "w-[72px]" : "w-[220px]"
+      }`}
+    >
+      <div className={`flex items-center gap-2 py-5 ${collapsed ? "justify-center px-2" : "px-5"}`}>
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[image:var(--gradient-primary)] font-bold text-primary-foreground">
           F
         </div>
-        <div>
-          <div className="font-semibold leading-tight">FEMA</div>
-          <div className="text-[11px] text-sidebar-foreground/70">Gestión Agropecuaria</div>
-        </div>
+        {!collapsed && (
+          <div className="overflow-hidden">
+            <div className="font-semibold leading-tight">FEMA</div>
+            <div className="text-[11px] text-sidebar-foreground/70">Gestión Agropecuaria</div>
+          </div>
+        )}
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
         {visibleSections.map((s) => (
           <div key={s.title}>
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-              {s.title}
-            </div>
+            {!collapsed && (
+              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                {s.title}
+              </div>
+            )}
             <div className="space-y-0.5">
               {s.items.map((n) => {
                 const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
-                return (
+                const link = (
                   <Link
                     key={n.to}
                     to={n.to}
                     onClick={() => setOpenMobile(false)}
-                    className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition ${
+                    className={`flex items-center rounded-md transition ${
+                      collapsed ? "justify-center px-2 py-2" : "gap-2 px-3 py-1.5 text-sm"
+                    } ${
                       active
                         ? "bg-muted font-medium text-primary"
                         : "text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`}
                   >
-                    <n.icon className="h-4 w-4" />
-                    {n.label}
+                    <n.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="truncate">{n.label}</span>}
                   </Link>
                 );
+                if (collapsed) {
+                  return (
+                    <Tooltip key={n.to} delayDuration={100}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right">{n.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return link;
               })}
             </div>
           </div>
         ))}
       </nav>
       <div className="border-t border-sidebar-border p-3">
-        <div className="mb-2 truncate text-xs text-sidebar-foreground/70">{user?.email}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-sidebar-foreground/85 hover:bg-sidebar-accent"
-          onClick={async () => {
-            await signOut();
-            navigate({ to: "/auth" });
-          }}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Cerrar sesión
-        </Button>
+        {!collapsed && (
+          <div className="mb-2 truncate text-xs text-sidebar-foreground/70">{user?.email}</div>
+        )}
+        <Tooltip delayDuration={100}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size={collapsed ? "icon" : "sm"}
+              className={`text-sidebar-foreground/85 hover:bg-sidebar-accent ${
+                collapsed ? "w-full" : "w-full justify-start"
+              }`}
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/auth" });
+              }}
+            >
+              <LogOut className={`h-4 w-4 ${collapsed ? "" : "mr-2"}`} />
+              {!collapsed && "Cerrar sesión"}
+            </Button>
+          </TooltipTrigger>
+          {collapsed && <TooltipContent side="right">Cerrar sesión</TooltipContent>}
+        </Tooltip>
       </div>
     </aside>
   );
@@ -240,6 +277,15 @@ export function AppShell() {
             onClick={() => setOpenMobile(true)}
           >
             <Menu className="h-5 w-5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="hidden md:flex"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+          >
+            {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </Button>
           <h1 className="truncate text-sm font-semibold text-foreground md:text-base">{title}</h1>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2">
