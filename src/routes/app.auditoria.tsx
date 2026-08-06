@@ -381,6 +381,8 @@ function Page() {
         </div>
       </div>
 
+      <CierrePeriodos />
+
       {/* Tabs */}
       <Tabs defaultValue="control" className="w-full">
         <TabsList className="flex flex-wrap h-auto justify-start">
