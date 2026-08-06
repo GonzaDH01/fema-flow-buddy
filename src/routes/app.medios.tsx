@@ -11,6 +11,7 @@ import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import {
   estadoFactura, construirObjetivos, repartirImporte, imputarIndivisible,
   proponerImputaciones, esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
+  redondear,
 } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
