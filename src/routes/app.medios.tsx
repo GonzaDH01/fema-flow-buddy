@@ -10,7 +10,7 @@ import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import {
-  estadoFactura, construirObjetivos, repartirImporte, imputarIndivisible,
+  construirObjetivos, repartirImporte, imputarIndivisible,
   proponerImputaciones, esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
   redondear,
 } from "@/lib/finanzas";
