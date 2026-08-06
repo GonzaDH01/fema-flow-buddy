@@ -363,7 +363,6 @@ function Page() {
               {!isLoading && filtered.length === 0 && (
                 <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
               )}
-              {filtered.map((r) => (
               {pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">
