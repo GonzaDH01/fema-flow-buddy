@@ -271,6 +271,73 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_caja_mov: {
+        Row: {
+          concepto: string | null
+          created_at: string
+          cuenta_id: string
+          fecha: string
+          id: string
+          monto: number
+          mov_fondo_id: string | null
+          movimiento_pago_id: string | null
+          saldo_resultante: number | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concepto?: string | null
+          created_at?: string
+          cuenta_id: string
+          fecha?: string
+          id?: string
+          monto: number
+          mov_fondo_id?: string | null
+          movimiento_pago_id?: string | null
+          saldo_resultante?: number | null
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concepto?: string | null
+          created_at?: string
+          cuenta_id?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          mov_fondo_id?: string | null
+          movimiento_pago_id?: string | null
+          saldo_resultante?: number | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_caja_mov_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_caja_mov_mov_fondo_id_fkey"
+            columns: ["mov_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_mov_fondos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_caja_mov_movimiento_pago_id_fkey"
+            columns: ["movimiento_pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_clientes: {
         Row: {
           codigo: string | null
@@ -1249,6 +1316,36 @@ export type Database = {
           },
         ]
       }
+      fema_periodos_cierre: {
+        Row: {
+          anio: number
+          cerrado_por: string | null
+          created_at: string
+          id: string
+          mes: number
+          observaciones: string | null
+          updated_at: string
+        }
+        Insert: {
+          anio: number
+          cerrado_por?: string | null
+          created_at?: string
+          id?: string
+          mes: number
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anio?: number
+          cerrado_por?: string | null
+          created_at?: string
+          id?: string
+          mes?: number
+          observaciones?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fema_presupuesto_items: {
         Row: {
           alicuota_iva: number
@@ -2054,7 +2151,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      fema_v_saldos_compra: {
+        Row: {
+          docs_programados: number | null
+          factura_id: string | null
+          pagado: number | null
+          programado: number | null
+          proximo_vencimiento: string | null
+          saldo: number | null
+          total: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      fema_v_saldos_venta: {
+        Row: {
+          cobrado: number | null
+          docs_programados: number | null
+          factura_id: string | null
+          programado: number | null
+          proximo_vencimiento: string | null
+          saldo: number | null
+          total: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       fema_eliminar_mov_fondo: { Args: { _id: string }; Returns: Json }
@@ -2077,6 +2199,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fema_periodo_cerrado: { Args: { _fecha: string }; Returns: boolean }
       fema_reconciliar_factura: {
         Args: { _factura_id: string; _tipo: string }
         Returns: undefined

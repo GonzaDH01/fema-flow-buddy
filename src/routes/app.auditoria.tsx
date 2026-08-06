@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileSpreadsheet, Printer, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
+import { CierrePeriodos } from "@/components/cierre-periodos";
 import * as XLSX from "xlsx";
 import {
   ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas,
@@ -43,7 +44,7 @@ function Page() {
       // Nota: el resto del sistema comparte datos entre usuarios aprobados,
       // así que acá NO se filtra por user_id (antes se perdían comprobantes
       // cargados por otros usuarios del estudio).
-      const [fv, fc, sue, imp, mov, cli, prov, emp] = await Promise.all([
+      const [fv, fc, sue, imp, mov, cli, prov, emp, sc, sv] = await Promise.all([
         supabase.from("fema_facturas_venta").select("*").order("fecha"),
         supabase.from("fema_facturas_compra").select("*").order("fecha"),
         supabase.from("fema_sueldos").select("*").order("periodo"),
@@ -52,17 +53,17 @@ function Page() {
         supabase.from("fema_clientes").select("id,nombre,cuit,condicion_iva"),
         supabase.from("fema_proveedores").select("id,nombre,cuit,condicion_iva,categoria"),
         supabase.from("fema_empleados").select("id,nombre,cuil,activo"),
+        (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado"),
+        (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado"),
       ]);
       // El año se resuelve por `anio` y, si está vacío, por la fecha del comprobante.
       const delAnio = (rows: any[] | null, campo = "fecha") =>
         (rows ?? []).filter((r: any) => Number(r.anio ?? new Date(r[campo]).getFullYear()) === year);
       const pagosPorCompra: Record<string, number> = {};
       const cobrosPorVenta: Record<string, number> = {};
-      for (const m of (mov.data ?? []) as any[]) {
-        if (!["pagado", "cedido", "cobrado", "acreditado", "depositado"].includes(m.estado)) continue;
-        if (m.factura_compra_id) pagosPorCompra[m.factura_compra_id] = (pagosPorCompra[m.factura_compra_id] ?? 0) + Number(m.monto || 0);
-        if (m.factura_venta_id) cobrosPorVenta[m.factura_venta_id] = (cobrosPorVenta[m.factura_venta_id] ?? 0) + Number(m.monto || 0);
-      }
+      // Saldos calculados en el servidor: misma regla que Compras y Cashflow.
+      for (const r of ((sc as any).data ?? []) as any[]) pagosPorCompra[r.factura_id] = Number(r.pagado || 0);
+      for (const r of ((sv as any).data ?? []) as any[]) cobrosPorVenta[r.factura_id] = Number(r.cobrado || 0);
       return {
         fv: delAnio(fv.data), fc: delAnio(fc.data), sue: delAnio(sue.data),
         imp: imp.data ?? [], mov: mov.data ?? [], cli: cli.data ?? [],
@@ -380,6 +381,8 @@ function Page() {
           ))}
         </div>
       </div>
+
+      <CierrePeriodos />
 
       {/* Tabs */}
       <Tabs defaultValue="control" className="w-full">

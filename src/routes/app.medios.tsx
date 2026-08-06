@@ -128,12 +128,32 @@ function Page() {
   });
   const movFondos = fondosQ.data ?? [];
 
+  // Libro de caja: extracto real de ingresos/egresos por cuenta.
+  const cajaQ = useQuery({
+    queryKey: ["fema_caja_mov", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (sb as any).from("fema_caja_mov")
+        .select("*").order("fecha", { ascending: false }).limit(200);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const cajaMovs = cajaQ.data ?? [];
+  const [cajaCta, setCajaCta] = useState<string>("__all");
+  const cajaFiltrada = cajaMovs.filter((m: any) => cajaCta === "__all" || m.cuenta_id === cajaCta);
+  const cajaIngresos = cajaFiltrada.filter((m: any) => m.tipo === "ingreso")
+    .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+  const cajaEgresos = cajaFiltrada.filter((m: any) => m.tipo === "egreso")
+    .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
+
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
     const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
     if (error) { toast.error(error.message); return; }
     toast.success("Pase eliminado");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
     qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
   };
 
@@ -143,6 +163,7 @@ function Page() {
     if (error) { toast.error(error.message); return; }
     toast.success("Cuenta eliminada");
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
   };
 
   const movsQ = useQuery({
@@ -327,6 +348,7 @@ function Page() {
         const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
         toast.success(`${esPago ? "Debitado de" : "Depositado en"} ${cta.banco}. Nuevo saldo: ${formatPesos(nuevo)}`);
         qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
       }
     } else {
       toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
@@ -346,6 +368,7 @@ function Page() {
     });
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
     toast.success("Echeq devuelto a cartera");
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
@@ -467,6 +490,7 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] }),
       qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] }),
       qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] }),
+      qc.invalidateQueries({ queryKey: ["fema_caja_mov"] }),
       qc.invalidateQueries({ queryKey: ["dashboard"] }),
       qc.invalidateQueries({ queryKey: ["cashflow-matrix"] }),
     ]);
@@ -645,6 +669,79 @@ function Page() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold">Extracto de caja y bancos</h3>
+              <p className="text-xs text-muted-foreground">
+                Cada cobro depositado, pago debitado y pase entre cuentas deja acá su asiento,
+                para comparar contra el resumen del banco.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={cajaCta} onValueChange={setCajaCta}>
+                <SelectTrigger className="w-56"><SelectValue placeholder="Todas las cuentas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Todas las cuentas</SelectItem>
+                  {cuentas.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.banco}{c.alias ? ` · ${c.alias}` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs">
+            <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+              Ingresos: <b className="text-emerald-400">{formatPesos(cajaIngresos)}</b>
+            </span>
+            <span className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1">
+              Egresos: <b className="text-rose-400">{formatPesos(cajaEgresos)}</b>
+            </span>
+            <span className="rounded-md border border-border px-2 py-1">
+              Neto: <b>{formatPesos(cajaIngresos - cajaEgresos)}</b>
+            </span>
+          </div>
+          {cajaFiltrada.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Todavía no hay movimientos de caja registrados para esta cuenta.
+            </p>
+          ) : (
+            <div className="max-h-96 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Cuenta</TableHead>
+                    <TableHead>Concepto</TableHead>
+                    <TableHead className="text-right">Ingreso</TableHead>
+                    <TableHead className="text-right">Egreso</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cajaFiltrada.map((m: any) => {
+                    const c = cuentas.find((x: any) => x.id === m.cuenta_id);
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell className="whitespace-nowrap">{formatFecha(m.fecha)}</TableCell>
+                        <TableCell className="text-xs">{c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""}` : "—"}</TableCell>
+                        <TableCell className="text-xs">{m.concepto || "—"}</TableCell>
+                        <TableCell className="text-right text-emerald-400">
+                          {m.tipo === "ingreso" ? formatPesos(Number(m.monto)) : ""}
+                        </TableCell>
+                        <TableCell className="text-right text-rose-400">
+                          {m.tipo === "egreso" ? formatPesos(Number(m.monto)) : ""}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="border-rose-500/30">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -718,6 +815,7 @@ function Page() {
             onSaved={() => {
               setOpenPase(false);
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
               qc.invalidateQueries({ queryKey: ["fema_mov_fondos"] });
             }}
           />
@@ -802,6 +900,7 @@ function Page() {
             onClose={() => { setOpenCta(false); setEditCta(null); }}
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
               setOpenCta(false); setEditCta(null);
             }}
           />
