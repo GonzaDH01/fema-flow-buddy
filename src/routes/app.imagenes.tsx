@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import {
   Image as ImageIcon, Download, Trash2, ShoppingCart, Receipt, FileImage, Loader2,
   ShieldCheck, AlertTriangle, CheckCircle2, Link2Off,
