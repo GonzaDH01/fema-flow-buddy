@@ -15,6 +15,7 @@ const MODULOS: { key: string; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "cashflow", label: "Cash Flow" },
   { key: "cuentas", label: "Cuentas corrientes" },
+  { key: "alertas", label: "Alertas" },
   { key: "facturas", label: "Facturas" },
   { key: "clientes", label: "Clientes" },
   { key: "compras", label: "Compras" },
