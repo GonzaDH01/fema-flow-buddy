@@ -121,6 +121,35 @@ const TIPOS_COMPROBANTE = [
   "Factura", "Nota de crédito", "Nota de débito", "Recibo", "Ticket",
   "Comprobante provisorio", "Remito", "Otro",
 ] as const;
+
+type Aviso = { campo: string; nivel: "error" | "warn"; msg: string };
+
+/** Revisión previa campo por campo: marca lo que falta o no cierra antes de guardar. */
+function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
+  const avisos: Aviso[] = [];
+  const tercero = kind === "compra" ? r.emisor : r.receptor;
+  const cuitTercero = kind === "compra" ? r.cuit_emisor : r.cuit_receptor;
+
+  if (!r.fecha) avisos.push({ campo: "Fecha", nivel: "error", msg: "No se pudo leer la fecha del comprobante." });
+  if (!(r.total ?? 0)) avisos.push({ campo: "Total", nivel: "error", msg: "El total quedó en cero: cargalo a mano." });
+  if (!tercero) avisos.push({ campo: kind === "compra" ? "Proveedor" : "Cliente", nivel: "error", msg: "Falta el nombre del tercero." });
+  if (esEmpresaPropia(tercero)) avisos.push({ campo: kind === "compra" ? "Proveedor" : "Cliente", nivel: "error", msg: "Figura la empresa propia como tercero: corregilo." });
+  if (!r.numero) avisos.push({ campo: "Número", nivel: "warn", msg: "Sin número no se puede detectar duplicados." });
+
+  const cuit = onlyDigits(cuitTercero);
+  if (!cuit) avisos.push({ campo: "CUIT", nivel: "warn", msg: "Sin CUIT no se puede vincular con la ficha existente." });
+  else if (cuit.length !== 11) avisos.push({ campo: "CUIT", nivel: "warn", msg: "El CUIT no tiene 11 dígitos." });
+
+  const suma = (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0);
+  if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(suma - (r.total ?? 0)) > Math.max(1, (r.total ?? 0) * 0.01)) {
+    avisos.push({ campo: "Importes", nivel: "warn", msg: "Neto + IVA + percepciones no coincide con el total leído." });
+  }
+  if ((r.total ?? 0) > 0 && !(r.neto ?? 0)) {
+    avisos.push({ campo: "Neto", nivel: "warn", msg: "No se leyó el neto gravado (queda fuera del libro IVA)." });
+  }
+  return avisos;
+}
+
 const normalizarTipoComprobante = (t?: string | null) => {
   const v = (t ?? "").toLowerCase();
   if (v.includes("credito") || v.includes("crédito")) return "Nota de crédito";
