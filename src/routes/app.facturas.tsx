@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
+import { usePaginacion, Paginacion } from "@/components/paginacion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -231,6 +232,8 @@ function Page() {
     }
     return list;
   }, [rows, tab, search, clientesMap]);
+
+  const pag = usePaginacion(filtered, 50);
 
   const close = () => { setOpen(false); setEdit(null); setPrefill(null); };
 
@@ -520,7 +523,7 @@ function Page() {
               <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay facturas</TableCell></TableRow>
-            ) : filtered.map((r) => {
+            ) : pag.pageItems.map((r) => {
               const periodo = MESES_LARGOS[new Date(r.fecha).getMonth()];
               return (
                 <TableRow key={r.id}>
@@ -573,6 +576,16 @@ function Page() {
             })}
           </TableBody>
         </Table>
+        )}
+        {tab !== "estimados" && (
+          <Paginacion
+            page={pag.page}
+            totalPages={pag.totalPages}
+            total={pag.total}
+            pageSize={pag.pageSize}
+            onPage={pag.setPage}
+            label="facturas"
+          />
         )}
       </section>
 
