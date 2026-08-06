@@ -25,6 +25,7 @@ import { Route as AppCuentasRouteImport } from './routes/app.cuentas'
 import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
 import { Route as AppExportacionesRouteImport } from './routes/app.exportaciones'
 import { Route as AppFacturasRouteImport } from './routes/app.facturas'
+import { Route as AppFrancoRouteImport } from './routes/app.franco'
 import { Route as AppImagenesRouteImport } from './routes/app.imagenes'
 import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
 import { Route as AppMediosRouteImport } from './routes/app.medios'
@@ -116,6 +117,11 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
   path: '/facturas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFrancoRoute = AppFrancoRouteImport.update({
+  id: '/franco',
+  path: '/franco',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppImagenesRoute = AppImagenesRouteImport.update({
   id: '/imagenes',
   path: '/imagenes',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/franco': typeof AppFrancoRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/franco': typeof AppFrancoRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/app/empleados': typeof AppEmpleadosRoute
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
+  '/app/franco': typeof AppFrancoRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/app/empleados'
     | '/app/exportaciones'
     | '/app/facturas'
+    | '/app/franco'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/app/empleados'
     | '/app/exportaciones'
     | '/app/facturas'
+    | '/app/franco'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/app/empleados'
     | '/app/exportaciones'
     | '/app/facturas'
+    | '/app/franco'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -459,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFacturasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/franco': {
+      id: '/app/franco'
+      path: '/franco'
+      fullPath: '/app/franco'
+      preLoaderRoute: typeof AppFrancoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/imagenes': {
       id: '/app/imagenes'
       path: '/imagenes'
@@ -544,6 +563,7 @@ interface AppRouteChildren {
   AppEmpleadosRoute: typeof AppEmpleadosRoute
   AppExportacionesRoute: typeof AppExportacionesRoute
   AppFacturasRoute: typeof AppFacturasRoute
+  AppFrancoRoute: typeof AppFrancoRoute
   AppImagenesRoute: typeof AppImagenesRoute
   AppImpuestosRoute: typeof AppImpuestosRoute
   AppMediosRoute: typeof AppMediosRoute
@@ -568,6 +588,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEmpleadosRoute: AppEmpleadosRoute,
   AppExportacionesRoute: AppExportacionesRoute,
   AppFacturasRoute: AppFacturasRoute,
+  AppFrancoRoute: AppFrancoRoute,
   AppImagenesRoute: AppImagenesRoute,
   AppImpuestosRoute: AppImpuestosRoute,
   AppMediosRoute: AppMediosRoute,
@@ -592,3 +613,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
