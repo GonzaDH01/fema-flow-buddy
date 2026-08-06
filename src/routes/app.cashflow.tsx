@@ -206,6 +206,8 @@ async function loadCashflow(userId: string, anio: number) {
   const egPagados: Row[] = [];
   const egPendientes: Row[] = [];
   for (const c of (compras.data ?? []) as any[]) {
+    // Franco paga con tarjeta personal: no impacta en caja de la empresa.
+    if (c.categoria === "Franco_Particular") continue;
     const linked = movsByFC.get(c.id) ?? [];
     const total = Number(c.total);
     const facturaMes = Number(c.mes);

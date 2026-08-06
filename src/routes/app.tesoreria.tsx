@@ -29,7 +29,7 @@ function useTesoreria(incluirEstimados: boolean) {
         supabase.from("fema_gastos_fijos").select("id,concepto,monto_mensual,dia_vencimiento,activo,mes_fin"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
-        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id"),
+        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria"),
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
@@ -89,6 +89,7 @@ function useTesoreria(incluirEstimados: boolean) {
         const mc: Record<string, any> = {};
         for (const r of (sc.data ?? []) as any[]) mc[r.factura_id] = r;
         for (const f of (fc.data ?? []) as any[]) {
+          if (f.categoria === "Franco_Particular") continue;
           const s = mc[f.id] ?? {};
           const saldo = Math.max(0, n(f.total) - n(s.pagado) - n(s.programado));
           if (saldo <= 1) continue;
