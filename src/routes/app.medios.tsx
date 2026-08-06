@@ -1047,8 +1047,8 @@ function ResumenPropios({ rows }: { rows: Mov[] }) {
   );
 }
 
-function MovsTable({ rows, onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
-  rows: Mov[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
+function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelete, onDeleteMany, onRecibo }: {
+  rows: Mov[]; imputaciones?: any[]; onCobrar: (m: Mov) => void; onCeder: (m: Mov) => void;
   onEdit: (m: Mov) => void; onDelete: (m: Mov) => void;
   onDeleteMany?: (ids: string[]) => Promise<boolean>; onRecibo: (m: Mov) => void;
 }) {
