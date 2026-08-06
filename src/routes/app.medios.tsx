@@ -1117,6 +1117,8 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
           const sinImpactoCaja = (m.estado === "pagado" || m.estado === "cobrado")
             && m.instrumento !== "cesion" && !yaImpactoCaja;
+          const impsMov = imputaciones.filter(i => i.movimiento_pago_id === m.id);
+          const tieneImps = impsMov.length > 0;
           return (
           <TableRow key={m.id} className={vencidoSinCobrar ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
             <TableCell>
