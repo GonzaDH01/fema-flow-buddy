@@ -62,8 +62,8 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
     sb.from("fema_imputaciones").select("monto").eq(col, facturaId),
   ]);
   const confirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
-  const cubiertoDirecto = (movs ?? []).reduce((s, m: any) => s + (confirmados.includes(m.estado) ? Number(m.monto) : 0), 0);
-  const cubiertoImputaciones = (imps ?? []).reduce((s, i: any) => s + Number(i.monto), 0);
+  const cubiertoDirecto = (movs ?? []).reduce((s: number, m: any) => s + (confirmados.includes(m.estado) ? Number(m.monto) : 0), 0);
+  const cubiertoImputaciones = (imps ?? []).reduce((s: number, i: any) => s + Number(i.monto), 0);
   const cubierto = cubiertoDirecto + cubiertoImputaciones;
   const nuevo = cubierto >= Number(fact.total) - 0.01 && Number(fact.total) > 0
     ? (tipo === "venta" ? "cobrada" : "pagada")
