@@ -1446,16 +1446,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       if (tipo === "ceder_echeq") {
         if (!echeqId) { toast.error("Seleccioná un echeq"); return; }
         const e = echeqsCartera.find(x => x.id === echeqId)!;
-        await sb.from("fema_movimientos_pago").update({ estado: "cedido" }).eq("id", echeqId);
-        const { error } = await sb.from("fema_movimientos_pago").insert({
-          user_id: userId, instrumento: "cesion", direccion: "pago",
-          tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
-          vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
-          contraparte: proveedorCesion || "Proveedor", monto: e.monto, estado: "pagado",
-          echeq_origen_id: echeqId,
-          factura_compra_id: facturaCompraCesion || null,
-          observaciones: observaciones || `Cesión de echeq Nº ${e.numero ?? ""}`,
-          anio: year, mes: new Date().getMonth() + 1,
+        // Atómico: el echeq sale de cartera y se crea la cesión en la misma operación.
+        const { error } = await (sb as any).rpc("fema_registrar_pago", {
+          _borrar: [],
+          _ceder: [echeqId],
+          _inserts: [{
+            instrumento: "cesion", direccion: "pago",
+            tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
+            vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
+            contraparte: proveedorCesion || "Proveedor", monto: e.monto, estado: "pagado",
+            echeq_origen_id: echeqId,
+            factura_compra_id: facturaCompraCesion || null,
+            observaciones: observaciones || `Cesión de echeq Nº ${e.numero ?? ""}`,
+            anio: year, mes: new Date().getMonth() + 1,
+          }],
+          _updates: [],
         });
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
