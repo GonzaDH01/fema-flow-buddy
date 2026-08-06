@@ -136,28 +136,24 @@ function Page() {
     [provs],
   );
 
-  // Pagos confirmados por factura de compra → permite ver pagos parciales y saldo.
+  // Saldos calculados en el servidor (vista fema_v_saldos_compra):
+  // misma regla para Compras, Cashflow y Auditoría.
   const { data: pagosMap } = useQuery({
     queryKey: ["fema_pagos_por_compra", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("fema_movimientos_pago")
-        .select("factura_compra_id,monto,estado,instrumento,vencimiento")
-        .not("factura_compra_id", "is", null);
-      if (error) throw error;
       const map: Record<string, { pagado: number; programado: number; docs: number; prox: string | null }> = {};
-      for (const m of (data ?? []) as any[]) {
-        const acc = map[m.factura_compra_id] ?? { pagado: 0, programado: 0, docs: 0, prox: null };
-        if (["pagado", "cedido"].includes(m.estado)) {
-          acc.pagado += Number(m.monto || 0);
-        } else if (m.estado === "en_cartera") {
-          // Echeqs / cheques propios emitidos: la factura ya tiene plan de pago,
-          // el dinero sale recién en la fecha de pago de cada documento.
-          acc.programado += Number(m.monto || 0);
-          acc.docs += 1;
-          if (m.vencimiento && (!acc.prox || m.vencimiento < acc.prox)) acc.prox = m.vencimiento;
-        } else continue;
-        map[m.factura_compra_id] = acc;
+      const { data, error } = await (supabase as any)
+        .from("fema_v_saldos_compra")
+        .select("factura_id,pagado,programado,docs_programados,proximo_vencimiento");
+      if (error) throw error;
+      for (const r of (data ?? []) as any[]) {
+        map[r.factura_id] = {
+          pagado: Number(r.pagado || 0),
+          programado: Number(r.programado || 0),
+          docs: Number(r.docs_programados || 0),
+          prox: r.proximo_vencimiento ?? null,
+        };
       }
       return map;
     },
