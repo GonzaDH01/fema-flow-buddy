@@ -2054,7 +2054,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      fema_v_saldos_compra: {
+        Row: {
+          docs_programados: number | null
+          factura_id: string | null
+          pagado: number | null
+          programado: number | null
+          proximo_vencimiento: string | null
+          saldo: number | null
+          total: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      fema_v_saldos_venta: {
+        Row: {
+          cobrado: number | null
+          docs_programados: number | null
+          factura_id: string | null
+          programado: number | null
+          proximo_vencimiento: string | null
+          saldo: number | null
+          total: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       fema_eliminar_mov_fondo: { Args: { _id: string }; Returns: Json }
