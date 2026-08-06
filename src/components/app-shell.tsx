@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { exportarExcelCompleto } from "@/lib/exportar-excel";
+import { BuscadorGlobal } from "@/components/buscador-global";
 
 type NavItem = { to: string; label: string; icon: any; exact?: boolean; key: string };
 const sections: { title: string; items: NavItem[] }[] = [
@@ -242,6 +243,7 @@ export function AppShell() {
           </Button>
           <h1 className="truncate text-sm font-semibold text-foreground md:text-base">{title}</h1>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+            <BuscadorGlobal />
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
               <SelectTrigger className="h-9 w-20 md:w-24">
                 <SelectValue />
