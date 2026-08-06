@@ -2024,28 +2024,28 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           </div>
 
-          {idsObjetivo.length > 1 && totalCargado > 0 && (
+          {multiActivo && facturasMulti.length > 1 && totalCargado > 0 && (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
               <div className="text-[11px] uppercase tracking-wider text-primary font-semibold">Distribución propuesta entre facturas</div>
               <div className="space-y-1">
                 {(() => {
-                  const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+                  const lista = facturasCompra;
                   const prop = proponerImputaciones(
-                    idsObjetivo.map(fid => {
-                      const f = lista.find(x => x.id === fid);
+                    facturasMulti.map((fid: string) => {
+                      const f = lista.find((x: any) => x.id === fid);
                       return { id: fid, total: f?.total ?? 0, numero: f?.numero };
                     }),
                     [],
                     totalCargado,
-                    tipo === "cobro_cliente" ? "venta" : "compra",
+                    "compra",
                   );
                   return (
                     <>
                       {prop.imputaciones.map((imp, idx) => {
-                        const f = lista.find(x => x.id === imp.facturaId);
+                        const f = lista.find((x: any) => x.id === imp.facturaId);
                         return (
                           <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className="truncate">Fact. {imp.numero ?? "s/n"} · {f?.proveedor ?? f?.cliente ?? "—"}</span>
+                            <span className="truncate">Fact. {imp.numero ?? "s/n"} · {f?.proveedor ?? "—"}</span>
                             <span className="font-mono">{formatPesos(imp.monto)}</span>
                           </div>
                         );
