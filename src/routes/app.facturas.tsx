@@ -36,7 +36,7 @@ const FORMAS_COBRO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado 
 const CATEGORIAS_VENTA = ["Picado", "Embolsado", "Servicios", "Mano_de_Obra", "Honorarios", "Franco_Particular", "Otro"] as const;
 const labelCatVenta = (c: string) => {
   if (c === "Mano_de_Obra") return "Mano de Obra";
-  if (c === "Franco_Particular") return "Franco Particular";
+  if (c === "Franco_Particular") return "Franco";
   return c;
 };
 const PERIODICIDADES = ["semanal", "quincenal", "mensual"] as const;

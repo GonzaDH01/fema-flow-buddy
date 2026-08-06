@@ -51,7 +51,7 @@ const FORMAS_PAGO = ["Transferencia", "Efectivo", "Cheque", "E-cheq", "Mercado P
 const labelCat = (c: string) => {
   if (c === "Gasoil_Combustible") return "Gasoil / Combustible";
   if (c === "Mano_de_Obra") return "Mano de Obra";
-  if (c === "Franco_Particular") return "Franco Particular";
+  if (c === "Franco_Particular") return "Franco";
   if (c === "Maquinaria_Rodados") return "Maquinaria / Rodados";
   if (c === "Pago_Creditos") return "Pago de créditos";
   return c.replace(/_/g, " ");
