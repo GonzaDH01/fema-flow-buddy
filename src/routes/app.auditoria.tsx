@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileSpreadsheet, Printer, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
+import { CierrePeriodos } from "@/components/cierre-periodos";
 import * as XLSX from "xlsx";
 import {
   ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas,
