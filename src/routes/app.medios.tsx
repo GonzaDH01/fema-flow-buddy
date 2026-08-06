@@ -1075,7 +1075,8 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
 }) {
   const [sel, setSel] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
-  const visibles = rows.map(r => r.id);
+  const pag = usePaginacion(rows, 50);
+  const visibles = pag.pageItems.map(r => r.id);
   const seleccionados = sel.filter(id => visibles.includes(id));
   const toggle = (id: string) =>
     setSel(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
@@ -1132,7 +1133,7 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map(m => {
+        {pag.pageItems.map(m => {
           const hoyStr = new Date().toISOString().slice(0,10);
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
@@ -1214,6 +1215,8 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
         })}
       </TableBody>
     </Table>
+    <Paginacion page={pag.page} totalPages={pag.totalPages} total={pag.total} pageSize={pag.pageSize}
+      onPage={pag.setPage} label="movimientos" />
     </>
   );
 }
@@ -1311,7 +1314,7 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
         </TableRow>
       </TableHeader>
       <TableBody>
-        {filtradas.map(m => {
+        {pagCartera.pageItems.map(m => {
           const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
           const enCartera = m.estado === "en_cartera";
           const vencido = enCartera && dias !== null && dias < 0;
@@ -1372,6 +1375,10 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
         })}
       </TableBody>
       </Table>
+      )}
+      {filtradas.length > 0 && (
+        <Paginacion page={pagCartera.page} totalPages={pagCartera.totalPages} total={pagCartera.total}
+          pageSize={pagCartera.pageSize} onPage={pagCartera.setPage} label="echeqs" />
       )}
     </div>
   );
