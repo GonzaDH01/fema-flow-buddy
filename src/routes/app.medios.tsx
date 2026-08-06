@@ -49,7 +49,7 @@ type Mov = {
 
 const sb = supabase as any;
 
-// Reconcilia el estado de una factura (venta/compra) según los movimientos activos asociados.
+// Reconcilia el estado de una factura (venta/compra) según movimientos directos + imputaciones.
 // Si la suma cubre el total → marca cobrada/pagada; si no → vuelve a pendiente.
 async function reconciliarFactura(facturaId: string | null | undefined, tipo: "venta" | "compra") {
   if (!facturaId) return;
@@ -57,10 +57,17 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
   const col = tipo === "venta" ? "factura_venta_id" : "factura_compra_id";
   const { data: fact } = await sb.from(tabla).select("id,total,estado").eq("id", facturaId).maybeSingle();
   if (!fact) return;
-  const { data: movs } = await sb.from("fema_movimientos_pago")
-    .select("monto,estado").eq(col, facturaId);
-  // La regla de negocio vive en src/lib/finanzas.ts (pura y testeada).
-  const nuevo = estadoFactura(fact.total, (movs ?? []) as any, tipo);
+  const [{ data: movs }, { data: imps }] = await Promise.all([
+    sb.from("fema_movimientos_pago").select("monto,estado").eq(col, facturaId),
+    sb.from("fema_imputaciones").select("monto").eq(col, facturaId),
+  ]);
+  const confirmados = tipo === "venta" ? ["cobrado"] : ["pagado", "cedido"];
+  const cubiertoDirecto = (movs ?? []).reduce((s, m: any) => s + (confirmados.includes(m.estado) ? Number(m.monto) : 0), 0);
+  const cubiertoImputaciones = (imps ?? []).reduce((s, i: any) => s + Number(i.monto), 0);
+  const cubierto = cubiertoDirecto + cubiertoImputaciones;
+  const nuevo = cubierto >= Number(fact.total) - 0.01 && Number(fact.total) > 0
+    ? (tipo === "venta" ? "cobrada" : "pagada")
+    : "pendiente";
   if (fact.estado !== nuevo) {
     await sb.from(tabla).update({ estado: nuevo }).eq("id", facturaId);
   }
