@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fema_reconciliar_factura(uuid, text) FROM authenticated;
