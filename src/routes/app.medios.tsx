@@ -2024,6 +2024,45 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           </div>
 
+          {idsObjetivo.length > 1 && totalCargado > 0 && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <div className="text-[11px] uppercase tracking-wider text-primary font-semibold">Distribución propuesta entre facturas</div>
+              <div className="space-y-1">
+                {(() => {
+                  const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+                  const prop = proponerImputaciones(
+                    idsObjetivo.map(fid => {
+                      const f = lista.find(x => x.id === fid);
+                      return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                    }),
+                    [],
+                    totalCargado,
+                    tipo === "cobro_cliente" ? "venta" : "compra",
+                  );
+                  return (
+                    <>
+                      {prop.imputaciones.map((imp, idx) => {
+                        const f = lista.find(x => x.id === imp.facturaId);
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="truncate">Fact. {imp.numero ?? "s/n"} · {f?.proveedor ?? f?.cliente ?? "—"}</span>
+                            <span className="font-mono">{formatPesos(imp.monto)}</span>
+                          </div>
+                        );
+                      })}
+                      {prop.saldoACuenta > 0.01 && (
+                        <div className="flex items-center justify-between text-xs text-amber-400 pt-1 border-t border-primary/20">
+                          <span>Saldo a cuenta / anticipo</span>
+                          <span className="font-mono">{formatPesos(prop.saldoACuenta)}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <FormField label="Mes asociado">
               <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
