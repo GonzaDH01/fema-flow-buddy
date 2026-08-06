@@ -364,6 +364,12 @@ function Page() {
   };
 
   const confianzaOk = result && (result.total ?? 0) > 0 && !!result.fecha;
+  const avisos = result ? revisarOCR(result, kind) : [];
+  const errores = avisos.filter((a) => a.nivel === "error");
+  const num = (v: string) => {
+    const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
 
   const guardar = async () => {
     if (!result || !user) return toast.error("Sin datos o sesión");
