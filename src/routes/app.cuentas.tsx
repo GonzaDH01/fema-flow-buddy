@@ -180,7 +180,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              Con plan / documentos emitidos
+              {esCompra ? "Documentos emitidos a debitar" : "Documentos en cartera a cobrar"}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold">{formatPesos(tot.programado)}</CardContent>
