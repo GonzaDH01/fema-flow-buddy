@@ -40,6 +40,7 @@ type Linea = Fact & {
   dias: number;
   prox: string | null;
   pagos: PagoDetalle[];
+  pendiente: boolean;
 };
 type Cuenta = {
   id: string;
@@ -52,6 +53,7 @@ type Cuenta = {
   saldo: number;
   vencido: number;
   aVencer: number;
+  pendientes: number;
 };
 
 const diasDesde = (f: string) => {
@@ -216,6 +218,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           saldo: 0,
           vencido: 0,
           aVencer: 0,
+          pendientes: 0,
         };
         const dias = diasDesde(f.fecha);
         const linea: Linea = {
@@ -226,9 +229,12 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           dias,
           prox: s.prox,
           pagos: pagosPorFactura[f.id] ?? [],
+          pendiente: saldo > 0.01 || s.programado > 0.01,
         };
         const c = acc[key]!;
         c.lineas.push(linea);
+        if (!linea.pendiente) continue;
+        c.pendientes += 1;
         c.total += f.total;
         c.pagado += s.pagado;
         c.programado += s.programado;
