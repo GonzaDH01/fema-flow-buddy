@@ -41,6 +41,8 @@ type Linea = Fact & {
   prox: string | null;
   pagos: PagoDetalle[];
   pendiente: boolean;
+  informativo: boolean;
+  tipoComprobante: string | null;
 };
 type Cuenta = {
   id: string;
