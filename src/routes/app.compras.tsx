@@ -408,7 +408,12 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     {r.estado === "pagada"
-                      ? <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
+                      ? programadoDe(r.id) > 0.01
+                        ? <Badge className="bg-primary/15 text-primary border-primary/30" title="Cancelada con documentos propios pendientes de débito">
+                            ● Abonada · {planDe(r.id)?.docs ?? 0} doc. a debitar
+                            {planDe(r.id)?.prox ? ` desde ${formatFecha(planDe(r.id)!.prox!)}` : ""}
+                          </Badge>
+                        : <Badge className="bg-primary/15 text-primary border-primary/30">● Abonada</Badge>
                       : programadoDe(r.id) > 0.01
                         ? <Badge variant="outline" className="border-amber-500/40 text-amber-500">
                             ● Plan de pago ({planDe(r.id)?.docs ?? 0} doc.)
