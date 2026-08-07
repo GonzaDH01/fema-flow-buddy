@@ -1841,7 +1841,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   </div>
                 </div>
               )}
-              <div className="max-h-56 overflow-auto border rounded-md divide-y">
+              <div className="max-h-44 overflow-auto border rounded-md divide-y">
                 {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
                 {facturasFiltradas.map(f => {
                   const sel = facturasMulti.includes(f.id);
@@ -1893,7 +1893,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </div>
             </div>
           ) : (
-            <div className="max-h-48 overflow-auto border rounded-md divide-y">
+            <div className="max-h-36 overflow-auto border rounded-md divide-y">
               {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
               {facturasFiltradas.map(f => (
                 <button key={f.id} type="button"
@@ -1939,7 +1939,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   </Select>
                 </div>
               </div>
-              <div className="max-h-72 overflow-auto rounded-md border divide-y">
+              <div className="max-h-48 overflow-auto rounded-md border divide-y">
                 <div className="hidden sm:grid grid-cols-6 gap-3 px-2 py-1.5 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground items-center">
                   <div className="col-span-1 pl-6">Nº</div>
                   <div className="col-span-1">Cliente / Origen</div>
