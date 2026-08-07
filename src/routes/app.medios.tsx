@@ -1795,8 +1795,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   };
 
   return (
-    <DialogContent className="flex max-h-[85dvh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
-      <DialogHeader className="shrink-0 px-4 pt-4 pb-2 sm:px-6">
+    <DialogContent className="flex max-h-[80dvh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0 sm:max-h-[75dvh]">
+      <DialogHeader className="shrink-0 px-4 pt-3 pb-1.5 sm:px-6 sm:pt-4 sm:pb-2">
         <DialogTitle>Registrar movimiento</DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
@@ -1806,7 +1806,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogDescription>
       </DialogHeader>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-2 sm:px-6">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
       <div>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
