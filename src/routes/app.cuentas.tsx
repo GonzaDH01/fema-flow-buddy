@@ -41,6 +41,8 @@ type Linea = Fact & {
   prox: string | null;
   pagos: PagoDetalle[];
   pendiente: boolean;
+  informativo: boolean;
+  tipoComprobante: string | null;
 };
 type Cuenta = {
   id: string;
@@ -54,6 +56,7 @@ type Cuenta = {
   vencido: number;
   aVencer: number;
   pendientes: number;
+  informativos: number;
 };
 
 const diasDesde = (f: string) => {
@@ -196,8 +199,9 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
 
       const acc: Record<string, Cuenta> = {};
       for (const raw of ((fRes.data ?? []) as any[])) {
-        // Notas de crédito/débito: informativas, no forman cuenta corriente.
-        if (esComprobanteInformativo(raw.tipo_comprobante)) continue;
+        // Notas de crédito/débito: se muestran en la cuenta corriente
+        // (las emite el proveedor) pero no generan saldo a pagar.
+        const informativo = esComprobanteInformativo(raw.tipo_comprobante);
         const f: Fact = {
           id: raw.id,
           fecha: raw.fecha,
@@ -206,7 +210,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           tercero_id: raw[fk] ?? null,
         };
         const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
-        const saldo = saldoFactura(f.total, s.pagado, s.programado);
+        const saldo = informativo ? 0 : saldoFactura(f.total, s.pagado, s.programado);
         const key = f.tercero_id ?? "__sin__";
         const ent = f.tercero_id ? ents[f.tercero_id] : null;
         acc[key] ??= {
@@ -221,6 +225,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           vencido: 0,
           aVencer: 0,
           pendientes: 0,
+          informativos: 0,
         };
         const dias = diasDesde(f.fecha);
         const linea: Linea = {
@@ -231,10 +236,16 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           dias,
           prox: s.prox,
           pagos: pagosPorFactura[f.id] ?? [],
-          pendiente: saldo > 0.01 || s.programado > 0.01,
+          pendiente: !informativo && (saldo > 0.01 || s.programado > 0.01),
+          informativo,
+          tipoComprobante: raw.tipo_comprobante ?? null,
         };
         const c = acc[key]!;
         c.lineas.push(linea);
+        if (informativo) {
+          c.informativos += 1;
+          continue;
+        }
         if (!linea.pendiente) continue;
         c.pendientes += 1;
         c.total += f.total;
@@ -258,7 +269,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
 
   const rows = useMemo(() => {
     let all = data ?? [];
-    if (!verTodas) all = all.filter((c) => c.pendientes > 0);
+    if (!verTodas) all = all.filter((c) => c.pendientes > 0 || c.informativos > 0);
     if (!q.trim()) return all;
     const s = q.toLowerCase();
     return all.filter(
@@ -370,7 +381,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                         {c.cuit && <div className="pl-5.5 text-xs text-muted-foreground">{c.cuit}</div>}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {verTodas ? c.lineas.length : c.pendientes}
+                        {verTodas ? c.lineas.length : c.pendientes + c.informativos}
                       </td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.total)}</td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.pagado)}</td>
@@ -400,13 +411,20 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                </tr>
                              </thead>
                              <tbody>
-                               {(verTodas ? c.lineas : c.lineas.filter((l) => l.pendiente)).map((l) => (
+                               {(verTodas
+                                 ? c.lineas
+                                 : c.lineas.filter((l) => l.pendiente || l.informativo)
+                               ).map((l) => (
                                  <Fragment key={l.id}>
                                    <tr className="border-t border-border/60">
                                      <td className="py-1">{formatFecha(l.fecha)}</td>
                                      <td className="py-1">{l.numero ?? "—"}</td>
                                      <td className="py-1">
-                                       {l.saldo > 0.01 ? (
+                                       {l.informativo ? (
+                                         <Badge className="border-sky-500/30 bg-sky-500/10 text-sky-400" variant="outline">
+                                           Informativo · {l.tipoComprobante ?? "NC / ND"}
+                                         </Badge>
+                                       ) : l.saldo > 0.01 ? (
                                          <Badge variant="destructive">
                                            {esCompra ? "Pendiente de pago" : "Pendiente de cobro"}
                                          </Badge>
@@ -421,7 +439,9 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                      <td className="py-1 text-right">{formatPesos(l.total)}</td>
                                      <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
                                      <td className="py-1 text-right">{formatPesos(l.programado)}</td>
-                                     <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
+                                     <td className="py-1 text-right font-medium">
+                                       {l.informativo ? "—" : formatPesos(l.saldo)}
+                                     </td>
                                      <td className="py-1 text-right">
                                        <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
                                          {l.dias} días
@@ -431,7 +451,11 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                    </tr>
                                    <tr className="border-t border-dashed border-border/40">
                                      <td colSpan={9} className="pb-2 pl-2 pt-1">
-                                       {l.pagos.length === 0 ? (
+                                       {l.informativo ? (
+                                         <span className="text-[11px] text-muted-foreground">
+                                           Nota de crédito / débito emitida por el {esCompra ? "proveedor" : "cliente"} — no requiere pago
+                                         </span>
+                                       ) : l.pagos.length === 0 ? (
                                          <span className="text-[11px] text-muted-foreground">
                                            Sin {esCompra ? "pagos" : "cobros"} registrados
                                          </span>
