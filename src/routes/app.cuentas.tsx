@@ -196,6 +196,8 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
 
       const acc: Record<string, Cuenta> = {};
       for (const raw of ((fRes.data ?? []) as any[])) {
+        // Notas de crédito/débito: informativas, no forman cuenta corriente.
+        if (esComprobanteInformativo(raw.tipo_comprobante)) continue;
         const f: Fact = {
           id: raw.id,
           fecha: raw.fecha,

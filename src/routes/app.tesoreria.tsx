@@ -91,6 +91,8 @@ function useTesoreria(incluirEstimados: boolean) {
         for (const r of (sc.data ?? []) as any[]) mc[r.factura_id] = r;
         for (const f of (fc.data ?? []) as any[]) {
           if (f.categoria === "Franco_Particular") continue;
+          // Notas de crédito/débito: informativas, no generan deuda.
+          if (esComprobanteInformativo(f.tipo_comprobante)) continue;
           const s = mc[f.id] ?? {};
           const saldo = Math.max(0, n(f.total) - n(s.pagado) - n(s.programado));
           if (saldo <= 1) continue;
