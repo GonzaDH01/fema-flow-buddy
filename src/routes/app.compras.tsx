@@ -840,6 +840,12 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           <p className="text-xs text-muted-foreground mt-1">
             Factura A: el IVA es crédito fiscal computable. Factura B o C: el IVA va dentro del precio (no se discrimina).
           </p>
+          {esComprobanteInformativo(f.watch("tipo_comprobante")) && (
+            <p className="text-xs text-sky-500 mt-1">
+              Las notas de crédito y débito se cargan a modo informativo: quedan listadas en Compras y se contabilizan
+              en Auditoría (IVA e impuestos), pero no generan deuda ni requieren acción en Pagos, Cuentas corrientes ni Cashflow.
+            </p>
+          )}
           {f.watch("tipo_comprobante") === "Comprobante provisorio" && (
             <p className="text-xs text-amber-500 mt-1">
               Usalo cuando pagás antes de recibir la factura (ej. cuota de maquinaria). Cargá el total a transferir y dejá el N° vacío;
