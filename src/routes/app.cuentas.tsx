@@ -367,7 +367,9 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                         </div>
                         {c.cuit && <div className="pl-5.5 text-xs text-muted-foreground">{c.cuit}</div>}
                       </td>
-                      <td className="px-3 py-2 text-right">{c.lineas.length}</td>
+                      <td className="px-3 py-2 text-right">
+                        {verTodas ? c.lineas.length : c.pendientes}
+                      </td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.total)}</td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.pagado)}</td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.programado)}</td>
@@ -382,36 +384,80 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                       <tr key={`${c.id}-det`} className="border-b bg-muted/20">
                         <td colSpan={7} className="px-3 py-3">
                           <table className="w-full text-xs">
-                            <thead className="text-muted-foreground">
-                              <tr>
-                                <th className="py-1 text-left">Fecha</th>
-                                <th className="py-1 text-left">Comprobante</th>
-                                <th className="py-1 text-right">Total</th>
-                                <th className="py-1 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
-                                <th className="py-1 text-right">Programado</th>
-                                <th className="py-1 text-right">Saldo</th>
-                                <th className="py-1 text-right">Antigüedad</th>
-                                <th className="py-1 text-right">Próx. vto.</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {c.lineas.map((l) => (
-                                <tr key={l.id} className="border-t border-border/60">
-                                  <td className="py-1">{formatFecha(l.fecha)}</td>
-                                  <td className="py-1">{l.numero ?? "—"}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.total)}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.programado)}</td>
-                                  <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
-                                  <td className="py-1 text-right">
-                                    <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
-                                      {l.dias} días
-                                    </Badge>
-                                  </td>
-                                  <td className="py-1 text-right">{formatFecha(l.prox)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
+                             <thead className="text-muted-foreground">
+                               <tr>
+                                 <th className="py-1 text-left">Fecha</th>
+                                 <th className="py-1 text-left">Comprobante</th>
+                                 <th className="py-1 text-left">Estado</th>
+                                 <th className="py-1 text-right">Total</th>
+                                 <th className="py-1 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
+                                 <th className="py-1 text-right">Programado</th>
+                                 <th className="py-1 text-right">Saldo</th>
+                                 <th className="py-1 text-right">Antigüedad</th>
+                                 <th className="py-1 text-right">Próx. vto.</th>
+                               </tr>
+                             </thead>
+                             <tbody>
+                               {(verTodas ? c.lineas : c.lineas.filter((l) => l.pendiente)).map((l) => (
+                                 <Fragment key={l.id}>
+                                   <tr className="border-t border-border/60">
+                                     <td className="py-1">{formatFecha(l.fecha)}</td>
+                                     <td className="py-1">{l.numero ?? "—"}</td>
+                                     <td className="py-1">
+                                       {l.saldo > 0.01 ? (
+                                         <Badge variant="destructive">
+                                           {esCompra ? "Pendiente de pago" : "Pendiente de cobro"}
+                                         </Badge>
+                                       ) : l.programado > 0.01 ? (
+                                         <Badge variant="secondary">
+                                           {esCompra ? "Abonada (doc. a debitar)" : "Documentos en cartera"}
+                                         </Badge>
+                                       ) : (
+                                         <Badge variant="outline">{esCompra ? "Abonada" : "Cobrada"}</Badge>
+                                       )}
+                                     </td>
+                                     <td className="py-1 text-right">{formatPesos(l.total)}</td>
+                                     <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
+                                     <td className="py-1 text-right">{formatPesos(l.programado)}</td>
+                                     <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
+                                     <td className="py-1 text-right">
+                                       <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
+                                         {l.dias} días
+                                       </Badge>
+                                     </td>
+                                     <td className="py-1 text-right">{formatFecha(l.prox)}</td>
+                                   </tr>
+                                   <tr className="border-t border-dashed border-border/40">
+                                     <td colSpan={9} className="pb-2 pl-2 pt-1">
+                                       {l.pagos.length === 0 ? (
+                                         <span className="text-[11px] text-muted-foreground">
+                                           Sin {esCompra ? "pagos" : "cobros"} registrados
+                                         </span>
+                                       ) : (
+                                         <div className="flex flex-wrap gap-1.5">
+                                           {l.pagos.map((p) => (
+                                             <span
+                                               key={p.id}
+                                               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] ${
+                                                 p.confirmado
+                                                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                                   : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                                               }`}
+                                             >
+                                               <span className="font-medium">{p.etiqueta}</span>
+                                               <span>{formatPesos(p.monto)}</span>
+                                               {p.fecha && <span className="opacity-70">{formatFecha(p.fecha)}</span>}
+                                               {p.detalle && <span className="opacity-70">{p.detalle}</span>}
+                                               <span className="opacity-70">· {p.estado}</span>
+                                             </span>
+                                           ))}
+                                         </div>
+                                       )}
+                                     </td>
+                                   </tr>
+                                 </Fragment>
+                               ))}
+                             </tbody>
                           </table>
                         </td>
                       </tr>
