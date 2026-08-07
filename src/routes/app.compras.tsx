@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
-import { saldoFactura } from "@/lib/finanzas";
+import { saldoFactura, esComprobanteInformativo } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,7 +100,7 @@ function Page() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const [tab, setTab] = useState<"todas" | "pendiente" | "parcial" | "pagada">("todas");
+  const [tab, setTab] = useState<"todas" | "pendiente" | "parcial" | "pagada" | "informativas">("todas");
   const [search, setSearch] = useState("");
   const [outerTab, setOuterTab] = useState<"compras" | "fijos">("compras");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -164,16 +164,20 @@ function Page() {
   const planDe = (id: string) => pagosMap?.[id] ?? null;
   // Regla compartida y testeada (src/lib/finanzas.ts)
   const saldoDe = (r: Row) => saldoFactura(r.total, pagadoDe(r.id), programadoDe(r.id));
+  // NC/ND: informativas — suman a Auditoría (IVA/impuestos) pero no generan deuda ni pago.
+  const esInfo = (r: Row) => esComprobanteInformativo(r.tipo_comprobante);
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
-    if (tab === "parcial") {
-      rows = rows.filter((r) => {
+    if (tab === "informativas") {
+      rows = rows.filter((r) => esInfo(r));
+    } else if (tab === "parcial") {
+      rows = rows.filter((r) => !esInfo(r)).filter((r) => {
         const p = pagadoDe(r.id) + programadoDe(r.id);
         return p > 0.01 && p < Number(r.total) - 0.01;
       });
     } else if (tab !== "todas") {
-      rows = rows.filter((r) => r.estado === tab);
+      rows = rows.filter((r) => !esInfo(r) && r.estado === tab);
     }
     if (fechaDesde) rows = rows.filter((r) => r.fecha >= fechaDesde);
     if (fechaHasta) rows = rows.filter((r) => r.fecha <= fechaHasta);
@@ -286,6 +290,7 @@ function Page() {
             <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
             <TabsTrigger value="parcial">Pago parcial</TabsTrigger>
             <TabsTrigger value="pagada">Abonadas</TabsTrigger>
+            <TabsTrigger value="informativas">NC / ND</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="flex gap-2">
@@ -396,18 +401,23 @@ function Page() {
                     {formatPesos(Number(r.total))}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
-                    {pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
-                    {programadoDe(r.id) > 0.01 && (
+                    {!esInfo(r) && pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
+                    {!esInfo(r) && programadoDe(r.id) > 0.01 && (
                       <div className="text-[11px] text-amber-500">
                         +{formatPesos(programadoDe(r.id))} programado
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className={`text-right font-semibold ${saldoDe(r) <= 0.01 ? "text-primary" : "text-accent"}`}>
-                    {formatPesos(saldoDe(r))}
+                  <TableCell className={`text-right font-semibold ${esInfo(r) || saldoDe(r) <= 0.01 ? "text-primary" : "text-accent"}`}>
+                    {esInfo(r) ? "—" : formatPesos(saldoDe(r))}
                   </TableCell>
                   <TableCell>
-                    {r.estado === "pagada"
+                    {esInfo(r)
+                      ? <Badge variant="outline" className="border-sky-500/40 text-sky-500"
+                          title="Nota de crédito / débito: sólo informativa, impacta en Auditoría (IVA e impuestos) y no requiere pago.">
+                          ● Informativa
+                        </Badge>
+                      : r.estado === "pagada"
                       ? programadoDe(r.id) > 0.01
                         ? <Badge className="bg-primary/15 text-primary border-primary/30" title="Cancelada con documentos propios pendientes de débito">
                             ● Abonada · {planDe(r.id)?.docs ?? 0} doc. a debitar
@@ -425,7 +435,7 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      {(r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
+                      {!esInfo(r) && (r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
                           <Receipt className="h-3 w-3" /> Recibo
