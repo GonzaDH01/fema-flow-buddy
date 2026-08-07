@@ -1795,8 +1795,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   };
 
   return (
-    <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
+    <DialogContent className="flex max-h-[85dvh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0">
+      <DialogHeader className="shrink-0 px-4 pt-4 pb-2 sm:px-6">
         <DialogTitle>Registrar movimiento</DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
@@ -1806,9 +1806,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogDescription>
       </DialogHeader>
 
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-2 sm:px-6">
       <div>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => setTipo("cobro_cliente")} />
           <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => setTipo("pago_proveedor")} />
           <TipoBtn icon={<Edit3 className="w-4 h-4" />} label="Libre" sub="Sin comprobante" active={tipo === "libre"} onClick={() => setTipo("libre")} />
