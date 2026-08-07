@@ -56,6 +56,7 @@ type Cuenta = {
   vencido: number;
   aVencer: number;
   pendientes: number;
+  informativos: number;
 };
 
 const diasDesde = (f: string) => {
