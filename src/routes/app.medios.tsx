@@ -1588,6 +1588,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const guardar = async () => {
     if (saving) return;
     setSaving(true);
+    // Agrega/quita la marca de "ya abonado fuera de caja" en las observaciones.
+    const conTag = (o: string | null | undefined) => {
+      const limpio = (o ?? "").replace(/\s*\[HIST\][^·]*/g, "").replace(/\s*·\s*$/, "").trim();
+      if (!sinCaja) return limpio || null;
+      return [limpio, `${HIST_TAG} Ya abonado — no impacta caja`].filter(Boolean).join(" · ");
+    };
     try {
       if (tipo === "ceder_echeq") {
         if (!echeqId) { toast.error("Seleccioná un echeq"); return; }
