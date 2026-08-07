@@ -309,11 +309,18 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
             {esCompra ? "Cuenta corriente de proveedores" : "Cuenta corriente de clientes"}
           </CardTitle>
-          <div className="relative">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch id={`todas-${tipo}`} checked={verTodas} onCheckedChange={setVerTodas} />
+              <Label htmlFor={`todas-${tipo}`} className="text-xs text-muted-foreground">
+                Ver también canceladas
+              </Label>
+            </div>
+            <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={esCompra ? "Buscar proveedor..." : "Buscar cliente..."}
@@ -321,6 +328,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
               onChange={(e) => setQ(e.target.value)}
               className="h-9 w-52 pl-8 md:w-64"
             />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
