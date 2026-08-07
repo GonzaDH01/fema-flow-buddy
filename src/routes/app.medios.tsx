@@ -1684,18 +1684,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               vencimiento: c.vencimiento || null,
               numero: c.numero || null, banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
-            };
-            payload.observaciones = conTag(payload.observaciones);
-            {
-              const _ = 0; void _;
-            }
-            const _payloadFix = {
+              monto: Number(c.monto), estado,
+              observaciones: conTag(c.obs || observaciones || null),
               factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
               factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
               anio: year, mes,
             };
-            void _payloadFix;
             opUpdate.push(payload);
           } else {
             // Filas con id → UPDATE (cuotas del plan original modificadas/confirmadas)
