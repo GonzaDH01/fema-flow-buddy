@@ -2095,6 +2095,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
             <div className="flex items-center justify-between p-2 border-t bg-muted/30 text-xs">
               <Button type="button" size="sm" variant="outline" onClick={addFila}>
