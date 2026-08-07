@@ -2009,6 +2009,27 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </FormField>
           </div>
 
+          {(instrumento === "transferencia" || instrumento === "efectivo") && (
+            <label className="flex items-start gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={sinCaja}
+                onChange={(e) => {
+                  setSinCaja(e.target.checked);
+                  if (e.target.checked) setEstado(tipo === "cobro_cliente" ? "cobrado" : "pagado");
+                }}
+              />
+              <span className="text-xs">
+                <b>Pago ya realizado — no modificar caja</b>
+                <span className="block text-[11px] text-muted-foreground">
+                  Usalo para transferencias de meses anteriores que ya salieron del banco. El movimiento queda
+                  asentado y cancela la factura, pero no descuenta ni suma saldo en las cuentas.
+                </span>
+              </span>
+            </label>
+          )}
+
           <div className="rounded-md border p-3 space-y-2">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
             <div className="flex flex-wrap items-end gap-2">
