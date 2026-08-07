@@ -1145,8 +1145,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
           const hoyStr = new Date().toISOString().slice(0,10);
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
+          const historico = esMovimientoHistorico(m.observaciones);
           const sinImpactoCaja = (m.estado === "pagado" || m.estado === "cobrado")
-            && m.instrumento !== "cesion" && !yaImpactoCaja;
+            && m.instrumento !== "cesion" && !yaImpactoCaja && !historico;
           const impsMov = imputaciones.filter(i => i.movimiento_pago_id === m.id);
           const tieneImps = impsMov.length > 0;
           return (
@@ -1182,6 +1183,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
             <TableCell className="text-right font-mono">{formatPesos(m.monto)}</TableCell>
             <TableCell>
               <Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge>
+              {historico && (
+                <div className="mt-1 text-[10px] text-violet-400">ya abonado · fuera de caja</div>
+              )}
               {sinImpactoCaja && (
                 <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
               )}
