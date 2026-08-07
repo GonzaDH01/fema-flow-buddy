@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { formatPesos, formatFecha } from "@/lib/format";
-import { saldoFactura } from "@/lib/finanzas";
+import { saldoFactura, esComprobanteInformativo } from "@/lib/finanzas";
 
 export const Route = createFileRoute("/app/cuentas")({ component: Page });
 
@@ -109,7 +109,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
       const [fRes, eRes, sRes, mRes, iRes] = await Promise.all([
         (supabase as any)
           .from(tablaFact)
-          .select(`id,fecha,numero,total,${fk}`)
+          .select(`id,fecha,numero,total,tipo_comprobante,${fk}`)
           .lte("fecha", `${anio}-12-31`)
           .order("fecha", { ascending: true }),
         supabase.from(tablaEnt as any).select("id,nombre,cuit"),

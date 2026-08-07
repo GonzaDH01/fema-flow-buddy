@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { formatPesos, MESES } from "@/lib/format";
+import { esComprobanteInformativo } from "@/lib/finanzas";
 
 export const Route = createFileRoute("/app/cashflow")({ component: Page });
 
@@ -31,7 +32,7 @@ async function loadCashflow(userId: string, anio: number) {
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("id,mes,total,estado,numero,categoria,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,numero,categoria,tipo_comprobante,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("periodo,sueldo_bruto,cargas_sociales,empleado:fema_empleados(nombre)")
@@ -208,6 +209,8 @@ async function loadCashflow(userId: string, anio: number) {
   for (const c of (compras.data ?? []) as any[]) {
     // Franco paga con tarjeta personal: no impacta en caja de la empresa.
     if (c.categoria === "Franco_Particular") continue;
+    // Notas de crédito/débito: informativas, no mueven caja.
+    if (esComprobanteInformativo(c.tipo_comprobante)) continue;
     const linked = movsByFC.get(c.id) ?? [];
     const total = Number(c.total);
     const facturaMes = Number(c.mes);

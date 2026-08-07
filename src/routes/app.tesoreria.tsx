@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPesos, formatFecha } from "@/lib/format";
+import { esComprobanteInformativo } from "@/lib/finanzas";
 import { proyectar, primerDeficit, type Flujo, type Semana } from "@/lib/tesoreria";
 
 export const Route = createFileRoute("/app/tesoreria")({ component: Page });
@@ -29,7 +30,7 @@ function useTesoreria(incluirEstimados: boolean) {
         supabase.from("fema_gastos_fijos").select("id,concepto,monto_mensual,dia_vencimiento,activo,mes_fin"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
-        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria"),
+        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria,tipo_comprobante"),
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
