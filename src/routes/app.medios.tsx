@@ -1795,8 +1795,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   };
 
   return (
-    <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
+    <DialogContent className="flex max-h-[80dvh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0 sm:max-h-[75dvh]">
+      <DialogHeader className="shrink-0 px-4 pt-3 pb-1.5 sm:px-6 sm:pt-4 sm:pb-2">
         <DialogTitle>Registrar movimiento</DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
@@ -1806,9 +1806,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogDescription>
       </DialogHeader>
 
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
       <div>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => setTipo("cobro_cliente")} />
           <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => setTipo("pago_proveedor")} />
           <TipoBtn icon={<Edit3 className="w-4 h-4" />} label="Libre" sub="Sin comprobante" active={tipo === "libre"} onClick={() => setTipo("libre")} />
@@ -1840,7 +1841,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   </div>
                 </div>
               )}
-              <div className="max-h-56 overflow-auto border rounded-md divide-y">
+              <div className="max-h-44 overflow-auto border rounded-md divide-y">
                 {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
                 {facturasFiltradas.map(f => {
                   const sel = facturasMulti.includes(f.id);
@@ -1892,7 +1893,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </div>
             </div>
           ) : (
-            <div className="max-h-48 overflow-auto border rounded-md divide-y">
+            <div className="max-h-36 overflow-auto border rounded-md divide-y">
               {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
               {facturasFiltradas.map(f => (
                 <button key={f.id} type="button"
@@ -1938,7 +1939,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   </Select>
                 </div>
               </div>
-              <div className="max-h-72 overflow-auto rounded-md border divide-y">
+              <div className="max-h-48 overflow-auto rounded-md border divide-y">
                 <div className="hidden sm:grid grid-cols-6 gap-3 px-2 py-1.5 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground items-center">
                   <div className="col-span-1 pl-6">Nº</div>
                   <div className="col-span-1">Cliente / Origen</div>
@@ -2064,34 +2065,38 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
               </div>
             )}
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Nº {instrumento === "echeq" ? "Echeq" : instrumento === "cheque_fisico" ? "Cheque" : "Ref"}</TableHead>
-                  <TableHead>Banco</TableHead>
-                  <TableHead>Vencimiento</TableHead>
-                  <TableHead className="text-right">Monto ($)</TableHead>
-                  <TableHead>Obs.</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cuotas.map((c, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
-                    <TableCell><Input className="h-8" placeholder="Nº" value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
-                    <TableCell><Input className="h-8" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
-                    <TableCell><Input className="h-8" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
-                    <TableCell><Input className="h-8 text-right font-mono" type="number" value={c.monto} onChange={(e) => updFila(i, { monto: Number(e.target.value) })} /></TableCell>
-                    <TableCell><Input className="h-8" placeholder="nota..." value={c.obs} onChange={(e) => updFila(i, { obs: e.target.value })} /></TableCell>
-                    <TableCell>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400" onClick={() => delFila(i)}><XIcon className="w-3 h-3" /></Button>
-                    </TableCell>
+            <div className="max-h-48 overflow-auto">
+              <div className="overflow-x-auto">
+                <Table className="min-w-[640px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Nº {instrumento === "echeq" ? "Echeq" : instrumento === "cheque_fisico" ? "Cheque" : "Ref"}</TableHead>
+                    <TableHead>Banco</TableHead>
+                    <TableHead>Vencimiento</TableHead>
+                    <TableHead className="text-right">Monto ($)</TableHead>
+                    <TableHead>Obs.</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {cuotas.map((c, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
+                      <TableCell><Input className="h-8 min-w-[110px]" placeholder="Nº" value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[110px]" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[140px]" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[110px] text-right font-mono" type="number" value={c.monto} onChange={(e) => updFila(i, { monto: Number(e.target.value) })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[120px]" placeholder="nota..." value={c.obs} onChange={(e) => updFila(i, { obs: e.target.value })} /></TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400" onClick={() => delFila(i)}><XIcon className="w-3 h-3" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </div>
             <div className="flex items-center justify-between p-2 border-t bg-muted/30 text-xs">
               <Button type="button" size="sm" variant="outline" onClick={addFila}>
                 <Plus className="w-3 h-3 mr-1" />Agregar fila
@@ -2257,7 +2262,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </div>
       )}
 
-      <DialogFooter>
+      </div>
+      <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
       </DialogFooter>
