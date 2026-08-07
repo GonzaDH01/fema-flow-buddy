@@ -216,3 +216,15 @@ export function saldoProyectado(saldoActual: unknown, movs: MovLite[]): number {
   }
   return redondear(saldo);
 }
+/**
+ * Notas de crédito / débito: se cargan a modo informativo (impactan en Auditoría
+ * por IVA e impuestos) pero NO generan deuda ni acción en Pagos, Cuentas
+ * corrientes, Cashflow, Tesorería ni Alertas.
+ */
+export const COMPROBANTES_INFORMATIVOS = ["Nota de Crédito", "Nota de Débito"] as const;
+
+export function esComprobanteInformativo(tipoComprobante?: string | null): boolean {
+  const t = (tipoComprobante ?? "").trim().toLowerCase();
+  return t === "nota de crédito" || t === "nota de credito"
+    || t === "nota de débito" || t === "nota de debito";
+}
