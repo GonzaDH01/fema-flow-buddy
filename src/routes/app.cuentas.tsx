@@ -251,16 +251,18 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
   const { data, isLoading } = useCuentas(tipo, anio);
   const [q, setQ] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
   const esCompra = tipo === "compra";
 
   const rows = useMemo(() => {
-    const all = data ?? [];
+    let all = data ?? [];
+    if (!verTodas) all = all.filter((c) => c.pendientes > 0);
     if (!q.trim()) return all;
     const s = q.toLowerCase();
     return all.filter(
       (c) => c.nombre.toLowerCase().includes(s) || (c.cuit ?? "").toLowerCase().includes(s),
     );
-  }, [data, q]);
+  }, [data, q, verTodas]);
 
   const tot = useMemo(
     () =>
