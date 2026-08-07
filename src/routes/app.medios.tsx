@@ -92,6 +92,11 @@ const ESTADO_LABEL: Record<string, string> = {
   cedido: "Cedido", vencido: "Vencido", anulado: "Anulado",
 };
 
+// Movimiento ya abonado fuera del sistema (p. ej. transferencia de un mes anterior).
+// Queda asentado y reconcilia la factura, pero NO debe impactar en los saldos de caja.
+const HIST_TAG = "[HIST]";
+export const esMovimientoHistorico = (obs?: string | null) => (obs ?? "").includes(HIST_TAG);
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
@@ -1140,8 +1145,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
           const hoyStr = new Date().toISOString().slice(0,10);
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
+          const historico = esMovimientoHistorico(m.observaciones);
           const sinImpactoCaja = (m.estado === "pagado" || m.estado === "cobrado")
-            && m.instrumento !== "cesion" && !yaImpactoCaja;
+            && m.instrumento !== "cesion" && !yaImpactoCaja && !historico;
           const impsMov = imputaciones.filter(i => i.movimiento_pago_id === m.id);
           const tieneImps = impsMov.length > 0;
           return (
@@ -1177,6 +1183,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
             <TableCell className="text-right font-mono">{formatPesos(m.monto)}</TableCell>
             <TableCell>
               <Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge>
+              {historico && (
+                <div className="mt-1 text-[10px] text-violet-400">ya abonado · fuera de caja</div>
+              )}
               {sinImpactoCaja && (
                 <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
               )}
@@ -1435,6 +1444,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Pago ya realizado fuera del sistema (mes anterior): se asienta pero no toca caja.
+  const [sinCaja, setSinCaja] = useState(esMovimientoHistorico(initial?.observaciones));
   const [busqCartera, setBusqCartera] = useState("");
   const [fechaDesdeCartera, setFechaDesdeCartera] = useState("");
   const [fechaHastaCartera, setFechaHastaCartera] = useState("");
@@ -1577,6 +1588,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const guardar = async () => {
     if (saving) return;
     setSaving(true);
+    // Agrega/quita la marca de "ya abonado fuera de caja" en las observaciones.
+    const conTag = (o: string | null | undefined) => {
+      const limpio = (o ?? "").replace(/\s*\[HIST\][^·]*/g, "").replace(/\s*·\s*$/, "").trim();
+      if (!sinCaja) return limpio || null;
+      return [limpio, `${HIST_TAG} Ya abonado — no impacta caja`].filter(Boolean).join(" · ");
+    };
     try {
       if (tipo === "ceder_echeq") {
         if (!echeqId) { toast.error("Seleccioná un echeq"); return; }
@@ -1667,7 +1684,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               vencimiento: c.vencimiento || null,
               numero: c.numero || null, banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
-              monto: Number(c.monto), estado, observaciones: c.obs || observaciones || null,
+              monto: Number(c.monto), estado,
+              observaciones: conTag(c.obs || observaciones || null),
               factura_venta_id: tipo === "cobro_cliente" ? facturaSel : null,
               factura_compra_id: tipo === "pago_proveedor" ? facturaSel : null,
               anio: year, mes,
@@ -1691,7 +1709,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 contraparte: contraparte || (fact?.proveedor ?? null),
                 monto: m,
                 estado,
-                observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+                observaciones: conTag([c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null),
                 factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
                 factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
                 anio: year, mes,
@@ -1745,7 +1763,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           user_id: userId, instrumento, direccion, tipo_movimiento: "libre",
           fecha_emision: fechaEmision, vencimiento: vencimiento || null,
           numero: numero || null, banco: banco || null, contraparte: contraparte || null,
-          monto: Number(monto), estado, observaciones: observaciones || null,
+          monto: Number(monto), estado, observaciones: conTag(observaciones || null),
           anio: year, mes,
         };
         const op = initial
@@ -1990,6 +2008,27 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </Select>
             </FormField>
           </div>
+
+          {(instrumento === "transferencia" || instrumento === "efectivo") && (
+            <label className="flex items-start gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={sinCaja}
+                onChange={(e) => {
+                  setSinCaja(e.target.checked);
+                  if (e.target.checked) setEstado(tipo === "cobro_cliente" ? "cobrado" : "pagado");
+                }}
+              />
+              <span className="text-xs">
+                <b>Pago ya realizado — no modificar caja</b>
+                <span className="block text-[11px] text-muted-foreground">
+                  Usalo para transferencias de meses anteriores que ya salieron del banco. El movimiento queda
+                  asentado y cancela la factura, pero no descuenta ni suma saldo en las cuentas.
+                </span>
+              </span>
+            </label>
+          )}
 
           <div className="rounded-md border p-3 space-y-2">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
