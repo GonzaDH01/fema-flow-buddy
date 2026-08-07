@@ -149,7 +149,7 @@ function useAlertas() {
         const s = mapV[f.id] ?? {};
         const saldo = Math.max(0, n(f.total) - n(s.cobrado) - n(s.programado));
         const dias = -(diasHasta(f.fecha) ?? 0);
-        if (!informativo && saldo > 1 && dias > 30) {
+        if (saldo > 1 && dias > 30) {
           out.push({
             id: `venta-${f.id}`,
             severidad: severidadPorAtraso(dias),
