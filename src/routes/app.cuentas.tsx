@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { saldoFactura } from "@/lib/finanzas";
 
@@ -22,7 +24,23 @@ type Fact = {
   tercero_id: string | null;
 };
 type SaldoRow = { pagado: number; programado: number; prox: string | null };
-type Linea = Fact & { pagado: number; programado: number; saldo: number; dias: number; prox: string | null };
+export type PagoDetalle = {
+  id: string;
+  etiqueta: string;
+  detalle: string;
+  monto: number;
+  fecha: string | null;
+  estado: string;
+  confirmado: boolean;
+};
+type Linea = Fact & {
+  pagado: number;
+  programado: number;
+  saldo: number;
+  dias: number;
+  prox: string | null;
+  pagos: PagoDetalle[];
+};
 type Cuenta = {
   id: string;
   nombre: string;
@@ -41,6 +59,39 @@ const diasDesde = (f: string) => {
   return Math.floor(ms / 86_400_000);
 };
 
+const ESTADO_LABEL: Record<string, string> = {
+  en_cartera: "En cartera",
+  cobrado: "Cobrado",
+  pagado: "Pagado",
+  cedido: "Cedido",
+  vencido: "Vencido",
+  anulado: "Anulado",
+};
+
+const INSTRUMENTO_LABEL: Record<string, string> = {
+  transferencia: "Transferencia",
+  efectivo: "Efectivo",
+  echeq: "Echeq",
+  cheque_fisico: "Cheque físico",
+  cesion: "Echeq cedido",
+  deposito: "Depósito",
+  retencion: "Retención",
+};
+
+/** Describe cómo se abonó/cobró: echeq propio, cedido, transferencia, etc. */
+function etiquetaPago(m: any, esCompra: boolean): string {
+  const cedido = m.instrumento === "cesion" || !!m.echeq_origen_id;
+  if (cedido) return "Echeq cedido";
+  if (m.instrumento === "echeq" || m.instrumento === "cheque_fisico") {
+    const base = m.instrumento === "echeq" ? "Echeq" : "Cheque";
+    if (esCompra) return `${base} propio`;
+    return `${base} de tercero`;
+  }
+  return INSTRUMENTO_LABEL[m.instrumento] ?? m.instrumento ?? "Movimiento";
+}
+
+const CONFIRMADOS_COMPRA = new Set(["pagado", "cedido"]);
+
 function useCuentas(tipo: "compra" | "venta", anio: number) {
   const { user } = useAuth();
   return useQuery({
@@ -53,7 +104,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
       const vista = esCompra ? "fema_v_saldos_compra" : "fema_v_saldos_venta";
       const fk = esCompra ? "proveedor_id" : "cliente_id";
 
-      const [fRes, eRes, sRes] = await Promise.all([
+      const [fRes, eRes, sRes, mRes, iRes] = await Promise.all([
         (supabase as any)
           .from(tablaFact)
           .select(`id,fecha,numero,total,${fk}`)
@@ -67,10 +118,67 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
               ? "factura_id,pagado,programado,proximo_vencimiento"
               : "factura_id,cobrado,programado,proximo_vencimiento",
           ),
+        (supabase as any)
+          .from("fema_movimientos_pago")
+          .select(
+            "id,instrumento,direccion,estado,numero,banco,contraparte,monto,fecha_emision,vencimiento,echeq_origen_id,factura_compra_id,factura_venta_id",
+          )
+          .not(esCompra ? "factura_compra_id" : "factura_venta_id", "is", null),
+        (supabase as any)
+          .from("fema_imputaciones")
+          .select("id,movimiento_pago_id,monto,fecha,factura_compra_id,factura_venta_id")
+          .not(esCompra ? "factura_compra_id" : "factura_venta_id", "is", null),
       ]);
       if (fRes.error) throw fRes.error;
       if (eRes.error) throw eRes.error;
       if (sRes.error) throw sRes.error;
+      if (mRes.error) throw mRes.error;
+      if (iRes.error) throw iRes.error;
+
+      const movs: Record<string, any> = Object.fromEntries(
+        ((mRes.data ?? []) as any[]).map((m) => [m.id, m]),
+      );
+      const facCol = esCompra ? "factura_compra_id" : "factura_venta_id";
+      const pagosPorFactura: Record<string, PagoDetalle[]> = {};
+      const movsImputados = new Set<string>();
+
+      const armar = (m: any, monto: number, fecha: string | null, id: string): PagoDetalle => {
+        const partes = [
+          m.numero ? `Nº ${m.numero}` : null,
+          m.banco || null,
+          m.contraparte || null,
+        ].filter(Boolean);
+        const confirmado = esCompra
+          ? CONFIRMADOS_COMPRA.has(m.estado)
+          : m.estado === "cobrado";
+        return {
+          id,
+          etiqueta: etiquetaPago(m, esCompra),
+          detalle: partes.join(" · "),
+          monto,
+          fecha: fecha ?? m.vencimiento ?? m.fecha_emision ?? null,
+          estado: ESTADO_LABEL[m.estado] ?? m.estado,
+          confirmado,
+        };
+      };
+
+      for (const imp of ((iRes.data ?? []) as any[])) {
+        const fid = imp[facCol];
+        const m = movs[imp.movimiento_pago_id];
+        if (!fid || !m) continue;
+        movsImputados.add(m.id);
+        (pagosPorFactura[fid] ??= []).push(
+          armar(m, Number(imp.monto || 0), imp.fecha ?? null, imp.id),
+        );
+      }
+      for (const m of ((mRes.data ?? []) as any[])) {
+        const fid = m[facCol];
+        if (!fid || movsImputados.has(m.id)) continue;
+        (pagosPorFactura[fid] ??= []).push(armar(m, Number(m.monto || 0), null, m.id));
+      }
+      for (const lista of Object.values(pagosPorFactura)) {
+        lista.sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+      }
 
       const saldos: Record<string, SaldoRow> = {};
       for (const r of (sRes.data ?? []) as any[]) {
@@ -95,9 +203,6 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
         };
         const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
         const saldo = saldoFactura(f.total, s.pagado, s.programado);
-        // Se muestran también las facturas ya canceladas con documentos emitidos
-        // todavía en cartera: no suman al saldo, pero sí a "documentos a debitar".
-        if (saldo <= 0.01 && s.programado <= 0.01) continue;
         const key = f.tercero_id ?? "__sin__";
         const ent = f.tercero_id ? ents[f.tercero_id] : null;
         acc[key] ??= {
@@ -113,7 +218,15 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           aVencer: 0,
         };
         const dias = diasDesde(f.fecha);
-        const linea: Linea = { ...f, pagado: s.pagado, programado: s.programado, saldo, dias, prox: s.prox };
+        const linea: Linea = {
+          ...f,
+          pagado: s.pagado,
+          programado: s.programado,
+          saldo,
+          dias,
+          prox: s.prox,
+          pagos: pagosPorFactura[f.id] ?? [],
+        };
         const c = acc[key]!;
         c.lineas.push(linea);
         c.total += f.total;
