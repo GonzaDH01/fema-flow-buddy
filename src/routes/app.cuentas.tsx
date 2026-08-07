@@ -95,7 +95,9 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
         };
         const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
         const saldo = saldoFactura(f.total, s.pagado, s.programado);
-        if (saldo <= 0.01) continue;
+        // Se muestran también las facturas ya canceladas con documentos emitidos
+        // todavía en cartera: no suman al saldo, pero sí a "documentos a debitar".
+        if (saldo <= 0.01 && s.programado <= 0.01) continue;
         const key = f.tercero_id ?? "__sin__";
         const ent = f.tercero_id ? ents[f.tercero_id] : null;
         acc[key] ??= {
@@ -178,7 +180,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              Con plan / documentos emitidos
+              {esCompra ? "Documentos emitidos a debitar" : "Documentos en cartera a cobrar"}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold">{formatPesos(tot.programado)}</CardContent>
