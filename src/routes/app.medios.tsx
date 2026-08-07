@@ -2258,7 +2258,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </div>
       )}
 
-      <DialogFooter>
+      </div>
+      <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-3 sm:px-6">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
       </DialogFooter>
