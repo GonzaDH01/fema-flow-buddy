@@ -1709,7 +1709,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 contraparte: contraparte || (fact?.proveedor ?? null),
                 monto: m,
                 estado,
-                observaciones: [c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null,
+                observaciones: conTag([c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null),
                 factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
                 factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
                 anio: year, mes,
@@ -1763,7 +1763,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           user_id: userId, instrumento, direccion, tipo_movimiento: "libre",
           fecha_emision: fechaEmision, vencimiento: vencimiento || null,
           numero: numero || null, banco: banco || null, contraparte: contraparte || null,
-          monto: Number(monto), estado, observaciones: observaciones || null,
+          monto: Number(monto), estado, observaciones: conTag(observaciones || null),
           anio: year, mes,
         };
         const op = initial
