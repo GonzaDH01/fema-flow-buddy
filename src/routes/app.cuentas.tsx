@@ -199,8 +199,9 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
 
       const acc: Record<string, Cuenta> = {};
       for (const raw of ((fRes.data ?? []) as any[])) {
-        // Notas de crédito/débito: informativas, no forman cuenta corriente.
-        if (esComprobanteInformativo(raw.tipo_comprobante)) continue;
+        // Notas de crédito/débito: se muestran en la cuenta corriente
+        // (las emite el proveedor) pero no generan saldo a pagar.
+        const informativo = esComprobanteInformativo(raw.tipo_comprobante);
         const f: Fact = {
           id: raw.id,
           fecha: raw.fecha,
@@ -209,7 +210,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           tercero_id: raw[fk] ?? null,
         };
         const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
-        const saldo = saldoFactura(f.total, s.pagado, s.programado);
+        const saldo = informativo ? 0 : saldoFactura(f.total, s.pagado, s.programado);
         const key = f.tercero_id ?? "__sin__";
         const ent = f.tercero_id ? ents[f.tercero_id] : null;
         acc[key] ??= {
@@ -224,6 +225,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           vencido: 0,
           aVencer: 0,
           pendientes: 0,
+          informativos: 0,
         };
         const dias = diasDesde(f.fecha);
         const linea: Linea = {
@@ -234,10 +236,16 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           dias,
           prox: s.prox,
           pagos: pagosPorFactura[f.id] ?? [],
-          pendiente: saldo > 0.01 || s.programado > 0.01,
+          pendiente: !informativo && (saldo > 0.01 || s.programado > 0.01),
+          informativo,
+          tipoComprobante: raw.tipo_comprobante ?? null,
         };
         const c = acc[key]!;
         c.lineas.push(linea);
+        if (informativo) {
+          c.informativos += 1;
+          continue;
+        }
         if (!linea.pendiente) continue;
         c.pendientes += 1;
         c.total += f.total;
