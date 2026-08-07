@@ -1444,6 +1444,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Pago ya realizado fuera del sistema (mes anterior): se asienta pero no toca caja.
+  const [sinCaja, setSinCaja] = useState(esMovimientoHistorico(initial?.observaciones));
   const [busqCartera, setBusqCartera] = useState("");
   const [fechaDesdeCartera, setFechaDesdeCartera] = useState("");
   const [fechaHastaCartera, setFechaHastaCartera] = useState("");
