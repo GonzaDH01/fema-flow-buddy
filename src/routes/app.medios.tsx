@@ -2065,8 +2065,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
               </div>
             )}
-            <div className="overflow-x-auto">
-              <Table className="min-w-[640px]">
+            <div className="max-h-48 overflow-auto">
+              <div className="overflow-x-auto">
+                <Table className="min-w-[640px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
