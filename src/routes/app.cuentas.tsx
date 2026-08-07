@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { saldoFactura } from "@/lib/finanzas";
 
@@ -22,7 +24,24 @@ type Fact = {
   tercero_id: string | null;
 };
 type SaldoRow = { pagado: number; programado: number; prox: string | null };
-type Linea = Fact & { pagado: number; programado: number; saldo: number; dias: number; prox: string | null };
+export type PagoDetalle = {
+  id: string;
+  etiqueta: string;
+  detalle: string;
+  monto: number;
+  fecha: string | null;
+  estado: string;
+  confirmado: boolean;
+};
+type Linea = Fact & {
+  pagado: number;
+  programado: number;
+  saldo: number;
+  dias: number;
+  prox: string | null;
+  pagos: PagoDetalle[];
+  pendiente: boolean;
+};
 type Cuenta = {
   id: string;
   nombre: string;
@@ -34,12 +53,46 @@ type Cuenta = {
   saldo: number;
   vencido: number;
   aVencer: number;
+  pendientes: number;
 };
 
 const diasDesde = (f: string) => {
   const ms = Date.now() - new Date(`${f}T00:00:00`).getTime();
   return Math.floor(ms / 86_400_000);
 };
+
+const ESTADO_LABEL: Record<string, string> = {
+  en_cartera: "En cartera",
+  cobrado: "Cobrado",
+  pagado: "Pagado",
+  cedido: "Cedido",
+  vencido: "Vencido",
+  anulado: "Anulado",
+};
+
+const INSTRUMENTO_LABEL: Record<string, string> = {
+  transferencia: "Transferencia",
+  efectivo: "Efectivo",
+  echeq: "Echeq",
+  cheque_fisico: "Cheque físico",
+  cesion: "Echeq cedido",
+  deposito: "Depósito",
+  retencion: "Retención",
+};
+
+/** Describe cómo se abonó/cobró: echeq propio, cedido, transferencia, etc. */
+function etiquetaPago(m: any, esCompra: boolean): string {
+  const cedido = m.instrumento === "cesion" || !!m.echeq_origen_id;
+  if (cedido) return "Echeq cedido";
+  if (m.instrumento === "echeq" || m.instrumento === "cheque_fisico") {
+    const base = m.instrumento === "echeq" ? "Echeq" : "Cheque";
+    if (esCompra) return `${base} propio`;
+    return `${base} de tercero`;
+  }
+  return INSTRUMENTO_LABEL[m.instrumento] ?? m.instrumento ?? "Movimiento";
+}
+
+const CONFIRMADOS_COMPRA = new Set(["pagado", "cedido"]);
 
 function useCuentas(tipo: "compra" | "venta", anio: number) {
   const { user } = useAuth();
@@ -53,7 +106,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
       const vista = esCompra ? "fema_v_saldos_compra" : "fema_v_saldos_venta";
       const fk = esCompra ? "proveedor_id" : "cliente_id";
 
-      const [fRes, eRes, sRes] = await Promise.all([
+      const [fRes, eRes, sRes, mRes, iRes] = await Promise.all([
         (supabase as any)
           .from(tablaFact)
           .select(`id,fecha,numero,total,${fk}`)
@@ -67,10 +120,67 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
               ? "factura_id,pagado,programado,proximo_vencimiento"
               : "factura_id,cobrado,programado,proximo_vencimiento",
           ),
+        (supabase as any)
+          .from("fema_movimientos_pago")
+          .select(
+            "id,instrumento,direccion,estado,numero,banco,contraparte,monto,fecha_emision,vencimiento,echeq_origen_id,factura_compra_id,factura_venta_id",
+          )
+          .not(esCompra ? "factura_compra_id" : "factura_venta_id", "is", null),
+        (supabase as any)
+          .from("fema_imputaciones")
+          .select("id,movimiento_pago_id,monto,fecha,factura_compra_id,factura_venta_id")
+          .not(esCompra ? "factura_compra_id" : "factura_venta_id", "is", null),
       ]);
       if (fRes.error) throw fRes.error;
       if (eRes.error) throw eRes.error;
       if (sRes.error) throw sRes.error;
+      if (mRes.error) throw mRes.error;
+      if (iRes.error) throw iRes.error;
+
+      const movs: Record<string, any> = Object.fromEntries(
+        ((mRes.data ?? []) as any[]).map((m) => [m.id, m]),
+      );
+      const facCol = esCompra ? "factura_compra_id" : "factura_venta_id";
+      const pagosPorFactura: Record<string, PagoDetalle[]> = {};
+      const movsImputados = new Set<string>();
+
+      const armar = (m: any, monto: number, fecha: string | null, id: string): PagoDetalle => {
+        const partes = [
+          m.numero ? `Nº ${m.numero}` : null,
+          m.banco || null,
+          m.contraparte || null,
+        ].filter(Boolean);
+        const confirmado = esCompra
+          ? CONFIRMADOS_COMPRA.has(m.estado)
+          : m.estado === "cobrado";
+        return {
+          id,
+          etiqueta: etiquetaPago(m, esCompra),
+          detalle: partes.join(" · "),
+          monto,
+          fecha: fecha ?? m.vencimiento ?? m.fecha_emision ?? null,
+          estado: ESTADO_LABEL[m.estado] ?? m.estado,
+          confirmado,
+        };
+      };
+
+      for (const imp of ((iRes.data ?? []) as any[])) {
+        const fid = imp[facCol];
+        const m = movs[imp.movimiento_pago_id];
+        if (!fid || !m) continue;
+        movsImputados.add(m.id);
+        (pagosPorFactura[fid] ??= []).push(
+          armar(m, Number(imp.monto || 0), imp.fecha ?? null, imp.id),
+        );
+      }
+      for (const m of ((mRes.data ?? []) as any[])) {
+        const fid = m[facCol];
+        if (!fid || movsImputados.has(m.id)) continue;
+        (pagosPorFactura[fid] ??= []).push(armar(m, Number(m.monto || 0), null, m.id));
+      }
+      for (const lista of Object.values(pagosPorFactura)) {
+        lista.sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+      }
 
       const saldos: Record<string, SaldoRow> = {};
       for (const r of (sRes.data ?? []) as any[]) {
@@ -95,9 +205,6 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
         };
         const s = saldos[f.id] ?? { pagado: 0, programado: 0, prox: null };
         const saldo = saldoFactura(f.total, s.pagado, s.programado);
-        // Se muestran también las facturas ya canceladas con documentos emitidos
-        // todavía en cartera: no suman al saldo, pero sí a "documentos a debitar".
-        if (saldo <= 0.01 && s.programado <= 0.01) continue;
         const key = f.tercero_id ?? "__sin__";
         const ent = f.tercero_id ? ents[f.tercero_id] : null;
         acc[key] ??= {
@@ -111,11 +218,23 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           saldo: 0,
           vencido: 0,
           aVencer: 0,
+          pendientes: 0,
         };
         const dias = diasDesde(f.fecha);
-        const linea: Linea = { ...f, pagado: s.pagado, programado: s.programado, saldo, dias, prox: s.prox };
+        const linea: Linea = {
+          ...f,
+          pagado: s.pagado,
+          programado: s.programado,
+          saldo,
+          dias,
+          prox: s.prox,
+          pagos: pagosPorFactura[f.id] ?? [],
+          pendiente: saldo > 0.01 || s.programado > 0.01,
+        };
         const c = acc[key]!;
         c.lineas.push(linea);
+        if (!linea.pendiente) continue;
+        c.pendientes += 1;
         c.total += f.total;
         c.pagado += s.pagado;
         c.programado += s.programado;
@@ -132,16 +251,18 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
   const { data, isLoading } = useCuentas(tipo, anio);
   const [q, setQ] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
   const esCompra = tipo === "compra";
 
   const rows = useMemo(() => {
-    const all = data ?? [];
+    let all = data ?? [];
+    if (!verTodas) all = all.filter((c) => c.pendientes > 0);
     if (!q.trim()) return all;
     const s = q.toLowerCase();
     return all.filter(
       (c) => c.nombre.toLowerCase().includes(s) || (c.cuit ?? "").toLowerCase().includes(s),
     );
-  }, [data, q]);
+  }, [data, q, verTodas]);
 
   const tot = useMemo(
     () =>
@@ -188,11 +309,18 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
             {esCompra ? "Cuenta corriente de proveedores" : "Cuenta corriente de clientes"}
           </CardTitle>
-          <div className="relative">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch id={`todas-${tipo}`} checked={verTodas} onCheckedChange={setVerTodas} />
+              <Label htmlFor={`todas-${tipo}`} className="text-xs text-muted-foreground">
+                Ver también canceladas
+              </Label>
+            </div>
+            <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={esCompra ? "Buscar proveedor..." : "Buscar cliente..."}
@@ -200,6 +328,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
               onChange={(e) => setQ(e.target.value)}
               className="h-9 w-52 pl-8 md:w-64"
             />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
@@ -238,7 +367,9 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                         </div>
                         {c.cuit && <div className="pl-5.5 text-xs text-muted-foreground">{c.cuit}</div>}
                       </td>
-                      <td className="px-3 py-2 text-right">{c.lineas.length}</td>
+                      <td className="px-3 py-2 text-right">
+                        {verTodas ? c.lineas.length : c.pendientes}
+                      </td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.total)}</td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.pagado)}</td>
                       <td className="px-3 py-2 text-right">{formatPesos(c.programado)}</td>
@@ -253,36 +384,80 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                       <tr key={`${c.id}-det`} className="border-b bg-muted/20">
                         <td colSpan={7} className="px-3 py-3">
                           <table className="w-full text-xs">
-                            <thead className="text-muted-foreground">
-                              <tr>
-                                <th className="py-1 text-left">Fecha</th>
-                                <th className="py-1 text-left">Comprobante</th>
-                                <th className="py-1 text-right">Total</th>
-                                <th className="py-1 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
-                                <th className="py-1 text-right">Programado</th>
-                                <th className="py-1 text-right">Saldo</th>
-                                <th className="py-1 text-right">Antigüedad</th>
-                                <th className="py-1 text-right">Próx. vto.</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {c.lineas.map((l) => (
-                                <tr key={l.id} className="border-t border-border/60">
-                                  <td className="py-1">{formatFecha(l.fecha)}</td>
-                                  <td className="py-1">{l.numero ?? "—"}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.total)}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
-                                  <td className="py-1 text-right">{formatPesos(l.programado)}</td>
-                                  <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
-                                  <td className="py-1 text-right">
-                                    <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
-                                      {l.dias} días
-                                    </Badge>
-                                  </td>
-                                  <td className="py-1 text-right">{formatFecha(l.prox)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
+                             <thead className="text-muted-foreground">
+                               <tr>
+                                 <th className="py-1 text-left">Fecha</th>
+                                 <th className="py-1 text-left">Comprobante</th>
+                                 <th className="py-1 text-left">Estado</th>
+                                 <th className="py-1 text-right">Total</th>
+                                 <th className="py-1 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
+                                 <th className="py-1 text-right">Programado</th>
+                                 <th className="py-1 text-right">Saldo</th>
+                                 <th className="py-1 text-right">Antigüedad</th>
+                                 <th className="py-1 text-right">Próx. vto.</th>
+                               </tr>
+                             </thead>
+                             <tbody>
+                               {(verTodas ? c.lineas : c.lineas.filter((l) => l.pendiente)).map((l) => (
+                                 <Fragment key={l.id}>
+                                   <tr className="border-t border-border/60">
+                                     <td className="py-1">{formatFecha(l.fecha)}</td>
+                                     <td className="py-1">{l.numero ?? "—"}</td>
+                                     <td className="py-1">
+                                       {l.saldo > 0.01 ? (
+                                         <Badge variant="destructive">
+                                           {esCompra ? "Pendiente de pago" : "Pendiente de cobro"}
+                                         </Badge>
+                                       ) : l.programado > 0.01 ? (
+                                         <Badge variant="secondary">
+                                           {esCompra ? "Abonada (doc. a debitar)" : "Documentos en cartera"}
+                                         </Badge>
+                                       ) : (
+                                         <Badge variant="outline">{esCompra ? "Abonada" : "Cobrada"}</Badge>
+                                       )}
+                                     </td>
+                                     <td className="py-1 text-right">{formatPesos(l.total)}</td>
+                                     <td className="py-1 text-right">{formatPesos(l.pagado)}</td>
+                                     <td className="py-1 text-right">{formatPesos(l.programado)}</td>
+                                     <td className="py-1 text-right font-medium">{formatPesos(l.saldo)}</td>
+                                     <td className="py-1 text-right">
+                                       <Badge variant={l.dias > 60 ? "destructive" : l.dias > 30 ? "secondary" : "outline"}>
+                                         {l.dias} días
+                                       </Badge>
+                                     </td>
+                                     <td className="py-1 text-right">{formatFecha(l.prox)}</td>
+                                   </tr>
+                                   <tr className="border-t border-dashed border-border/40">
+                                     <td colSpan={9} className="pb-2 pl-2 pt-1">
+                                       {l.pagos.length === 0 ? (
+                                         <span className="text-[11px] text-muted-foreground">
+                                           Sin {esCompra ? "pagos" : "cobros"} registrados
+                                         </span>
+                                       ) : (
+                                         <div className="flex flex-wrap gap-1.5">
+                                           {l.pagos.map((p) => (
+                                             <span
+                                               key={p.id}
+                                               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] ${
+                                                 p.confirmado
+                                                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                                   : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                                               }`}
+                                             >
+                                               <span className="font-medium">{p.etiqueta}</span>
+                                               <span>{formatPesos(p.monto)}</span>
+                                               {p.fecha && <span className="opacity-70">{formatFecha(p.fecha)}</span>}
+                                               {p.detalle && <span className="opacity-70">{p.detalle}</span>}
+                                               <span className="opacity-70">· {p.estado}</span>
+                                             </span>
+                                           ))}
+                                         </div>
+                                       )}
+                                     </td>
+                                   </tr>
+                                 </Fragment>
+                               ))}
+                             </tbody>
                           </table>
                         </td>
                       </tr>
