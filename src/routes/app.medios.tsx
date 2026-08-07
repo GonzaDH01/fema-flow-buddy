@@ -12,7 +12,7 @@ import { formatPesos, formatFecha, MESES_LARGOS } from "@/lib/format";
 import {
   construirObjetivos, repartirImporte, imputarIndivisible,
   proponerImputaciones, esVencidoSinCobrar, esEmitidoPendiente, hoyISO,
-  redondear,
+  redondear, esComprobanteInformativo,
 } from "@/lib/finanzas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -227,11 +227,13 @@ function Page() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await sb.from("fema_facturas_compra")
-        .select("id,numero,fecha,total,proveedor_id,descripcion,producto,estado")
+        .select("id,numero,fecha,total,proveedor_id,descripcion,producto,estado,tipo_comprobante")
         .eq("estado", "pendiente")
         .order("fecha", { ascending: false }).limit(200);
       if (error) throw error;
-      const proveedorIds = [...new Set((data ?? []).map((f: any) => f.proveedor_id).filter(Boolean))];
+      // Notas de crédito/débito son informativas: no se pagan.
+      const rows = (data ?? []).filter((f: any) => !esComprobanteInformativo(f.tipo_comprobante));
+      const proveedorIds = [...new Set(rows.map((f: any) => f.proveedor_id).filter(Boolean))];
       const proveedoresPorId = new Map<string, string>();
       if (proveedorIds.length > 0) {
         const { data: proveedores, error: proveedoresError } = await sb.from("fema_proveedores")
@@ -240,7 +242,7 @@ function Page() {
         if (proveedoresError) throw proveedoresError;
         for (const p of proveedores ?? []) proveedoresPorId.set(p.id, p.nombre);
       }
-      return (data ?? []).map((f: any) => ({
+      return rows.map((f: any) => ({
         ...f,
         proveedor: proveedoresPorId.get(f.proveedor_id) ?? "Proveedor",
         trabajo: f.descripcion ?? f.producto ?? "",
