@@ -1697,6 +1697,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             // ids originales que ya no están → DELETE
             const keepIds = filasValidas.filter(c => c.id).map(c => c.id!) as string[];
             opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
+            // Cuando el pago se reparte en varias cuotas, cada cuota debe imputar
+            // sobre el saldo que dejaron las cuotas anteriores del mismo plan.
+            const asignadoEnEstePlan = new Map<string, number>();
             for (const c of filasValidas) {
               const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
                 instrumento: instrumento as any,
@@ -1721,12 +1724,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 const propuesta = proponerImputaciones(
                   idsObjetivo.map(fid => {
                     const f = listaFacturas.find(x => x.id === fid);
-                    return { id: fid, total: f?.total ?? 0, numero: f?.numero };
-                  }),
+                    const yaEnPlan = asignadoEnEstePlan.get(fid) ?? 0;
+                    return { id: fid, total: Math.max(0, Number(f?.total ?? 0) - yaEnPlan), numero: f?.numero };
+                  }).filter(f => Number(f.total) > 0),
                   (previos ?? []) as any,
                   Number(c.monto),
                   tipo === "cobro_cliente" ? "venta" : "compra",
                 );
+                for (const i of propuesta.imputaciones) {
+                  asignadoEnEstePlan.set(i.facturaId, (asignadoEnEstePlan.get(i.facturaId) ?? 0) + i.monto);
+                }
                 const nros = propuesta.imputaciones.map(i => i.numero).filter(Boolean);
                 const obsExtra = nros.length > 1 ? `Imputado a facturas: ${nros.join(", ")}` : undefined;
                 opInsert.push({
