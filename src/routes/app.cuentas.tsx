@@ -325,6 +325,9 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
         <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
             {esCompra ? "Cuenta corriente de proveedores" : "Cuenta corriente de clientes"}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {rows.length} de {(data ?? []).length} con comprobantes cargados
+            </span>
           </CardTitle>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
