@@ -113,9 +113,22 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
   };
 
+  const marcarTodasAbonadas = async () => {
+    const pend = rows.filter((r) => (r.estado ?? "pendiente") !== "pagada");
+    if (pend.length === 0) return;
+    if (!confirm(`¿Marcar ${pend.length} comprobante(s) como abonados por Franco?`)) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase
+      .from("fema_facturas_compra")
+      .update({ estado: "pagada" as any, fecha_pago: hoy })
+      .in("id", pend.map((r) => r.id));
+    if (error) { toast.error(error.message); return; }
+    toast.success("Comprobantes marcados como abonados");
+    qc.invalidateQueries({ queryKey: ["franco"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+  };
+
   const exportar = () => {
-    void 0;
-    // (exportación a Excel)
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((r) => ({
         Fecha: r.fecha,
