@@ -23,7 +23,7 @@ async function loadKPIs(_userId: string, anio: number) {
       .select("id,mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("id,mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,fecha,numero,categoria,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("sueldo_bruto,cargas_sociales,periodo")
@@ -91,7 +91,9 @@ async function loadKPIs(_userId: string, anio: number) {
     const estado = x.estado === "cobrada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "cobrada" : x.estado;
     return { ...x, estado };
   }) as FV[];
-  const csEff = cs.map((x: any) => {
+  // Franco abona con su tarjeta personal: no impacta caja ni deuda de la empresa.
+  const csSinFranco = (cs as any[]).filter((x: any) => x.categoria !== "Franco_Particular");
+  const csEff = csSinFranco.map((x: any) => {
     const pagado = pagadoPorFC.get(x.id) ?? 0;
     const estado = x.estado === "pagada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "pagada" : x.estado;
     return { ...x, estado };

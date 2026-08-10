@@ -113,6 +113,21 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
   };
 
+  const marcarTodasAbonadas = async () => {
+    const pend = rows.filter((r) => (r.estado ?? "pendiente") !== "pagada");
+    if (pend.length === 0) return;
+    if (!confirm(`¿Marcar ${pend.length} comprobante(s) como abonados por Franco?`)) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase
+      .from("fema_facturas_compra")
+      .update({ estado: "pagada" as any, fecha_pago: hoy })
+      .in("id", pend.map((r) => r.id));
+    if (error) { toast.error(error.message); return; }
+    toast.success("Comprobantes marcados como abonados");
+    qc.invalidateQueries({ queryKey: ["franco"] });
+    qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+  };
+
   const exportar = () => {
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((r) => ({
@@ -149,9 +164,16 @@ function Page() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportar} className="shrink-0">
-          <FileDown className="mr-2 h-4 w-4" /> Excel
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          {rows.some((r) => (r.estado ?? "pendiente") !== "pagada") && (
+            <Button variant="secondary" onClick={marcarTodasAbonadas}>
+              Marcar todas abonadas
+            </Button>
+          )}
+          <Button variant="outline" onClick={exportar}>
+            <FileDown className="mr-2 h-4 w-4" /> Excel
+          </Button>
+        </div>
       </header>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
