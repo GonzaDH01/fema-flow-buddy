@@ -1570,7 +1570,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             idsObjetivo.map(fid => {
               const f = listaObjetivo.find(x => x.id === fid);
               const yaEnOp = asignadoEnEstaOp.get(fid) ?? 0;
-              const totalFid = Number(f?.total ?? totalNota.get(fid) ?? 0);
+              const totalFid = Number(f?.total ?? totalNota.get(fid) ?? 0) + extraAjuste(fid);
               return {
                 id: fid,
                 total: Math.max(0, totalFid - yaEnOp),
