@@ -1491,7 +1491,15 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           return;
         }
         // Objetivos de imputación: una o varias facturas del mismo proveedor
-        const idsObjetivo = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        const aplicaNotas = tipo === "pago_proveedor" && !initial;
+        const notasNC = aplicaNotas ? notasSeleccionadas.filter((n: any) => esNotaCredito(n)) : [];
+        const notasND = aplicaNotas ? notasSeleccionadas.filter((n: any) => !esNotaCredito(n)) : [];
+        const totalNota = new Map<string, number>(
+          notasSeleccionadas.map((n: any) => [n.id as string, Number(n.total || 0)]),
+        );
+        // Las notas de débito se suman como objetivo: el pago también las cancela.
+        const idsBase = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
+        const idsObjetivo = [...idsBase, ...notasND.map((n: any) => n.id as string)];
         let objetivos: { id: string; restante: number }[] = [];
         let previos: any[] = [];
         if (idsObjetivo.length > 0) {
@@ -1512,7 +1520,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           ] as any;
           const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
           objetivos = construirObjetivos(
-            idsObjetivo.map(fid => ({ id: fid, total: lista.find(x => x.id === fid)?.total ?? 0 })),
+            idsObjetivo.map(fid => ({
+              id: fid,
+              total: lista.find(x => x.id === fid)?.total ?? totalNota.get(fid) ?? 0,
+            })),
             previos,
             tipo === "cobro_cliente" ? "venta" : "compra",
           );
@@ -1533,7 +1544,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             idsObjetivo.map(fid => {
               const f = listaObjetivo.find(x => x.id === fid);
               const yaEnOp = asignadoEnEstaOp.get(fid) ?? 0;
-              return { id: fid, total: Math.max(0, Number(f?.total ?? 0) - yaEnOp), numero: f?.numero };
+              const totalFid = Number(f?.total ?? totalNota.get(fid) ?? 0);
+              return {
+                id: fid,
+                total: Math.max(0, totalFid - yaEnOp),
+                numero: f?.numero ?? notasSeleccionadas.find((n: any) => n.id === fid)?.numero,
+              };
             }).filter(f => Number(f.total) > 0),
             (previos ?? []) as any,
             importe,
@@ -1549,6 +1565,32 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         const opInsert: any[] = [];
         const opUpdate: any[] = [];
         const opBorrar: string[] = [];
+        // Las notas de crédito cancelan parte de la deuda: se imputan primero,
+        // así el instrumento de pago sólo cubre el neto realmente abonado.
+        for (const nc of notasNC as any[]) {
+          const importe = Number(nc.total || 0);
+          if (!(importe > 0)) continue;
+          const prop = distribuir(importe);
+          if (prop.imputaciones.length === 0) continue;
+          opInsert.push({
+            instrumento: "nota_credito", direccion: "pago",
+            tipo_movimiento: "pago_proveedor",
+            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+            vencimiento: null, numero: nc.numero ?? null, banco: null,
+            contraparte: contraparte || fact?.proveedor || null,
+            monto: importe, estado: "pagado",
+            observaciones: `Nota de crédito Nº ${nc.numero ?? ""} aplicada${
+              prop.imputaciones.length > 1
+                ? ` · Imputada a facturas: ${prop.imputaciones.map(i => i.numero).filter(Boolean).join(", ")}`
+                : ""}`.trim(),
+            imputaciones: prop.imputaciones.map(i => ({
+              [colImputacion]: i.facturaId,
+              monto: i.monto,
+              fecha: fechaEmision || new Date().toISOString().split("T")[0],
+            })),
+            anio: year, mes,
+          });
+        }
         if (cesionesAProcesar.length > 0) {
           const provNombre = contraparte || fact?.proveedor || "Proveedor";
           for (const eid of cesionesAProcesar) {
