@@ -1244,6 +1244,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   );
   // Notas de crédito / débito del proveedor aplicadas a este pago
   const [notasSel, setNotasSel] = useState<string[]>([]);
+  // Ajuste por excedente abonado (intereses, diferencia de cambio, redondeo)
+  const [ajusteExc, setAjusteExc] = useState<number>(0);
+  const [ajusteFactId, setAjusteFactId] = useState<string>("");
+  const [ajusteConcepto, setAjusteConcepto] = useState<string>("Ajuste / intereses");
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
@@ -1502,6 +1506,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         // Las notas de débito se suman como objetivo: el pago también las cancela.
         const idsBase = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         const idsObjetivo = [...idsBase, ...notasND.map((n: any) => n.id as string)];
+        // Ajuste por excedente: se suma al total de la factura elegida (Redondeo / ajuste)
+        const ajusteMonto = redondear(Number(ajusteExc || 0));
+        const aplicaAjuste = tipo === "pago_proveedor" && ajusteMonto > 0 && !!ajusteFactId && idsObjetivo.includes(ajusteFactId);
+        if (ajusteMonto > 0 && ajusteFactId && !aplicaAjuste) {
+          toast.error("La factura del ajuste debe estar entre las seleccionadas");
+          return;
+        }
+        const extraAjuste = (fid: string) => (aplicaAjuste && fid === ajusteFactId ? ajusteMonto : 0);
+        if (aplicaAjuste) {
+          const { data: fAj, error: eAj } = await sb.from("fema_facturas_compra")
+            .select("total,otros_impuestos,observaciones").eq("id", ajusteFactId).maybeSingle();
+          if (eAj) throw eAj;
+          const { error: eUpd } = await sb.from("fema_facturas_compra").update({
+            total: redondear(Number(fAj?.total ?? 0) + ajusteMonto),
+            otros_impuestos: redondear(Number(fAj?.otros_impuestos ?? 0) + ajusteMonto),
+            observaciones: [fAj?.observaciones, `${ajusteConcepto || "Ajuste"}: ${ajusteMonto}`]
+              .filter(Boolean).join(" · "),
+          }).eq("id", ajusteFactId);
+          if (eUpd) throw eUpd;
+        }
         let objetivos: { id: string; restante: number }[] = [];
         let previos: any[] = [];
         if (idsObjetivo.length > 0) {
@@ -1524,7 +1548,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           objetivos = construirObjetivos(
             idsObjetivo.map(fid => ({
               id: fid,
-              total: lista.find(x => x.id === fid)?.total ?? totalNota.get(fid) ?? 0,
+              total: Number(lista.find(x => x.id === fid)?.total ?? totalNota.get(fid) ?? 0) + extraAjuste(fid),
             })),
             previos,
             tipo === "cobro_cliente" ? "venta" : "compra",
@@ -1546,7 +1570,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             idsObjetivo.map(fid => {
               const f = listaObjetivo.find(x => x.id === fid);
               const yaEnOp = asignadoEnEstaOp.get(fid) ?? 0;
-              const totalFid = Number(f?.total ?? totalNota.get(fid) ?? 0);
+              const totalFid = Number(f?.total ?? totalNota.get(fid) ?? 0) + extraAjuste(fid);
               return {
                 id: fid,
                 total: Math.max(0, totalFid - yaEnOp),
@@ -2121,7 +2145,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   const prop = proponerImputaciones(
                     facturasMulti.map((fid: string) => {
                       const f = lista.find((x: any) => x.id === fid);
-                      return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                      const extra = fid === ajusteFactId ? Number(ajusteExc || 0) : 0;
+                      return { id: fid, total: Number(f?.total ?? 0) + extra, numero: f?.numero };
                     }),
                     [],
                     totalCargado,
@@ -2147,6 +2172,79 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                     </>
                   );
                 })()}
+              </div>
+            </div>
+          )}
+
+          {(multiActivo || facturaSel) && (totalCombinado - totalFactura) > 0.5 && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <div className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">
+                Ajuste por excedente abonado — {formatPesos(totalCombinado - totalFactura)}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Si el excedente corresponde a intereses, diferencia de cambio o redondeo, cargalo como ajuste
+                sobre una factura: se suma a su total (campo Redondeo / ajuste) y el pago queda imputado completo,
+                sin dejar saldo a cuenta.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Monto del ajuste</div>
+                  <Input
+                    type="number"
+                    className="h-8 text-right font-mono"
+                    value={ajusteExc}
+                    onChange={(e) => setAjusteExc(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Factura a ajustar</div>
+                  <Select value={ajusteFactId} onValueChange={setAjusteFactId}>
+                    <SelectTrigger className="h-8"><SelectValue placeholder="— Elegir factura —" /></SelectTrigger>
+                    <SelectContent>
+                      {(multiActivo && facturasMulti.length > 0
+                        ? facturasMulti.map((fid: string) => facturasCompra.find((x: any) => x.id === fid))
+                        : [facturaActual]
+                      ).filter(Boolean).map((f: any) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.numero ?? "s/n"} · {formatPesos(Number(f.total || 0))}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Concepto</div>
+                  <Input
+                    className="h-8"
+                    placeholder="Intereses / dif. de cambio"
+                    value={ajusteConcepto}
+                    onChange={(e) => setAjusteConcepto(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAjusteExc(redondear(totalCombinado - totalFactura));
+                    if (!ajusteFactId) {
+                      const first = multiActivo && facturasMulti.length > 0 ? facturasMulti[0] : facturaSel;
+                      if (first) setAjusteFactId(first);
+                    }
+                  }}
+                >
+                  Usar todo el excedente
+                </Button>
+                {ajusteExc > 0 && !ajusteFactId && (
+                  <span className="text-[11px] text-rose-400">Elegí la factura donde imputar el ajuste.</span>
+                )}
+                {ajusteExc > 0 && ajusteFactId && (
+                  <span className="text-[11px] text-emerald-400">
+                    Se sumará {formatPesos(ajusteExc)} al total de la factura seleccionada.
+                  </span>
+                )}
               </div>
             </div>
           )}
