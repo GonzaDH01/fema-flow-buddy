@@ -417,6 +417,11 @@ function Page() {
                   <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
                   <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
+                    {leerUsd(r.observaciones).monto && (
+                      <div className="text-[11px] font-normal text-muted-foreground">
+                        USD {leerUsd(r.observaciones).monto}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {!esInfo(r) && pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
