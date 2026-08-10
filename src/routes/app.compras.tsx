@@ -57,8 +57,23 @@ const labelCat = (c: string) => {
   return c.replace(/_/g, " ");
 };
 
+// Importe en dólares del comprobante: se guarda como etiqueta en observaciones
+// ([USD:1000@1350]) para no perder el dato original de facturas en moneda extranjera.
+const USD_TAG = /\s*\[USD:([\d.]+)(?:@([\d.]+))?\]/;
+
+export function leerUsd(obs?: string | null): { monto: string; cotiz: string } {
+  const m = USD_TAG.exec(obs ?? "");
+  return { monto: m?.[1] ?? "", cotiz: m?.[2] ?? "" };
+}
+
+function escribirUsd(obs: string, monto: string, cotiz: string): string {
+  const limpio = (obs ?? "").replace(USD_TAG, "").trim();
+  if (!Number(monto)) return limpio;
+  const tag = `[USD:${Number(monto)}${Number(cotiz) ? `@${Number(cotiz)}` : ""}]`;
+  return limpio ? `${limpio} ${tag}` : tag;
+}
+
 const schema = z.object({
-  tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
   tipo: z.enum(LETRAS),
   numero: z.string().max(30).optional().or(z.literal("")),
