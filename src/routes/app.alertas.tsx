@@ -116,7 +116,9 @@ function useAlertas() {
       const mapC: Record<string, any> = {};
       for (const r of ((sc.data ?? []) as any[])) mapC[r.factura_id] = r;
       for (const f of ((fc.data ?? []) as any[])) {
-        const informativo = esComprobanteInformativo(f.tipo_comprobante);
+        // Franco abona con tarjeta personal: no genera deuda con proveedores.
+        const informativo =
+          esComprobanteInformativo(f.tipo_comprobante) || f.categoria === "Franco_Particular";
         const s = mapC[f.id] ?? {};
         const saldo = Math.max(0, n(f.total) - n(s.pagado) - n(s.programado));
         const dias = -(diasHasta(f.fecha) ?? 0);
