@@ -1126,8 +1126,17 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
             <XIcon className="w-4 h-4 mr-1" />Limpiar
           </Button>
         )}
-        <div className="ml-auto text-xs text-muted-foreground">
-          {filtradas.length} echeqs · <span className="font-mono text-emerald-400">{formatPesos(totalFiltrado)}</span>
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-md border border-border px-2 py-1">
+            En cartera: <b>{rows.filter(m => m.estado === "en_cartera").length}</b>
+          </span>
+          <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+            Cobrados por nosotros: <b className="text-emerald-400">{rows.filter(m => m.estado === "cobrado").length}</b>
+          </span>
+          <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1">
+            Cedidos a proveedores: <b className="text-amber-400">{rows.filter(m => m.estado === "cedido").length}</b>
+          </span>
+          <span>{filtradas.length} echeqs · <span className="font-mono text-emerald-400">{formatPesos(totalFiltrado)}</span></span>
         </div>
       </div>
 
