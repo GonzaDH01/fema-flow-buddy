@@ -392,7 +392,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
       }
     } else {
-      toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
+      toast.success(esPago ? "Marcado como pagado" : "Echeq marcado como COBRADO por nosotros");
     }
     await movsQ.refetch();
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
@@ -1169,15 +1169,17 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
               <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
               <TableCell className="text-xs">
                 {m.estado === "cobrado" ? (
-                  ctaDep ? (
-                    <span className="text-emerald-400">Depositado en {ctaDep.banco}</span>
-                  ) : (
-                    <span className="text-amber-400">Cobrado sin depositar</span>
-                  )
+                  <span className="text-emerald-400">
+                    Cobrado por nosotros{ctaDep ? ` · ${ctaDep.banco}` : ""}
+                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
+                  </span>
                 ) : m.estado === "cedido" ? (
-                  <span className="text-muted-foreground">{m.observaciones ?? "Cedido"}</span>
+                  <span className="text-amber-400">
+                    Cedido a proveedor
+                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">En cartera</span>
                 )}
               </TableCell>
               <TableCell className="text-right">
@@ -1194,11 +1196,6 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
                   )}
                   {!enCartera && (
                     <>
-                      {m.estado === "cobrado" && !ctaDep && onDepositar && cuentas.length > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => onDepositar(m)} className="border-emerald-500/40 text-emerald-400">
-                          Acreditar en banco
-                        </Button>
-                      )}
                       <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
                         Volver a cartera
                       </Button>
