@@ -781,6 +781,7 @@ function Page() {
               <EditableOCRField label="IVA 21%" value={String(result.iva_21 ?? 0)} onChange={(v) => setResult({ ...result, iva_21: num(v) })} />
               <EditableOCRField label="IVA 10.5%" value={String(result.iva_105 ?? 0)} onChange={(v) => setResult({ ...result, iva_105: num(v) })} />
               <EditableOCRField label="Percepciones" value={String(result.percepciones ?? 0)} onChange={(v) => setResult({ ...result, percepciones: num(v) })} />
+              <EditableOCRField label="Otros impuestos" value={String(result.otros_impuestos ?? 0)} onChange={(v) => setResult({ ...result, otros_impuestos: num(v) })} />
               <EditableOCRField label="Total" value={String(result.total ?? 0)} onChange={(v) => setResult({ ...result, total: num(v) })} />
               <div>
                 <Label className="text-xs text-muted-foreground">Moneda</Label>
