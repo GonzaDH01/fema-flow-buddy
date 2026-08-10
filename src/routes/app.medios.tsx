@@ -1783,7 +1783,6 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             opBorrar.push(...planOriginalIds.filter(id => !keepIds.includes(id)));
             // Cuando el pago se reparte en varias cuotas, cada cuota debe imputar
             // sobre el saldo que dejaron las cuotas anteriores del mismo plan.
-            const asignadoEnEstePlan = new Map<string, number>();
             for (const c of filasValidas) {
               const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
                 instrumento: instrumento as any,
