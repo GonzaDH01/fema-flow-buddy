@@ -28,6 +28,9 @@ Reglas para EMISOR / RECEPTOR (muy importante):
 Reglas para IMPUESTOS (muy importante):
 - Buscá etiquetas: "Neto Gravado", "Subtotal", "IVA 21%", "IVA 10,5%", "Percepción IIBB", "Percepción IVA", "ITC", "CO2", "Impuestos Internos", "Otros Tributos", "Total".
 - Si la factura es letra "A" o "M": el IVA está discriminado. Cargalo tal cual figura.
+- En letra "A"/"M" leé SIEMPRE el pie de impuestos completo: además del IVA puede haber "Percepción IIBB", "Perc. Ingresos Brutos", "IIBB <provincia>", "Percepción IVA RG 2408/3337", "Percepción Ganancias", "SUSS", "Impuestos Internos", "Otros Tributos". Cargá cada uno; NUNCA los dejes en 0 si figuran, aunque el importe sea chico.
+- Sumá todas las percepciones (IIBB + IVA + Ganancias + SUSS) en "percepciones". El resto de tributos no percepción va en "otros_impuestos".
+- "neto" es sólo el neto gravado (sin IVA ni percepciones). El "total" es el importe final del comprobante, que YA incluye IVA + percepciones + otros impuestos.
 - Si la factura es letra "B" o "C" (consumidor final / monotributo): el IVA NO se discrimina. Dejá iva_21=0, iva_105=0 y usá "total" como total final; "neto" = total.
 - Si ves "IVA Contenido" en una letra B, no lo cargues como iva_21 salvo que esté claramente discriminado.
 - Para tickets de combustible (YPF, Axion, Shell, Puma, etc.): suelen ser letra B con ITC y CO2 discriminados; cargá itc_combustible y co2_combustible, dejá iva_21 en 0 salvo que aparezca literal.
@@ -43,7 +46,7 @@ Reglas ESPECÍFICAS para COMBUSTIBLE (muy importante — hoy se pierden estos im
 - itc_combustible = itc_nafta + itc_gasoil (mantener suma en itc_combustible para compat.)
 - co2_combustible = co2_nafta + co2_gasoil (mantener suma en co2_combustible para compat.)
 - En tickets B/C de estación de servicio: el precio de pizarra ya incluye IVA. neto = total - (itc + co2 + otros + percepciones). Nunca dejes itc/co2 en 0 si el ticket los discrimina en el pie.
-- Verificá coherencia: neto + iva_21 + iva_105 + otros_impuestos + percepciones ≈ total. Si no cierra, ajustá "otros_impuestos" para cuadrar.
+- Verificá coherencia: neto + iva_21 + iva_105 + impuestos internos + otros_impuestos + percepciones ≈ total. Si no cierra, volvé a leer el pie del comprobante buscando la línea de impuesto que falta (casi siempre es una percepción de IIBB) antes de tocar nada; sólo si no encontrás la etiqueta, imputá la diferencia en "otros_impuestos". Nunca la sumes al neto ni cambies el total impreso.
 
 Campos exactos:
 {
