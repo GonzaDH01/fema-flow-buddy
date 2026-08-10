@@ -57,6 +57,22 @@ const labelCat = (c: string) => {
   return c.replace(/_/g, " ");
 };
 
+// Importe en dólares del comprobante: se guarda como etiqueta en observaciones
+// ([USD:1000@1350]) para no perder el dato original de facturas en moneda extranjera.
+const USD_TAG = /\s*\[USD:([\d.]+)(?:@([\d.]+))?\]/;
+
+export function leerUsd(obs?: string | null): { monto: string; cotiz: string } {
+  const m = USD_TAG.exec(obs ?? "");
+  return { monto: m?.[1] ?? "", cotiz: m?.[2] ?? "" };
+}
+
+function escribirUsd(obs: string, monto: string, cotiz: string): string {
+  const limpio = (obs ?? "").replace(USD_TAG, "").trim();
+  if (!Number(monto)) return limpio;
+  const tag = `[USD:${Number(monto)}${Number(cotiz) ? `@${Number(cotiz)}` : ""}]`;
+  return limpio ? `${limpio} ${tag}` : tag;
+}
+
 const schema = z.object({
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
   tipo: z.enum(LETRAS),
@@ -401,6 +417,11 @@ function Page() {
                   <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
                   <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
+                    {leerUsd(r.observaciones).monto && (
+                      <div className="text-[11px] font-normal text-muted-foreground">
+                        USD {leerUsd(r.observaciones).monto}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {!esInfo(r) && pagadoDe(r.id) > 0 ? formatPesos(pagadoDe(r.id)) : "—"}
@@ -779,22 +800,11 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
 
   const isCombustible = categoria === "Gasoil_Combustible";
 
-  // Conversor USD → Pesos (solo al editar, para facturas expresadas en dólares)
-  const [usdOpen, setUsdOpen] = useState(false);
-  const [usdMonto, setUsdMonto] = useState<string>("");
-  const [usdCotiz, setUsdCotiz] = useState<string>("");
-  const aplicarUsd = () => {
-    const u = Number(usdMonto);
-    const c = Number(usdCotiz);
-    if (!u || !c) { toast.error("Ingresá monto USD y cotización"); return; }
-    const netoPesos = Number((u * c).toFixed(2));
-    const iva = tipo === "A" ? Number((netoPesos * 0.21).toFixed(2)) : 0;
-    const total = Number((netoPesos + iva).toFixed(2));
-    f.setValue("neto", netoPesos, { shouldDirty: true, shouldValidate: true });
-    f.setValue("iva_21", iva, { shouldDirty: true, shouldValidate: true });
-    f.setValue("total", total, { shouldDirty: true, shouldValidate: true });
-    toast.success(`Convertido: USD ${u} × ${c} = ${formatPesos(total)}`);
-  };
+  // Importe expresado en dólares: se conserva como dato del comprobante.
+  // El importe en pesos lo carga el usuario manualmente en Neto / IVA / Monto.
+  const [usdOpen, setUsdOpen] = useState(!!leerUsd(initial?.observaciones).monto);
+  const [usdMonto, setUsdMonto] = useState<string>(() => leerUsd(initial?.observaciones).monto);
+  const [usdCotiz, setUsdCotiz] = useState<string>(() => leerUsd(initial?.observaciones).cotiz);
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
@@ -966,21 +976,34 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
               onClick={() => setUsdOpen((v) => !v)}
               className="text-xs font-semibold uppercase tracking-wide text-accent hover:underline"
             >
-              {usdOpen ? "▾" : "▸"} Convertir de USD a pesos
+              {usdOpen ? "▾" : "▸"} Importe en dólares (USD)
             </button>
             {usdOpen && (
-              <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+              <div className="mt-3 grid grid-cols-2 gap-2 items-end">
                 <FormField label="Monto USD">
-                  <Input type="number" step="0.01" placeholder="1000" value={usdMonto} onChange={(e) => setUsdMonto(e.target.value)} />
+                  <Input
+                    type="number" step="0.01" placeholder="1000" value={usdMonto}
+                    onChange={(e) => {
+                      setUsdMonto(e.target.value);
+                      f.setValue("observaciones", escribirUsd(f.getValues("observaciones") ?? "", e.target.value, usdCotiz), { shouldDirty: true });
+                    }}
+                  />
                 </FormField>
-                <FormField label="Cotización $/USD">
-                  <Input type="number" step="0.01" placeholder="1350" value={usdCotiz} onChange={(e) => setUsdCotiz(e.target.value)} />
+                <FormField label="Cotización $/USD (opcional)">
+                  <Input
+                    type="number" step="0.01" placeholder="1350" value={usdCotiz}
+                    onChange={(e) => {
+                      setUsdCotiz(e.target.value);
+                      f.setValue("observaciones", escribirUsd(f.getValues("observaciones") ?? "", usdMonto, e.target.value), { shouldDirty: true });
+                    }}
+                  />
                 </FormField>
-                <Button type="button" onClick={aplicarUsd}>Aplicar</Button>
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              Calcula Neto = USD × cotización. Si la factura es letra A, agrega IVA 21% y actualiza el Monto total automáticamente.
+              El importe en dólares queda registrado en el comprobante (referencia:{" "}
+              {Number(usdMonto) && Number(usdCotiz) ? formatPesos(Number(usdMonto) * Number(usdCotiz)) : "—"}).
+              Los importes en pesos (Neto, IVA y Monto) los cargás vos manualmente; el sistema no los recalcula.
             </p>
           </div>
         )}
