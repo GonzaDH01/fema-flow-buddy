@@ -1412,6 +1412,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [facturasMulti, setFacturasMulti] = useState<string[]>(
     initial?.factura_compra_id ? [initial.factura_compra_id] : []
   );
+  // Notas de crédito / débito del proveedor aplicadas a este pago
+  const [notasSel, setNotasSel] = useState<string[]>([]);
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
