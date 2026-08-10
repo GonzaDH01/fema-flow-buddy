@@ -805,6 +805,8 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const [usdOpen, setUsdOpen] = useState(!!leerUsd(initial?.observaciones).monto);
   const [usdMonto, setUsdMonto] = useState<string>(() => leerUsd(initial?.observaciones).monto);
   const [usdCotiz, setUsdCotiz] = useState<string>(() => leerUsd(initial?.observaciones).cotiz);
+  const [usdPerc, setUsdPerc] = useState<string>("");
+  const [usdOtros, setUsdOtros] = useState<string>("");
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
