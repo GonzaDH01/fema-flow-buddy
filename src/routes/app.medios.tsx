@@ -1412,6 +1412,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [facturasMulti, setFacturasMulti] = useState<string[]>(
     initial?.factura_compra_id ? [initial.factura_compra_id] : []
   );
+  // Notas de crédito / débito del proveedor aplicadas a este pago
+  const [notasSel, setNotasSel] = useState<string[]>([]);
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
@@ -1490,6 +1492,41 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const totalMulti = useMemo(
     () => facturasSeleccionadas.reduce((a, f) => a + Number(f.total || 0), 0),
     [facturasSeleccionadas]);
+
+  // Notas de crédito / débito pendientes del proveedor seleccionado.
+  const notasQ = useQuery({
+    queryKey: ["fema_notas_compra_proveedor", proveedorSel],
+    enabled: !!proveedorSel && tipo === "pago_proveedor" && !initial,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_facturas_compra")
+        .select("id,numero,fecha,total,tipo_comprobante,estado,descripcion")
+        .eq("proveedor_id", proveedorSel as string)
+        .order("fecha", { ascending: false }).limit(60);
+      if (error) throw error;
+      return (data ?? []).filter((n: any) =>
+        esComprobanteInformativo(n.tipo_comprobante) && n.estado !== "pagada") as any[];
+    },
+  });
+  const notas = notasQ.data ?? [];
+  const esNotaCredito = (n: any) => (n.tipo_comprobante ?? "").toLowerCase().includes("cr");
+  const notasSeleccionadas = useMemo(
+    () => notas.filter((n: any) => notasSel.includes(n.id)),
+    [notas, notasSel]);
+  // NC resta y ND suma sobre el total a pagar.
+  const ajusteNotas = useMemo(
+    () => notasSeleccionadas.reduce((a: number, n: any) =>
+      a + (esNotaCredito(n) ? -Number(n.total || 0) : Number(n.total || 0)), 0),
+    [notasSeleccionadas]);
+  const netoAPagar = redondear(totalMulti + ajusteNotas);
+  const toggleNota = (n: any) => {
+    const next = notasSel.includes(n.id) ? notasSel.filter(x => x !== n.id) : [...notasSel, n.id];
+    setNotasSel(next);
+    const ajuste = notas.filter((x: any) => next.includes(x.id))
+      .reduce((a: number, x: any) => a + (esNotaCredito(x) ? -Number(x.total || 0) : Number(x.total || 0)), 0);
+    const nuevo = redondear(totalMulti + ajuste);
+    setMonto(nuevo);
+    setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: nuevo, obs: "" }]);
+  };
   const toggleFacturaMulti = (f: any) => {
     setFacturasMulti(prev => {
       const next = prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id];
@@ -1502,7 +1539,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
   const totalFactura = multiActivo && facturasSeleccionadas.length > 0
-    ? totalMulti
+    ? netoAPagar
     : Number(facturaActual?.total ?? monto ?? 0);
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
@@ -1785,6 +1822,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       if (tipo === "pago_proveedor") {
         const ids = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         for (const fid of ids) await reconciliarFactura(fid, "compra");
+        // Las notas aplicadas quedan marcadas para no volver a ofrecerlas en otro pago.
+        if (notasSel.length > 0) {
+          await sb.from("fema_facturas_compra")
+            .update({ estado: "pagada" as any })
+            .in("id", notasSel);
+        }
       }
       if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
       if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
@@ -1837,8 +1880,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                     <div className="font-semibold text-sm uppercase truncate">{facturasSeleccionadas[0].proveedor}</div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{facturasSeleccionadas.length} factura(s)</span>
-                      <span className="font-mono text-emerald-400 text-base">{formatPesos(totalMulti)}</span>
-                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
+                      <span className="font-mono text-emerald-400 text-base">{formatPesos(netoAPagar)}</span>
+                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setNotasSel([]); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
                         <XIcon className="w-3 h-3 mr-1" />Limpiar
                       </Button>
                     </div>
@@ -1846,6 +1889,11 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   <div className="text-[11px] text-muted-foreground">
                     {facturasSeleccionadas.map(f => `${f.numero ?? "s/n"} (${formatPesos(f.total)})`).join(" · ")}
                   </div>
+                  {ajusteNotas !== 0 && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Facturas {formatPesos(totalMulti)} {ajusteNotas < 0 ? "−" : "+"} notas {formatPesos(Math.abs(ajusteNotas))} = <b className="text-foreground">{formatPesos(netoAPagar)}</b>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="max-h-44 overflow-auto border rounded-md divide-y">
@@ -1858,9 +1906,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                         toggleFacturaMulti(f);
                         const nuevos = sel ? facturasMulti.filter(x => x !== f.id) : [...facturasMulti, f.id];
                         const suma = nuevos.reduce((a, id) => a + Number(facturasCompra.find(x => x.id === id)?.total ?? 0), 0);
-                        setMonto(suma);
+                        setMonto(redondear(suma + ajusteNotas));
                         setContraparte(f.proveedor ?? "");
-                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: suma, obs: "" }]);
+                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: redondear(suma + ajusteNotas), obs: "" }]);
                       }}
                       className={`w-full text-left p-3 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
                       <div className="flex justify-between items-start gap-3">
@@ -1880,6 +1928,35 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               {proveedorSel && (
                 <div className="text-[11px] text-muted-foreground">
                   Sólo se listan facturas de <b>{facturasSeleccionadas[0]?.proveedor}</b>. Limpiá la selección para cambiar de proveedor.
+                </div>
+              )}
+              {proveedorSel && notas.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Notas de crédito / débito del proveedor (ajustan el importe a pagar)
+                  </div>
+                  <div className="max-h-32 overflow-auto border rounded-md divide-y">
+                    {notas.map((n: any) => {
+                      const sel = notasSel.includes(n.id);
+                      const nc = esNotaCredito(n);
+                      return (
+                        <button key={n.id} type="button" onClick={() => toggleNota(n)}
+                          className={`w-full text-left p-2 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${sel ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>{sel ? "✓" : ""}</span>
+                              <span className="text-xs truncate">
+                                <b>{nc ? "NC" : "ND"}</b> {n.numero ?? "s/n"} · {formatFecha(n.fecha)}
+                              </span>
+                            </div>
+                            <span className={`font-mono text-sm shrink-0 ${nc ? "text-amber-400" : "text-rose-400"}`}>
+                              {nc ? "−" : "+"}{formatPesos(n.total)}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
