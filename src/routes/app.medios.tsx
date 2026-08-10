@@ -1805,19 +1805,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 opUpdate.push({ ...mkBase(facturaSel, Number(c.monto)), id: c.id });
               } else if (esMulti) {
                 // Pago/cobro distribuido en varias facturas: un solo movimiento + imputaciones.
-                const propuesta = proponerImputaciones(
-                  idsObjetivo.map(fid => {
-                    const f = listaFacturas.find(x => x.id === fid);
-                    const yaEnPlan = asignadoEnEstePlan.get(fid) ?? 0;
-                    return { id: fid, total: Math.max(0, Number(f?.total ?? 0) - yaEnPlan), numero: f?.numero };
-                  }).filter(f => Number(f.total) > 0),
-                  (previos ?? []) as any,
-                  Number(c.monto),
-                  tipo === "cobro_cliente" ? "venta" : "compra",
-                );
-                for (const i of propuesta.imputaciones) {
-                  asignadoEnEstePlan.set(i.facturaId, (asignadoEnEstePlan.get(i.facturaId) ?? 0) + i.monto);
-                }
+                const propuesta = distribuir(Number(c.monto));
                 const nros = propuesta.imputaciones.map(i => i.numero).filter(Boolean);
                 const obsExtra = nros.length > 1 ? `Imputado a facturas: ${nros.join(", ")}` : undefined;
                 opInsert.push({
