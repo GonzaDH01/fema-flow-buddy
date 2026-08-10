@@ -1244,6 +1244,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   );
   // Notas de crédito / débito del proveedor aplicadas a este pago
   const [notasSel, setNotasSel] = useState<string[]>([]);
+  // Ajuste por excedente abonado (intereses, diferencia de cambio, redondeo)
+  const [ajusteExc, setAjusteExc] = useState<number>(0);
+  const [ajusteFactId, setAjusteFactId] = useState<string>("");
+  const [ajusteConcepto, setAjusteConcepto] = useState<string>("Ajuste / intereses");
 
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
