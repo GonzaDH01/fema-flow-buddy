@@ -27,7 +27,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
@@ -46,6 +46,8 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
       ,
+    supabase.from("fema_imputaciones")
+      .select("monto,fecha,factura_venta_id,factura_compra_id,movimiento_pago_id"),
     supabase.from("fema_estimaciones")
       .select("fecha_estimada,monto,descripcion,estado,cliente:fema_clientes(nombre)")
       .gte("fecha_estimada", `${anio}-01-01`).lte("fecha_estimada", `${anio}-12-31`),
@@ -62,13 +64,21 @@ async function loadCashflow(userId: string, anio: number) {
   const movsByFV = new Map<string, any[]>();
   const movsByFC = new Map<string, any[]>();
   const movsSueltos: any[] = [];
+  const movsById = new Map<string, any>();
+  // Movimientos que se reparten vía imputaciones: se toman desde ahí y no
+  // por el vínculo directo, para no duplicar importes.
+  const conImputacion = new Set<string>();
+  for (const i of (imputaciones.data ?? []) as any[]) {
+    if (i.movimiento_pago_id) conImputacion.add(i.movimiento_pago_id);
+  }
   for (const m of (movs.data ?? []) as any[]) {
+    movsById.set((m as any).id, m);
     if (!ACTIVOS.has(m.estado)) continue;
-    if (m.direccion === "cobro" && m.factura_venta_id) {
+    if (m.direccion === "cobro" && m.factura_venta_id && !conImputacion.has((m as any).id)) {
       if (!movsByFV.has(m.factura_venta_id)) movsByFV.set(m.factura_venta_id, []);
       movsByFV.get(m.factura_venta_id)!.push(m);
     }
-    if (m.direccion === "pago" && m.factura_compra_id) {
+    if (m.direccion === "pago" && m.factura_compra_id && !conImputacion.has((m as any).id)) {
       if (!movsByFC.has(m.factura_compra_id)) movsByFC.set(m.factura_compra_id, []);
       movsByFC.get(m.factura_compra_id)!.push(m);
     }
@@ -76,7 +86,32 @@ async function loadCashflow(userId: string, anio: number) {
       (m.direccion === "cobro" && !m.factura_venta_id) ||
       (m.direccion === "pago" && !m.factura_compra_id)
     ) {
-      movsSueltos.push(m);
+      if (!conImputacion.has((m as any).id)) movsSueltos.push(m);
+    }
+  }
+
+  // Pagos/cobros distribuidos entre varias facturas (conciliación automática).
+  for (const i of (imputaciones.data ?? []) as any[]) {
+    const base = i.movimiento_pago_id ? movsById.get(i.movimiento_pago_id) : null;
+    if (base && !ACTIVOS.has(base.estado)) continue;
+    const item = {
+      instrumento: base?.instrumento ?? "imputacion",
+      direccion: base?.direccion,
+      estado: base?.estado ?? "pagado",
+      monto: Number(i.monto),
+      vencimiento: base?.vencimiento ?? i.fecha,
+      fecha_emision: i.fecha ?? base?.fecha_emision,
+      mes: base?.mes,
+      numero: base?.numero ?? null,
+      banco: base?.banco ?? null,
+    };
+    if (i.factura_compra_id) {
+      if (!movsByFC.has(i.factura_compra_id)) movsByFC.set(i.factura_compra_id, []);
+      movsByFC.get(i.factura_compra_id)!.push(item);
+    }
+    if (i.factura_venta_id) {
+      if (!movsByFV.has(i.factura_venta_id)) movsByFV.set(i.factura_venta_id, []);
+      movsByFV.get(i.factura_venta_id)!.push(item);
     }
   }
 
