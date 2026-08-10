@@ -114,6 +114,7 @@ function Page() {
   };
 
   const exportar = () => {
+    // (exportación a Excel)
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((r) => ({
         Fecha: r.fecha,
@@ -149,9 +150,16 @@ function Page() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportar} className="shrink-0">
-          <FileDown className="mr-2 h-4 w-4" /> Excel
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          {rows.some((r) => (r.estado ?? "pendiente") !== "pagada") && (
+            <Button variant="secondary" onClick={marcarTodasAbonadas}>
+              Marcar todas abonadas
+            </Button>
+          )}
+          <Button variant="outline" onClick={exportar}>
+            <FileDown className="mr-2 h-4 w-4" /> Excel
+          </Button>
+        </div>
       </header>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
