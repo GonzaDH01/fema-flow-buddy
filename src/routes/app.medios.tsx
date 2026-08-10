@@ -340,10 +340,13 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
-    if (cuentas.length > 0) {
-      setDepositoMov(m);
-      return;
-    }
+    const esPago = m.direccion === "pago";
+    const ok = confirm(
+      esPago
+        ? `¿Confirmás que este documento propio de ${formatPesos(m.monto)} fue debitado de la cuenta?`
+        : `¿Confirmás que cobramos el echeq de ${m.contraparte ?? "el cliente"} por ${formatPesos(m.monto)}? Queda registrado como COBRADO (no cedido).`,
+    );
+    if (!ok) return;
     await aplicarCobro(m, null);
   };
 
@@ -366,9 +369,20 @@ function Page() {
       await movsQ.refetch();
       return;
     }
+    // Deja asentado en el propio movimiento cómo se cerró: cobrado por nosotros (no cedido).
+    let obsFinal = obs;
+    if (!cuentaId) {
+      const hoyIso = new Date().toISOString().slice(0, 10);
+      const base = (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim();
+      const nota = esPago
+        ? `Debitado de cuenta el ${formatFecha(hoyIso)}`
+        : `Cobrado por FEMA el ${formatFecha(hoyIso)}`;
+      obsFinal = base && !base.startsWith("Cobrado") && !base.startsWith("Debitado") ? `${base} · ${nota}` : nota;
+      await sb.from("fema_movimientos_pago").update({ observaciones: obsFinal }).eq("id", m.id);
+    }
     // Actualización inmediata en pantalla
     qc.setQueryData(["fema_movimientos_pago", user?.id, year], (old: Mov[] | undefined) =>
-      (old ?? []).map(x => x.id === m.id ? { ...x, estado: nuevoEstado as Mov["estado"], observaciones: obs ?? null } : x));
+      (old ?? []).map(x => x.id === m.id ? { ...x, estado: nuevoEstado as Mov["estado"], observaciones: obsFinal ?? null } : x));
     if (cuentaId) {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
