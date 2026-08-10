@@ -103,6 +103,8 @@ function Page() {
   }, [filtered]);
 
   const cambiarEstado = async (r: Row, estado: string) => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    void hoy;
     const { error } = await supabase
       .from("fema_facturas_compra")
       .update({ estado: estado as any, fecha_pago: estado === "pagada" ? (r.fecha_pago ?? new Date().toISOString().slice(0, 10)) : null })
