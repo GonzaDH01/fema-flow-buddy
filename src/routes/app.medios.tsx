@@ -2638,19 +2638,6 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
   const entidadCol = esCobro ? "cliente_id" : "proveedor_id";
   const entidadTabla = esCobro ? "fema_clientes" : "fema_proveedores";
 
-  const factsQ = useQuery({
-    queryKey: ["fema_facturas_pendientes_conciliar", user?.id, esCobro],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await sb.from(tabla)
-        .select("id,numero,fecha,total,estado," + entidadCol)
-        .eq("estado", "pendiente")
-        .order("fecha", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-  });
-
   const entidadesQ = useQuery({
     queryKey: [entidadTabla, user?.id],
     enabled: !!user,
@@ -2672,28 +2659,58 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
     },
   });
 
+  const factsQ = useQuery({
+    queryKey: ["fema_facturas_conciliar", user?.id, esCobro, mov.id],
+    enabled: !!user && !!impsQ.data,
+    queryFn: async () => {
+      const idsImputados = (impsQ.data ?? []).map((i: any) => i[colFact]).filter(Boolean);
+      const { data, error } = await sb.from(tabla)
+        .select("id,numero,fecha,total,estado," + entidadCol)
+        .order("fecha", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as any[]).filter(
+        (f) => f.estado === "pendiente" || idsImputados.includes(f.id),
+      );
+    },
+  });
+
   const [dist, setDist] = useState<Record<string, number>>({});
+  const [verTodas, setVerTodas] = useState(false);
+
+  // Solo facturas de la misma contraparte del movimiento (o las ya imputadas).
+  const normal = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const contraparteNorm = normal(mov.contraparte ?? "");
+  const idsEntidad = new Set(
+    (entidadesQ.data ?? [])
+      .filter((e: any) => {
+        const n = normal(e.nombre);
+        return !!contraparteNorm && !!n && (n === contraparteNorm || n.includes(contraparteNorm) || contraparteNorm.includes(n));
+      })
+      .map((e: any) => e.id),
+  );
+  const idsImputados = new Set((impsQ.data ?? []).map((i: any) => i[colFact]).filter(Boolean));
+  const todas = factsQ.data ?? [];
+  const propias = todas.filter((f: any) => idsEntidad.has(f[entidadCol]) || idsImputados.has(f.id));
+  const facturasVisibles = verTodas || propias.length === 0 ? todas : propias;
+  const ocultas = todas.length - propias.length;
 
   useEffect(() => {
     if (!factsQ.data) return;
     const existentes: Record<string, number> = Object.fromEntries(
       (impsQ.data ?? []).map(i => [i[colFact] as string, Number(i.monto)])
     );
+    // Si ya hay imputaciones guardadas, se respetan tal cual (no se re-propone nada).
+    if (Object.keys(existentes).length > 0) { setDist(existentes); return; }
     let resto = Number(mov.monto);
-    const ordenadas = [...factsQ.data].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
     const propuesta: Record<string, number> = {};
-    for (const f of ordenadas) {
+    for (const f of [...propias].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""))) {
       if (resto <= 0) break;
       const usar = Math.min(Number(f.total), resto);
       propuesta[f.id] = usar;
       resto = redondear(resto - usar);
     }
-    const merged: Record<string, number> = {};
-    for (const [fid, monto] of Object.entries(propuesta)) merged[fid] = existentes[fid] ?? monto;
-    for (const [fid, monto] of Object.entries(existentes)) {
-      if (!(fid in merged)) merged[fid] = monto;
-    }
-    setDist(merged);
+    setDist(propuesta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factsQ.data, impsQ.data, mov.monto, colFact]);
 
   const totalDistribuido = Object.values(dist).reduce((a, b) => a + b, 0);
