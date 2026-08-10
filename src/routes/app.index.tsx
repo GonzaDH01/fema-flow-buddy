@@ -91,15 +91,11 @@ async function loadKPIs(_userId: string, anio: number) {
     const estado = x.estado === "cobrada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "cobrada" : x.estado;
     return { ...x, estado };
   }) as FV[];
-  const csEff = cs.map((x: any) => {
+  // Franco abona con su tarjeta personal: no impacta caja ni deuda de la empresa.
+  const csSinFranco = (cs as any[]).filter((x: any) => x.categoria !== "Franco_Particular");
+  const csEff = csSinFranco.map((x: any) => {
     const pagado = pagadoPorFC.get(x.id) ?? 0;
-    // Franco abona con tarjeta personal: nunca queda pendiente para la empresa.
-    const estado =
-      x.categoria === "Franco_Particular" ||
-      x.estado === "pagada" ||
-      (pagado > 0 && pagado >= Number(x.total) - 0.01)
-        ? "pagada"
-        : x.estado;
+    const estado = x.estado === "pagada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "pagada" : x.estado;
     return { ...x, estado };
   }) as FC[];
 
