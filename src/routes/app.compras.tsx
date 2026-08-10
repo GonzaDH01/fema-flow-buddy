@@ -68,6 +68,7 @@ const schema = z.object({
   descripcion: z.string().max(300).optional().or(z.literal("")),
   neto: z.coerce.number().min(0),
   iva_21: z.coerce.number().min(0),
+  percepciones: z.coerce.number().min(0),
   impuestos_internos: z.coerce.number().min(0),
   otros_impuestos: z.coerce.number().min(0),
   litros: z.coerce.number().min(0),
@@ -224,6 +225,7 @@ function Page() {
       descripcion: v.descripcion || null,
       neto: v.neto,
       iva_21: v.iva_21,
+      percepciones: v.percepciones,
       impuestos_internos: v.impuestos_internos,
       otros_impuestos: v.otros_impuestos,
       litros: v.litros,
@@ -754,6 +756,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
       descripcion: initial?.descripcion ?? "",
       neto: Number(initial?.neto ?? 0),
       iva_21: Number(initial?.iva_21 ?? 0),
+      percepciones: Number(initial?.percepciones ?? 0),
       impuestos_internos: Number(initial?.impuestos_internos ?? 0),
       otros_impuestos: Number(initial?.otros_impuestos ?? 0),
       litros: Number(initial?.litros ?? 0),
@@ -770,6 +773,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const categoria = f.watch("categoria");
   const neto = Number(f.watch("neto") || 0);
   const iva21 = Number(f.watch("iva_21") || 0);
+  const percep = Number(f.watch("percepciones") || 0);
   const impInt = Number(f.watch("impuestos_internos") || 0);
   const otros = Number(f.watch("otros_impuestos") || 0);
 
@@ -794,9 +798,17 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
-    if (tipo === "A") return neto + iva21 + impInt + otros;
-    return neto; // B/C: IVA dentro del precio
-  }, [isCombustible, tipo, neto, iva21, impInt, otros]);
+    if (tipo === "A") return neto + iva21 + percep + impInt + otros;
+    return neto + percep; // B/C: IVA dentro del precio, la percepción se suma aparte
+  }, [isCombustible, tipo, neto, iva21, percep, impInt, otros]);
+
+  // Total sugerido para comprobantes que no son de combustible.
+  const totalDesglose = useMemo(
+    () => Number((neto + iva21 + percep + impInt + otros).toFixed(2)),
+    [neto, iva21, percep, impInt, otros],
+  );
+  const totalActual = Number(f.watch("total") || 0);
+  const difDesglose = Number((totalDesglose - totalActual).toFixed(2));
 
   // Solo autocompletar el total desde el desglose cuando el usuario
   // efectivamente carga algún importe del desglose. Nunca pisar con 0
