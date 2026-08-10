@@ -2125,7 +2125,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   const prop = proponerImputaciones(
                     facturasMulti.map((fid: string) => {
                       const f = lista.find((x: any) => x.id === fid);
-                      return { id: fid, total: f?.total ?? 0, numero: f?.numero };
+                      const extra = fid === ajusteFactId ? Number(ajusteExc || 0) : 0;
+                      return { id: fid, total: Number(f?.total ?? 0) + extra, numero: f?.numero };
                     }),
                     [],
                     totalCargado,
