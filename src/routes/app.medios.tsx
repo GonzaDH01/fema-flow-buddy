@@ -1874,8 +1874,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                     <div className="font-semibold text-sm uppercase truncate">{facturasSeleccionadas[0].proveedor}</div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{facturasSeleccionadas.length} factura(s)</span>
-                      <span className="font-mono text-emerald-400 text-base">{formatPesos(totalMulti)}</span>
-                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
+                      <span className="font-mono text-emerald-400 text-base">{formatPesos(netoAPagar)}</span>
+                      <Button size="sm" variant="outline" onClick={() => { setFacturasMulti([]); setFacturaSel(null); setNotasSel([]); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: 0, obs: "" }]); }}>
                         <XIcon className="w-3 h-3 mr-1" />Limpiar
                       </Button>
                     </div>
@@ -1883,6 +1883,11 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   <div className="text-[11px] text-muted-foreground">
                     {facturasSeleccionadas.map(f => `${f.numero ?? "s/n"} (${formatPesos(f.total)})`).join(" · ")}
                   </div>
+                  {ajusteNotas !== 0 && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Facturas {formatPesos(totalMulti)} {ajusteNotas < 0 ? "−" : "+"} notas {formatPesos(Math.abs(ajusteNotas))} = <b className="text-foreground">{formatPesos(netoAPagar)}</b>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="max-h-44 overflow-auto border rounded-md divide-y">
@@ -1895,9 +1900,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                         toggleFacturaMulti(f);
                         const nuevos = sel ? facturasMulti.filter(x => x !== f.id) : [...facturasMulti, f.id];
                         const suma = nuevos.reduce((a, id) => a + Number(facturasCompra.find(x => x.id === id)?.total ?? 0), 0);
-                        setMonto(suma);
+                        setMonto(redondear(suma + ajusteNotas));
                         setContraparte(f.proveedor ?? "");
-                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: suma, obs: "" }]);
+                        setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: redondear(suma + ajusteNotas), obs: "" }]);
                       }}
                       className={`w-full text-left p-3 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
                       <div className="flex justify-between items-start gap-3">
@@ -1917,6 +1922,35 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               {proveedorSel && (
                 <div className="text-[11px] text-muted-foreground">
                   Sólo se listan facturas de <b>{facturasSeleccionadas[0]?.proveedor}</b>. Limpiá la selección para cambiar de proveedor.
+                </div>
+              )}
+              {proveedorSel && notas.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Notas de crédito / débito del proveedor (ajustan el importe a pagar)
+                  </div>
+                  <div className="max-h-32 overflow-auto border rounded-md divide-y">
+                    {notas.map((n: any) => {
+                      const sel = notasSel.includes(n.id);
+                      const nc = esNotaCredito(n);
+                      return (
+                        <button key={n.id} type="button" onClick={() => toggleNota(n)}
+                          className={`w-full text-left p-2 hover:bg-muted/50 ${sel ? "bg-primary/10" : ""}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${sel ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"}`}>{sel ? "✓" : ""}</span>
+                              <span className="text-xs truncate">
+                                <b>{nc ? "NC" : "ND"}</b> {n.numero ?? "s/n"} · {formatFecha(n.fecha)}
+                              </span>
+                            </div>
+                            <span className={`font-mono text-sm shrink-0 ${nc ? "text-amber-400" : "text-rose-400"}`}>
+                              {nc ? "−" : "+"}{formatPesos(n.total)}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
