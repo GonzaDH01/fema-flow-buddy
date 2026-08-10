@@ -38,7 +38,7 @@ function useAlertas() {
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
-        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,imagen_path,tipo_comprobante"),
+        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,imagen_path,tipo_comprobante,categoria"),
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
