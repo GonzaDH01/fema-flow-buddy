@@ -59,6 +59,7 @@ const labelCat = (c: string) => {
 
 const schema = z.object({
   tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
+  tipo_comprobante: z.enum(TIPOS_COMPROBANTE),
   tipo: z.enum(LETRAS),
   numero: z.string().max(30).optional().or(z.literal("")),
   fecha: z.string().min(1),
