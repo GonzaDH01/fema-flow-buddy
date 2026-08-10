@@ -1506,6 +1506,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         // Las notas de débito se suman como objetivo: el pago también las cancela.
         const idsBase = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         const idsObjetivo = [...idsBase, ...notasND.map((n: any) => n.id as string)];
+        // Ajuste por excedente: se suma al total de la factura elegida (Redondeo / ajuste)
+        const ajusteMonto = redondear(Number(ajusteExc || 0));
+        const aplicaAjuste = tipo === "pago_proveedor" && ajusteMonto > 0 && !!ajusteFactId && idsObjetivo.includes(ajusteFactId);
+        if (ajusteMonto > 0 && ajusteFactId && !aplicaAjuste) {
+          toast.error("La factura del ajuste debe estar entre las seleccionadas");
+          return;
+        }
+        const extraAjuste = (fid: string) => (aplicaAjuste && fid === ajusteFactId ? ajusteMonto : 0);
+        if (aplicaAjuste) {
+          const { data: fAj, error: eAj } = await sb.from("fema_facturas_compra")
+            .select("total,otros_impuestos,observaciones").eq("id", ajusteFactId).maybeSingle();
+          if (eAj) throw eAj;
+          const { error: eUpd } = await sb.from("fema_facturas_compra").update({
+            total: redondear(Number(fAj?.total ?? 0) + ajusteMonto),
+            otros_impuestos: redondear(Number(fAj?.otros_impuestos ?? 0) + ajusteMonto),
+            observaciones: [fAj?.observaciones, `${ajusteConcepto || "Ajuste"}: ${ajusteMonto}`]
+              .filter(Boolean).join(" · "),
+          }).eq("id", ajusteFactId);
+          if (eUpd) throw eUpd;
+        }
         let objetivos: { id: string; restante: number }[] = [];
         let previos: any[] = [];
         if (idsObjetivo.length > 0) {
@@ -1528,7 +1548,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           objetivos = construirObjetivos(
             idsObjetivo.map(fid => ({
               id: fid,
-              total: lista.find(x => x.id === fid)?.total ?? totalNota.get(fid) ?? 0,
+              total: Number(lista.find(x => x.id === fid)?.total ?? totalNota.get(fid) ?? 0) + extraAjuste(fid),
             })),
             previos,
             tipo === "cobro_cliente" ? "venta" : "compra",
