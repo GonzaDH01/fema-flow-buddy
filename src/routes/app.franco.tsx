@@ -114,7 +114,7 @@ function Page() {
   };
 
   const exportar = () => {
-    // (exportación a Excel)
+    void 0;
     // (exportación a Excel)
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((r) => ({
