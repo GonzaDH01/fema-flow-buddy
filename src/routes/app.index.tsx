@@ -93,7 +93,13 @@ async function loadKPIs(_userId: string, anio: number) {
   }) as FV[];
   const csEff = cs.map((x: any) => {
     const pagado = pagadoPorFC.get(x.id) ?? 0;
-    const estado = x.estado === "pagada" || (pagado > 0 && pagado >= Number(x.total) - 0.01) ? "pagada" : x.estado;
+    // Franco abona con tarjeta personal: nunca queda pendiente para la empresa.
+    const estado =
+      x.categoria === "Franco_Particular" ||
+      x.estado === "pagada" ||
+      (pagado > 0 && pagado >= Number(x.total) - 0.01)
+        ? "pagada"
+        : x.estado;
     return { ...x, estado };
   }) as FC[];
 
