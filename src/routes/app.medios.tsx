@@ -2757,11 +2757,17 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
       </DialogHeader>
       {factsQ.isLoading ? (
         <div className="text-sm text-muted-foreground py-4">Cargando facturas…</div>
-      ) : (factsQ.data ?? []).length === 0 ? (
+      ) : facturasVisibles.length === 0 ? (
         <div className="text-sm text-muted-foreground py-4">No hay facturas pendientes para conciliar.</div>
       ) : (
         <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-          {(factsQ.data ?? []).map(f => {
+          {ocultas > 0 && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={verTodas} onChange={(e) => setVerTodas(e.target.checked)} />
+              Mostrar también facturas de otras contrapartes ({ocultas} ocultas)
+            </label>
+          )}
+          {facturasVisibles.map(f => {
             const entidad = entidades[f[entidadCol]] ?? "—";
             const val = dist[f.id] ?? 0;
             return (
@@ -2770,6 +2776,7 @@ function ConciliarDialog({ mov, onClose, onSaved }: {
                   <div className="font-medium text-sm truncate">{entidad}</div>
                   <div className="text-xs text-muted-foreground">
                     Factura {f.numero ?? "sin nº"} · {formatFecha(f.fecha)} · total {formatPesos(Number(f.total))}
+                    {f.estado !== "pendiente" && ` · ${f.estado}`}
                   </div>
                 </div>
                 <Input
