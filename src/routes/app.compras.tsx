@@ -779,22 +779,11 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
 
   const isCombustible = categoria === "Gasoil_Combustible";
 
-  // Conversor USD → Pesos (solo al editar, para facturas expresadas en dólares)
-  const [usdOpen, setUsdOpen] = useState(false);
-  const [usdMonto, setUsdMonto] = useState<string>("");
-  const [usdCotiz, setUsdCotiz] = useState<string>("");
-  const aplicarUsd = () => {
-    const u = Number(usdMonto);
-    const c = Number(usdCotiz);
-    if (!u || !c) { toast.error("Ingresá monto USD y cotización"); return; }
-    const netoPesos = Number((u * c).toFixed(2));
-    const iva = tipo === "A" ? Number((netoPesos * 0.21).toFixed(2)) : 0;
-    const total = Number((netoPesos + iva).toFixed(2));
-    f.setValue("neto", netoPesos, { shouldDirty: true, shouldValidate: true });
-    f.setValue("iva_21", iva, { shouldDirty: true, shouldValidate: true });
-    f.setValue("total", total, { shouldDirty: true, shouldValidate: true });
-    toast.success(`Convertido: USD ${u} × ${c} = ${formatPesos(total)}`);
-  };
+  // Importe expresado en dólares: se conserva como dato del comprobante.
+  // El importe en pesos lo carga el usuario manualmente en Neto / IVA / Monto.
+  const [usdOpen, setUsdOpen] = useState(!!leerUsd(initial?.observaciones).monto);
+  const [usdMonto, setUsdMonto] = useState<string>(() => leerUsd(initial?.observaciones).monto);
+  const [usdCotiz, setUsdCotiz] = useState<string>(() => leerUsd(initial?.observaciones).cotiz);
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
