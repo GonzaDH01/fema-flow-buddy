@@ -139,9 +139,11 @@ function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   if (!cuit) avisos.push({ campo: "CUIT", nivel: "warn", msg: "Sin CUIT no se puede vincular con la ficha existente." });
   else if (cuit.length !== 11) avisos.push({ campo: "CUIT", nivel: "warn", msg: "El CUIT no tiene 11 dígitos." });
 
-  const suma = (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0);
+  const suma =
+    (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
+    (r.otros_impuestos ?? 0) + (r.itc_combustible ?? 0) + (r.co2_combustible ?? 0);
   if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(suma - (r.total ?? 0)) > Math.max(1, (r.total ?? 0) * 0.01)) {
-    avisos.push({ campo: "Importes", nivel: "warn", msg: "Neto + IVA + percepciones no coincide con el total leído." });
+    avisos.push({ campo: "Importes", nivel: "warn", msg: "Neto + IVA + percepciones + otros impuestos no coincide con el total leído. Revisá el pie del comprobante." });
   }
   if ((r.total ?? 0) > 0 && !(r.neto ?? 0)) {
     avisos.push({ campo: "Neto", nivel: "warn", msg: "No se leyó el neto gravado (queda fuera del libro IVA)." });
