@@ -340,10 +340,13 @@ function Page() {
   };
 
   const cobrar = async (m: Mov) => {
-    if (cuentas.length > 0) {
-      setDepositoMov(m);
-      return;
-    }
+    const esPago = m.direccion === "pago";
+    const ok = confirm(
+      esPago
+        ? `¿Confirmás que este documento propio de ${formatPesos(m.monto)} fue debitado de la cuenta?`
+        : `¿Confirmás que cobramos el echeq de ${m.contraparte ?? "el cliente"} por ${formatPesos(m.monto)}? Queda registrado como COBRADO (no cedido).`,
+    );
+    if (!ok) return;
     await aplicarCobro(m, null);
   };
 
@@ -366,9 +369,20 @@ function Page() {
       await movsQ.refetch();
       return;
     }
+    // Deja asentado en el propio movimiento cómo se cerró: cobrado por nosotros (no cedido).
+    let obsFinal = obs;
+    if (!cuentaId) {
+      const hoyIso = new Date().toISOString().slice(0, 10);
+      const base = (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim();
+      const nota = esPago
+        ? `Debitado de cuenta el ${formatFecha(hoyIso)}`
+        : `Cobrado por FEMA el ${formatFecha(hoyIso)}`;
+      obsFinal = base && !base.startsWith("Cobrado") && !base.startsWith("Debitado") ? `${base} · ${nota}` : nota;
+      await sb.from("fema_movimientos_pago").update({ observaciones: obsFinal }).eq("id", m.id);
+    }
     // Actualización inmediata en pantalla
     qc.setQueryData(["fema_movimientos_pago", user?.id, year], (old: Mov[] | undefined) =>
-      (old ?? []).map(x => x.id === m.id ? { ...x, estado: nuevoEstado as Mov["estado"], observaciones: obs ?? null } : x));
+      (old ?? []).map(x => x.id === m.id ? { ...x, estado: nuevoEstado as Mov["estado"], observaciones: obsFinal ?? null } : x));
     if (cuentaId) {
       const cta = cuentas.find((c: any) => c.id === cuentaId);
       if (cta) {
@@ -378,7 +392,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
       }
     } else {
-      toast.success(esPago ? "Marcado como pagado (sin debitar de caja)" : "Cobrado sin depositar (no modifica caja)");
+      toast.success(esPago ? "Marcado como pagado" : "Echeq marcado como COBRADO por nosotros");
     }
     await movsQ.refetch();
     qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
@@ -1112,8 +1126,17 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
             <XIcon className="w-4 h-4 mr-1" />Limpiar
           </Button>
         )}
-        <div className="ml-auto text-xs text-muted-foreground">
-          {filtradas.length} echeqs · <span className="font-mono text-emerald-400">{formatPesos(totalFiltrado)}</span>
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-md border border-border px-2 py-1">
+            En cartera: <b>{rows.filter(m => m.estado === "en_cartera").length}</b>
+          </span>
+          <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+            Cobrados por nosotros: <b className="text-emerald-400">{rows.filter(m => m.estado === "cobrado").length}</b>
+          </span>
+          <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1">
+            Cedidos a proveedores: <b className="text-amber-400">{rows.filter(m => m.estado === "cedido").length}</b>
+          </span>
+          <span>{filtradas.length} echeqs · <span className="font-mono text-emerald-400">{formatPesos(totalFiltrado)}</span></span>
         </div>
       </div>
 
@@ -1155,15 +1178,17 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
               <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
               <TableCell className="text-xs">
                 {m.estado === "cobrado" ? (
-                  ctaDep ? (
-                    <span className="text-emerald-400">Depositado en {ctaDep.banco}</span>
-                  ) : (
-                    <span className="text-amber-400">Cobrado sin depositar</span>
-                  )
+                  <span className="text-emerald-400">
+                    Cobrado por nosotros{ctaDep ? ` · ${ctaDep.banco}` : ""}
+                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
+                  </span>
                 ) : m.estado === "cedido" ? (
-                  <span className="text-muted-foreground">{m.observaciones ?? "Cedido"}</span>
+                  <span className="text-amber-400">
+                    Cedido a proveedor
+                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">En cartera</span>
                 )}
               </TableCell>
               <TableCell className="text-right">
@@ -1180,11 +1205,6 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
                   )}
                   {!enCartera && (
                     <>
-                      {m.estado === "cobrado" && !ctaDep && onDepositar && cuentas.length > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => onDepositar(m)} className="border-emerald-500/40 text-emerald-400">
-                          Acreditar en banco
-                        </Button>
-                      )}
                       <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
                         Volver a cartera
                       </Button>
