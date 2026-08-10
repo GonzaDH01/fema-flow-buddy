@@ -199,6 +199,8 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
 
       const acc: Record<string, Cuenta> = {};
       for (const raw of ((fRes.data ?? []) as any[])) {
+        // Franco abona con su tarjeta personal: no genera deuda en cuenta corriente.
+        if (raw.categoria === "Franco_Particular") continue;
         // Notas de crédito/débito: se muestran en la cuenta corriente
         // (las emite el proveedor) pero no generan saldo a pagar.
         const informativo = esComprobanteInformativo(raw.tipo_comprobante);
