@@ -805,6 +805,8 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const [usdOpen, setUsdOpen] = useState(!!leerUsd(initial?.observaciones).monto);
   const [usdMonto, setUsdMonto] = useState<string>(() => leerUsd(initial?.observaciones).monto);
   const [usdCotiz, setUsdCotiz] = useState<string>(() => leerUsd(initial?.observaciones).cotiz);
+  const [usdPerc, setUsdPerc] = useState<string>("");
+  const [usdOtros, setUsdOtros] = useState<string>("");
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
@@ -999,6 +1001,14 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
                   />
                 </FormField>
               </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 items-end">
+                <FormField label="Percepciones en USD (opcional)">
+                  <Input type="number" step="0.01" placeholder="0" value={usdPerc} onChange={(e) => setUsdPerc(e.target.value)} />
+                </FormField>
+                <FormField label="Otros impuestos en USD (opcional)">
+                  <Input type="number" step="0.01" placeholder="0" value={usdOtros} onChange={(e) => setUsdOtros(e.target.value)} />
+                </FormField>
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -1006,14 +1016,22 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
                 className="mt-3"
                 disabled={!(Number(usdMonto) > 0 && Number(usdCotiz) > 0)}
                 onClick={() => {
-                  const netoPesos = Number(usdMonto) * Number(usdCotiz);
+                  const cot = Number(usdCotiz);
+                  const netoPesos = Number(usdMonto) * cot;
                   const ivaPesos = netoPesos * 0.21;
-                  const perc = Number(f.getValues("percepciones")) || 0;
-                  const otros = Number(f.getValues("otros_impuestos")) || 0;
                   const round = (n: number) => Math.round(n * 100) / 100;
+                  const perc = Number(usdPerc) > 0
+                    ? round(Number(usdPerc) * cot)
+                    : Number(f.getValues("percepciones")) || 0;
+                  const otros = Number(usdOtros) > 0
+                    ? round(Number(usdOtros) * cot)
+                    : Number(f.getValues("otros_impuestos")) || 0;
+                  const internos = Number(f.getValues("impuestos_internos")) || 0;
+                  if (Number(usdPerc) > 0) f.setValue("percepciones", perc, { shouldDirty: true });
+                  if (Number(usdOtros) > 0) f.setValue("otros_impuestos", otros, { shouldDirty: true });
                   f.setValue("neto", round(netoPesos), { shouldDirty: true });
                   f.setValue("iva_21", round(ivaPesos), { shouldDirty: true });
-                  f.setValue("total", round(netoPesos + ivaPesos + perc + otros), { shouldDirty: true, shouldValidate: true });
+                  f.setValue("total", round(netoPesos + ivaPesos + perc + otros + internos), { shouldDirty: true, shouldValidate: true });
                 }}
               >
                 Recalcular importes en pesos
@@ -1023,7 +1041,9 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
             <p className="mt-2 text-xs text-muted-foreground">
               El importe en dólares queda registrado en el comprobante (referencia:{" "}
               {Number(usdMonto) && Number(usdCotiz) ? formatPesos(Number(usdMonto) * Number(usdCotiz)) : "—"}).
-              Con “Recalcular importes en pesos” se completan Neto (USD × cotización), IVA 21% y Monto (neto + IVA + percepciones + otros impuestos).
+              Con “Recalcular importes en pesos” se completan Neto (USD × cotización), IVA 21%, las percepciones y otros impuestos
+              (si los cargás en USD se convierten; si no, se usan los valores en pesos ya ingresados) y el Monto total
+              (neto + IVA + percepciones + otros impuestos + internos).
             </p>
         </div>
 
