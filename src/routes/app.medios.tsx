@@ -1331,6 +1331,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       const { data, error } = await sb.from("fema_facturas_compra")
         .select("id,numero,fecha,total,tipo_comprobante,estado,descripcion")
         .eq("proveedor_id", proveedorSel as string)
+        .neq("categoria", "Franco_Particular")
         .order("fecha", { ascending: false }).limit(60);
       if (error) throw error;
       return (data ?? []).filter((n: any) =>
