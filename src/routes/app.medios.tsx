@@ -1822,6 +1822,12 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       if (tipo === "pago_proveedor") {
         const ids = (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []);
         for (const fid of ids) await reconciliarFactura(fid, "compra");
+        // Las notas aplicadas quedan marcadas para no volver a ofrecerlas en otro pago.
+        if (notasSel.length > 0) {
+          await sb.from("fema_facturas_compra")
+            .update({ estado: "pagada" as any })
+            .in("id", notasSel);
+        }
       }
       if (tipo === "ceder_echeq" && facturaCompraCesion) await reconciliarFactura(facturaCompraCesion, "compra");
       if (initial?.factura_venta_id && initial.factura_venta_id !== facturaSel) {
