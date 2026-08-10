@@ -44,7 +44,7 @@ async function loadCashflow(userId: string, anio: number) {
       .select("fecha,total")
       .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_movimientos_pago")
-      .select("instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
+      .select("id,instrumento,direccion,estado,monto,vencimiento,fecha_emision,mes,anio,factura_venta_id,factura_compra_id,contraparte,numero,banco")
       ,
     supabase.from("fema_imputaciones")
       .select("monto,fecha,factura_venta_id,factura_compra_id,movimiento_pago_id"),
