@@ -112,7 +112,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
       const [fRes, eRes, sRes, mRes, iRes] = await Promise.all([
         (supabase as any)
           .from(tablaFact)
-          .select(`id,fecha,numero,total,tipo_comprobante,${fk}`)
+          .select(`id,fecha,numero,total,tipo_comprobante,categoria,${fk}`)
           .lte("fecha", `${anio}-12-31`)
           .order("fecha", { ascending: true }),
         supabase.from(tablaEnt as any).select("id,nombre,cuit"),
