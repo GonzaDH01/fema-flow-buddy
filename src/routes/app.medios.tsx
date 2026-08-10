@@ -1666,10 +1666,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         let objetivos: { id: string; restante: number }[] = [];
         let previos: any[] = [];
         if (idsObjetivo.length > 0) {
+          const colImp = tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id";
           const { data } = await sb.from("fema_movimientos_pago")
             .select("factura_compra_id,factura_venta_id,monto,estado")
-            .in(tipo === "pago_proveedor" ? "factura_compra_id" : "factura_venta_id", idsObjetivo);
-          previos = (data ?? []) as any;
+            .in(colImp, idsObjetivo);
+          // Las imputaciones ya guardadas también consumen saldo de la factura.
+          const { data: impPrev } = await sb.from("fema_imputaciones")
+            .select("monto,factura_compra_id,factura_venta_id")
+            .in(colImp, idsObjetivo);
+          previos = [
+            ...((data ?? []) as any[]),
+            ...((impPrev ?? []) as any[]).map(i => ({
+              ...i,
+              estado: tipo === "cobro_cliente" ? "cobrado" : "pagado",
+            })),
+          ] as any;
           const lista = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
           objetivos = construirObjetivos(
             idsObjetivo.map(fid => ({ id: fid, total: lista.find(x => x.id === fid)?.total ?? 0 })),
@@ -1681,6 +1692,29 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         const repartir = (importe: number) => repartirImporte(objetivos, importe, facturaSel);
         // Un echeq cedido es indivisible: se imputa a la primera factura con saldo
         const imputarEcheq = (importe: number) => imputarIndivisible(objetivos, importe, facturaSel);
+        // Conciliación automática: reparte cualquier importe entre las facturas
+        // seleccionadas del mismo proveedor/cliente, llevando el saldo ya asignado
+        // dentro de esta misma operación (cesiones + cuotas).
+        const esMultiObjetivo = idsObjetivo.length > 1;
+        const colImputacion = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+        const listaObjetivo = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+        const asignadoEnEstaOp = new Map<string, number>();
+        const distribuir = (importe: number) => {
+          const prop = proponerImputaciones(
+            idsObjetivo.map(fid => {
+              const f = listaObjetivo.find(x => x.id === fid);
+              const yaEnOp = asignadoEnEstaOp.get(fid) ?? 0;
+              return { id: fid, total: Math.max(0, Number(f?.total ?? 0) - yaEnOp), numero: f?.numero };
+            }).filter(f => Number(f.total) > 0),
+            (previos ?? []) as any,
+            importe,
+            tipo === "cobro_cliente" ? "venta" : "compra",
+          );
+          for (const i of prop.imputaciones) {
+            asignadoEnEstaOp.set(i.facturaId, (asignadoEnEstaOp.get(i.facturaId) ?? 0) + i.monto);
+          }
+          return prop;
+        };
         // Operación única y atómica: cesiones + altas + bajas + reconciliación de facturas.
         const opCeder: string[] = [];
         const opInsert: any[] = [];
@@ -1692,23 +1726,36 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             const e = echeqsCartera.find(x => x.id === eid);
             if (!e) continue;
             opCeder.push(eid);
-            opInsert.push({
+            // Con varias facturas seleccionadas el echeq cedido se imputa en cascada.
+            const prop = esMultiObjetivo ? distribuir(Number(e.monto)) : null;
+            const nros = prop ? prop.imputaciones.map(i => i.numero).filter(Boolean) : [];
+            const base: any = {
               instrumento: "cesion", direccion: "pago",
               tipo_movimiento: "ceder_echeq",
               fecha_emision: new Date().toISOString().split("T")[0],
               vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
               contraparte: provNombre, monto: e.monto, estado: "pagado",
               echeq_origen_id: eid,
-              factura_compra_id: imputarEcheq(Number(e.monto)),
-              observaciones: observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
+              factura_compra_id: prop ? null : imputarEcheq(Number(e.monto)),
+              observaciones: [
+                observaciones || `Cesión echeq Nº ${e.numero ?? ""} a ${provNombre}`,
+                nros.length > 1 ? `Imputado a facturas: ${nros.join(", ")}` : null,
+              ].filter(Boolean).join(" · "),
               anio: year, mes,
-            });
+            };
+            if (prop && prop.imputaciones.length > 0) {
+              base.imputaciones = prop.imputaciones.map(i => ({
+                [colImputacion]: i.facturaId,
+                monto: i.monto,
+                fecha: new Date().toISOString().split("T")[0],
+              }));
+            }
+            opInsert.push(base);
           }
         }
         if (filasValidas.length > 0) {
-          const esMulti = idsObjetivo.length > 1;
-          const colF = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
-          const listaFacturas = tipo === "cobro_cliente" ? facturasVenta : facturasCompra;
+          const esMulti = esMultiObjetivo;
+          const colF = colImputacion;
           if (initial) {
             // edición: actualiza única fila
             const c = filasValidas[0];
