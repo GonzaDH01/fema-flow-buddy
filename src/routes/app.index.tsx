@@ -23,7 +23,7 @@ async function loadKPIs(_userId: string, anio: number) {
       .select("id,mes,total,estado,fecha,numero,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("id,mes,total,estado,fecha,numero,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,fecha,numero,categoria,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_sueldos")
       .select("sueldo_bruto,cargas_sociales,periodo")
