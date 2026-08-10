@@ -907,6 +907,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
               <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
               <FormField label="ITC (Nafta + Gas Oil)"><Input type="number" step="0.01" {...f.register("impuestos_internos")} /></FormField>
               <FormField label="CO₂ + Otros tributos (Tasa Vial, etc.)"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+              <FormField label="Percepciones (IIBB / IVA)"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
               <FormField label="Litros"><Input type="number" step="0.01" {...f.register("litros")} /></FormField>
               <FormField label="Producto"><Input placeholder="Ej: Quantium Diesel" {...f.register("producto")} /></FormField>
             </div>
@@ -920,6 +921,28 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Neto"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
             <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
+            <FormField label="Percepciones (IIBB / IVA)"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
+            <FormField label="Otros impuestos"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+          </div>
+        )}
+
+        {!isCombustible && totalDesglose > 0 && Math.abs(difDesglose) > 0.5 && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+            <p className="text-amber-500">
+              El desglose (neto + IVA + percepciones + otros impuestos) suma{" "}
+              <span className="font-semibold">{formatPesos(totalDesglose)}</span> y el Monto cargado es{" "}
+              <span className="font-semibold">{formatPesos(totalActual)}</span> ({difDesglose > 0 ? "faltan" : "sobran"}{" "}
+              {formatPesos(Math.abs(difDesglose))}).
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => f.setValue("total", totalDesglose, { shouldDirty: true, shouldValidate: true })}
+            >
+              Usar {formatPesos(totalDesglose)} como Monto
+            </Button>
           </div>
         )}
 
