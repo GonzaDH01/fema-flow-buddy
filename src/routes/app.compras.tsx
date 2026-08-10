@@ -68,6 +68,7 @@ const schema = z.object({
   descripcion: z.string().max(300).optional().or(z.literal("")),
   neto: z.coerce.number().min(0),
   iva_21: z.coerce.number().min(0),
+  percepciones: z.coerce.number().min(0),
   impuestos_internos: z.coerce.number().min(0),
   otros_impuestos: z.coerce.number().min(0),
   litros: z.coerce.number().min(0),
@@ -224,6 +225,7 @@ function Page() {
       descripcion: v.descripcion || null,
       neto: v.neto,
       iva_21: v.iva_21,
+      percepciones: v.percepciones,
       impuestos_internos: v.impuestos_internos,
       otros_impuestos: v.otros_impuestos,
       litros: v.litros,
@@ -754,6 +756,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
       descripcion: initial?.descripcion ?? "",
       neto: Number(initial?.neto ?? 0),
       iva_21: Number(initial?.iva_21 ?? 0),
+      percepciones: Number(initial?.percepciones ?? 0),
       impuestos_internos: Number(initial?.impuestos_internos ?? 0),
       otros_impuestos: Number(initial?.otros_impuestos ?? 0),
       litros: Number(initial?.litros ?? 0),
@@ -770,6 +773,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const categoria = f.watch("categoria");
   const neto = Number(f.watch("neto") || 0);
   const iva21 = Number(f.watch("iva_21") || 0);
+  const percep = Number(f.watch("percepciones") || 0);
   const impInt = Number(f.watch("impuestos_internos") || 0);
   const otros = Number(f.watch("otros_impuestos") || 0);
 
@@ -794,9 +798,17 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
 
   const totalCalc = useMemo(() => {
     if (!isCombustible) return null;
-    if (tipo === "A") return neto + iva21 + impInt + otros;
-    return neto; // B/C: IVA dentro del precio
-  }, [isCombustible, tipo, neto, iva21, impInt, otros]);
+    if (tipo === "A") return neto + iva21 + percep + impInt + otros;
+    return neto + percep; // B/C: IVA dentro del precio, la percepción se suma aparte
+  }, [isCombustible, tipo, neto, iva21, percep, impInt, otros]);
+
+  // Total sugerido para comprobantes que no son de combustible.
+  const totalDesglose = useMemo(
+    () => Number((neto + iva21 + percep + impInt + otros).toFixed(2)),
+    [neto, iva21, percep, impInt, otros],
+  );
+  const totalActual = Number(f.watch("total") || 0);
+  const difDesglose = Number((totalDesglose - totalActual).toFixed(2));
 
   // Solo autocompletar el total desde el desglose cuando el usuario
   // efectivamente carga algún importe del desglose. Nunca pisar con 0
@@ -895,6 +907,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
               <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
               <FormField label="ITC (Nafta + Gas Oil)"><Input type="number" step="0.01" {...f.register("impuestos_internos")} /></FormField>
               <FormField label="CO₂ + Otros tributos (Tasa Vial, etc.)"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+              <FormField label="Percepciones (IIBB / IVA)"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
               <FormField label="Litros"><Input type="number" step="0.01" {...f.register("litros")} /></FormField>
               <FormField label="Producto"><Input placeholder="Ej: Quantium Diesel" {...f.register("producto")} /></FormField>
             </div>
@@ -908,6 +921,28 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Neto"><Input type="number" step="0.01" {...f.register("neto")} /></FormField>
             <FormField label="IVA 21%"><Input type="number" step="0.01" {...f.register("iva_21")} /></FormField>
+            <FormField label="Percepciones (IIBB / IVA)"><Input type="number" step="0.01" {...f.register("percepciones")} /></FormField>
+            <FormField label="Otros impuestos"><Input type="number" step="0.01" {...f.register("otros_impuestos")} /></FormField>
+          </div>
+        )}
+
+        {!isCombustible && totalDesglose > 0 && Math.abs(difDesglose) > 0.5 && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+            <p className="text-amber-500">
+              El desglose (neto + IVA + percepciones + otros impuestos) suma{" "}
+              <span className="font-semibold">{formatPesos(totalDesglose)}</span> y el Monto cargado es{" "}
+              <span className="font-semibold">{formatPesos(totalActual)}</span> ({difDesglose > 0 ? "faltan" : "sobran"}{" "}
+              {formatPesos(Math.abs(difDesglose))}).
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => f.setValue("total", totalDesglose, { shouldDirty: true, shouldValidate: true })}
+            >
+              Usar {formatPesos(totalDesglose)} como Monto
+            </Button>
           </div>
         )}
 
