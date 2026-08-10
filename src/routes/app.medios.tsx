@@ -1492,6 +1492,41 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const totalMulti = useMemo(
     () => facturasSeleccionadas.reduce((a, f) => a + Number(f.total || 0), 0),
     [facturasSeleccionadas]);
+
+  // Notas de crédito / débito pendientes del proveedor seleccionado.
+  const notasQ = useQuery({
+    queryKey: ["fema_notas_compra_proveedor", proveedorSel],
+    enabled: !!proveedorSel && tipo === "pago_proveedor" && !initial,
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_facturas_compra")
+        .select("id,numero,fecha,total,tipo_comprobante,estado,descripcion")
+        .eq("proveedor_id", proveedorSel as string)
+        .order("fecha", { ascending: false }).limit(60);
+      if (error) throw error;
+      return (data ?? []).filter((n: any) =>
+        esComprobanteInformativo(n.tipo_comprobante) && n.estado !== "pagada") as any[];
+    },
+  });
+  const notas = notasQ.data ?? [];
+  const esNotaCredito = (n: any) => (n.tipo_comprobante ?? "").toLowerCase().includes("cr");
+  const notasSeleccionadas = useMemo(
+    () => notas.filter((n: any) => notasSel.includes(n.id)),
+    [notas, notasSel]);
+  // NC resta y ND suma sobre el total a pagar.
+  const ajusteNotas = useMemo(
+    () => notasSeleccionadas.reduce((a: number, n: any) =>
+      a + (esNotaCredito(n) ? -Number(n.total || 0) : Number(n.total || 0)), 0),
+    [notasSeleccionadas]);
+  const netoAPagar = redondear(totalMulti + ajusteNotas);
+  const toggleNota = (n: any) => {
+    const next = notasSel.includes(n.id) ? notasSel.filter(x => x !== n.id) : [...notasSel, n.id];
+    setNotasSel(next);
+    const ajuste = notas.filter((x: any) => next.includes(x.id))
+      .reduce((a: number, x: any) => a + (esNotaCredito(x) ? -Number(x.total || 0) : Number(x.total || 0)), 0);
+    const nuevo = redondear(totalMulti + ajuste);
+    setMonto(nuevo);
+    setCuotas([{ numero: "", banco: bancoGlobal || "", vencimiento: "", monto: nuevo, obs: "" }]);
+  };
   const toggleFacturaMulti = (f: any) => {
     setFacturasMulti(prev => {
       const next = prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id];
@@ -1504,7 +1539,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     () => cuotas.reduce((a, c) => a + Number(c.monto || 0), 0),
     [cuotas]);
   const totalFactura = multiActivo && facturasSeleccionadas.length > 0
-    ? totalMulti
+    ? netoAPagar
     : Number(facturaActual?.total ?? monto ?? 0);
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
