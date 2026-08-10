@@ -125,7 +125,7 @@ async function loadCashflow(userId: string, anio: number) {
     return Number(m.mes) || 0;
   }
   function instrLabel(ins: string) {
-    return ins === "echeq" ? "Echeq propio" : ins === "cheque_fisico" ? "Cheque físico" : ins === "cesion" ? "Echeq cedido" : ins === "transferencia" ? "Transferencia" : ins;
+    return ins === "echeq" ? "Echeq propio" : ins === "cheque_fisico" ? "Cheque físico" : ins === "cesion" ? "Echeq cedido" : ins === "transferencia" ? "Transferencia" : ins === "imputacion" ? "Imputación" : ins;
   }
   function distribuirMovs(linked: any[], total: number, facturaMes: number) {
     const values = empty12();
