@@ -1573,7 +1573,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           const prop = distribuir(importe);
           if (prop.imputaciones.length === 0) continue;
           opInsert.push({
-            instrumento: "nota_credito", direccion: "pago",
+            instrumento: "otro", direccion: "pago",
             tipo_movimiento: "pago_proveedor",
             fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
             vencimiento: null, numero: nc.numero ?? null, banco: null,
