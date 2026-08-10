@@ -1215,7 +1215,7 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
                 )}
                 {onConciliar && !m.factura_venta_id && !m.factura_compra_id && (
                   <Button size="sm" variant="outline" onClick={() => onConciliar(m)} className="border-sky-500/40 text-sky-400">
-                    <Link2 className="w-3 h-3 mr-1" />Conciliar
+                    <Link2 className="w-3 h-3 mr-1" />{tieneImps ? "Ver imputación" : "Conciliar"}
                   </Button>
                 )}
                 <Button size="icon" variant="ghost" onClick={() => onEdit(m)}><Pencil className="w-3 h-3" /></Button>
