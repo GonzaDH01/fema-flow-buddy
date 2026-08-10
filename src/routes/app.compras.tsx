@@ -969,8 +969,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
           </FormField>
         </div>
 
-        {initial && (
-          <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
+        <div className="rounded-md border border-dashed border-border bg-muted/20 p-3">
             <button
               type="button"
               onClick={() => setUsdOpen((v) => !v)}
@@ -979,6 +978,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
               {usdOpen ? "▾" : "▸"} Importe en dólares (USD)
             </button>
             {usdOpen && (
+              <>
               <div className="mt-3 grid grid-cols-2 gap-2 items-end">
                 <FormField label="Monto USD">
                   <Input
@@ -999,14 +999,33 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
                   />
                 </FormField>
               </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                disabled={!(Number(usdMonto) > 0 && Number(usdCotiz) > 0)}
+                onClick={() => {
+                  const netoPesos = Number(usdMonto) * Number(usdCotiz);
+                  const ivaPesos = netoPesos * 0.21;
+                  const perc = Number(f.getValues("percepciones")) || 0;
+                  const otros = Number(f.getValues("otros_impuestos")) || 0;
+                  const round = (n: number) => Math.round(n * 100) / 100;
+                  f.setValue("neto", round(netoPesos), { shouldDirty: true });
+                  f.setValue("iva_21", round(ivaPesos), { shouldDirty: true });
+                  f.setValue("total", round(netoPesos + ivaPesos + perc + otros), { shouldDirty: true, shouldValidate: true });
+                }}
+              >
+                Recalcular importes en pesos
+              </Button>
+              </>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
               El importe en dólares queda registrado en el comprobante (referencia:{" "}
               {Number(usdMonto) && Number(usdCotiz) ? formatPesos(Number(usdMonto) * Number(usdCotiz)) : "—"}).
-              Los importes en pesos (Neto, IVA y Monto) los cargás vos manualmente; el sistema no los recalcula.
+              Con “Recalcular importes en pesos” se completan Neto (USD × cotización), IVA 21% y Monto (neto + IVA + percepciones + otros impuestos).
             </p>
-          </div>
-        )}
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Fecha de pago"><Input type="date" {...f.register("fecha_pago")} /></FormField>
