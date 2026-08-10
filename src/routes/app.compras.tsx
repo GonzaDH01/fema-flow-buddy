@@ -971,21 +971,34 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
               onClick={() => setUsdOpen((v) => !v)}
               className="text-xs font-semibold uppercase tracking-wide text-accent hover:underline"
             >
-              {usdOpen ? "▾" : "▸"} Convertir de USD a pesos
+              {usdOpen ? "▾" : "▸"} Importe en dólares (USD)
             </button>
             {usdOpen && (
-              <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+              <div className="mt-3 grid grid-cols-2 gap-2 items-end">
                 <FormField label="Monto USD">
-                  <Input type="number" step="0.01" placeholder="1000" value={usdMonto} onChange={(e) => setUsdMonto(e.target.value)} />
+                  <Input
+                    type="number" step="0.01" placeholder="1000" value={usdMonto}
+                    onChange={(e) => {
+                      setUsdMonto(e.target.value);
+                      f.setValue("observaciones", escribirUsd(f.getValues("observaciones") ?? "", e.target.value, usdCotiz), { shouldDirty: true });
+                    }}
+                  />
                 </FormField>
-                <FormField label="Cotización $/USD">
-                  <Input type="number" step="0.01" placeholder="1350" value={usdCotiz} onChange={(e) => setUsdCotiz(e.target.value)} />
+                <FormField label="Cotización $/USD (opcional)">
+                  <Input
+                    type="number" step="0.01" placeholder="1350" value={usdCotiz}
+                    onChange={(e) => {
+                      setUsdCotiz(e.target.value);
+                      f.setValue("observaciones", escribirUsd(f.getValues("observaciones") ?? "", usdMonto, e.target.value), { shouldDirty: true });
+                    }}
+                  />
                 </FormField>
-                <Button type="button" onClick={aplicarUsd}>Aplicar</Button>
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              Calcula Neto = USD × cotización. Si la factura es letra A, agrega IVA 21% y actualiza el Monto total automáticamente.
+              El importe en dólares queda registrado en el comprobante (referencia:{" "}
+              {Number(usdMonto) && Number(usdCotiz) ? formatPesos(Number(usdMonto) * Number(usdCotiz)) : "—"}).
+              Los importes en pesos (Neto, IVA y Monto) los cargás vos manualmente; el sistema no los recalcula.
             </p>
           </div>
         )}
