@@ -2156,6 +2156,79 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
+          {(multiActivo || facturaSel) && (totalCombinado - totalFactura) > 0.5 && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <div className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">
+                Ajuste por excedente abonado — {formatPesos(totalCombinado - totalFactura)}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Si el excedente corresponde a intereses, diferencia de cambio o redondeo, cargalo como ajuste
+                sobre una factura: se suma a su total (campo Redondeo / ajuste) y el pago queda imputado completo,
+                sin dejar saldo a cuenta.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Monto del ajuste</div>
+                  <Input
+                    type="number"
+                    className="h-8 text-right font-mono"
+                    value={ajusteExc}
+                    onChange={(e) => setAjusteExc(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Factura a ajustar</div>
+                  <Select value={ajusteFactId} onValueChange={setAjusteFactId}>
+                    <SelectTrigger className="h-8"><SelectValue placeholder="— Elegir factura —" /></SelectTrigger>
+                    <SelectContent>
+                      {(multiActivo && facturasMulti.length > 0
+                        ? facturasMulti.map((fid: string) => facturasCompra.find((x: any) => x.id === fid))
+                        : [facturaActual]
+                      ).filter(Boolean).map((f: any) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.numero ?? "s/n"} · {formatPesos(Number(f.total || 0))}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-1">Concepto</div>
+                  <Input
+                    className="h-8"
+                    placeholder="Intereses / dif. de cambio"
+                    value={ajusteConcepto}
+                    onChange={(e) => setAjusteConcepto(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAjusteExc(redondear(totalCombinado - totalFactura));
+                    if (!ajusteFactId) {
+                      const first = multiActivo && facturasMulti.length > 0 ? facturasMulti[0] : facturaSel;
+                      if (first) setAjusteFactId(first);
+                    }
+                  }}
+                >
+                  Usar todo el excedente
+                </Button>
+                {ajusteExc > 0 && !ajusteFactId && (
+                  <span className="text-[11px] text-rose-400">Elegí la factura donde imputar el ajuste.</span>
+                )}
+                {ajusteExc > 0 && ajusteFactId && (
+                  <span className="text-[11px] text-emerald-400">
+                    Se sumará {formatPesos(ajusteExc)} al total de la factura seleccionada.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Mes asociado">
               <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
