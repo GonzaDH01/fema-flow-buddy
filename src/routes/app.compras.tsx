@@ -1056,9 +1056,9 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
             <p className="mt-2 text-xs text-muted-foreground">
               El importe en dólares queda registrado en el comprobante (referencia:{" "}
               {Number(usdMonto) && Number(usdCotiz) ? formatPesos(Number(usdMonto) * Number(usdCotiz)) : "—"}).
-              Con “Recalcular importes en pesos” se completan Neto (USD × cotización), IVA 21%, las percepciones y otros impuestos
+              Con “Recalcular importes en pesos” se completan Neto (USD × cotización), IVA 21%, las percepciones y el redondeo
               (si los cargás en USD se convierten; si no, se usan los valores en pesos ya ingresados) y el Monto total
-              (neto + IVA + percepciones + otros impuestos + internos).
+              (neto + IVA + percepciones + redondeo + internos).
             </p>
         </div>
 
