@@ -800,7 +800,31 @@ function Page() {
               <EditableOCRField label="IVA 10.5%" value={String(result.iva_105 ?? 0)} onChange={(v) => setResult({ ...result, iva_105: num(v) })} />
               <EditableOCRField label="Percepciones" value={String(result.percepciones ?? 0)} onChange={(v) => setResult({ ...result, percepciones: num(v) })} />
               <EditableOCRField label="Otros impuestos" value={String(result.otros_impuestos ?? 0)} onChange={(v) => setResult({ ...result, otros_impuestos: num(v) })} />
+              <EditableOCRField label="Imp. interno ITC gasoil" value={String(result.itc_gasoil ?? 0)} onChange={(v) => setResult({ ...result, itc_gasoil: num(v) })} />
+              <EditableOCRField label="Imp. interno CO2 gasoil" value={String(result.co2_gasoil ?? 0)} onChange={(v) => setResult({ ...result, co2_gasoil: num(v) })} />
+              <EditableOCRField label="ITC nafta" value={String(result.itc_nafta ?? 0)} onChange={(v) => setResult({ ...result, itc_nafta: num(v) })} />
+              <EditableOCRField label="CO2 nafta" value={String(result.co2_nafta ?? 0)} onChange={(v) => setResult({ ...result, co2_nafta: num(v) })} />
               <EditableOCRField label="Total" value={String(result.total ?? 0)} onChange={(v) => setResult({ ...result, total: num(v) })} />
+              <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+                <span className="text-xs text-muted-foreground">
+                  Desglose: {sumaDesglose(result).toLocaleString("es-AR", { minimumFractionDigits: 2 })} · Diferencia con el total:{" "}
+                  <b className={Math.abs((result.total ?? 0) - sumaDesglose(result)) > 1 ? "text-destructive" : ""}>
+                    {((result.total ?? 0) - sumaDesglose(result)).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  </b>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const dif = Number(((result.total ?? 0) - sumaDesglose(result)).toFixed(2));
+                    if (!dif) return;
+                    setResult({ ...result, itc_gasoil: Number(((result.itc_gasoil ?? 0) + dif).toFixed(2)) });
+                  }}
+                >
+                  Cuadrar con el total (a ITC gasoil)
+                </Button>
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Moneda</Label>
                 <Input value={result.moneda ?? "ARS"} readOnly className="mt-1 h-8 text-sm" />
