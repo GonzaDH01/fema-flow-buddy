@@ -123,6 +123,21 @@ const TIPOS_COMPROBANTE = [
 
 type Aviso = { campo: string; nivel: "error" | "warn"; msg: string };
 
+/** ITC total (nafta + gasoil), con compatibilidad con el campo agregado. */
+export const sumaITC = (r: OCRResult) =>
+  (r.itc_nafta ?? 0) + (r.itc_gasoil ?? 0) +
+  ((r.itc_nafta == null && r.itc_gasoil == null) ? (r.itc_combustible ?? 0) : 0);
+
+/** CO2 total (nafta + gasoil), con compatibilidad con el campo agregado. */
+export const sumaCO2 = (r: OCRResult) =>
+  (r.co2_nafta ?? 0) + (r.co2_gasoil ?? 0) +
+  ((r.co2_nafta == null && r.co2_gasoil == null) ? (r.co2_combustible ?? 0) : 0);
+
+/** Suma del desglose que debe igualar al total impreso del comprobante. */
+export const sumaDesglose = (r: OCRResult) =>
+  (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
+  (r.otros_impuestos ?? 0) + sumaITC(r) + sumaCO2(r);
+
 /** Revisión previa campo por campo: marca lo que falta o no cierra antes de guardar. */
 function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   const avisos: Aviso[] = [];
@@ -139,11 +154,14 @@ function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   if (!cuit) avisos.push({ campo: "CUIT", nivel: "warn", msg: "Sin CUIT no se puede vincular con la ficha existente." });
   else if (cuit.length !== 11) avisos.push({ campo: "CUIT", nivel: "warn", msg: "El CUIT no tiene 11 dígitos." });
 
-  const suma =
-    (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
-    (r.otros_impuestos ?? 0) + (r.itc_combustible ?? 0) + (r.co2_combustible ?? 0);
-  if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(suma - (r.total ?? 0)) > Math.max(1, (r.total ?? 0) * 0.01)) {
-    avisos.push({ campo: "Importes", nivel: "warn", msg: "Neto + IVA + percepciones + otros impuestos no coincide con el total leído. Revisá el pie del comprobante." });
+  const suma = sumaDesglose(r);
+  const dif = (r.total ?? 0) - suma;
+  if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(dif) > Math.max(1, (r.total ?? 0) * 0.005)) {
+    avisos.push({
+      campo: "Importes",
+      nivel: "warn",
+      msg: `Faltan ${Math.abs(dif).toLocaleString("es-AR", { minimumFractionDigits: 2 })} para llegar al total. En combustible suele ser ITC gasoil / CO2 gasoil: cargalos abajo o usá "Cuadrar con el total".`,
+    });
   }
   if ((r.total ?? 0) > 0 && !(r.neto ?? 0)) {
     avisos.push({ campo: "Neto", nivel: "warn", msg: "No se leyó el neto gravado (queda fuera del libro IVA)." });
@@ -527,13 +545,8 @@ function Page() {
           descripcion: result.descripcion ?? result.emisor ?? null,
           // ITC (nafta + gasoil) va a impuestos_internos.
           // CO2 (nafta + gasoil) + otros tributos van a otros_impuestos.
-          impuestos_internos:
-            (result.itc_nafta ?? 0) + (result.itc_gasoil ?? 0) +
-            ((result.itc_nafta == null && result.itc_gasoil == null) ? (result.itc_combustible ?? 0) : 0),
-          otros_impuestos:
-            (result.otros_impuestos ?? 0) +
-            (result.co2_nafta ?? 0) + (result.co2_gasoil ?? 0) +
-            ((result.co2_nafta == null && result.co2_gasoil == null) ? (result.co2_combustible ?? 0) : 0),
+          impuestos_internos: sumaITC(result),
+          otros_impuestos: (result.otros_impuestos ?? 0) + sumaCO2(result),
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
           imagen_path,
@@ -782,7 +795,31 @@ function Page() {
               <EditableOCRField label="IVA 10.5%" value={String(result.iva_105 ?? 0)} onChange={(v) => setResult({ ...result, iva_105: num(v) })} />
               <EditableOCRField label="Percepciones" value={String(result.percepciones ?? 0)} onChange={(v) => setResult({ ...result, percepciones: num(v) })} />
               <EditableOCRField label="Otros impuestos" value={String(result.otros_impuestos ?? 0)} onChange={(v) => setResult({ ...result, otros_impuestos: num(v) })} />
+              <EditableOCRField label="Imp. interno ITC gasoil" value={String(result.itc_gasoil ?? 0)} onChange={(v) => setResult({ ...result, itc_gasoil: num(v) })} />
+              <EditableOCRField label="Imp. interno CO2 gasoil" value={String(result.co2_gasoil ?? 0)} onChange={(v) => setResult({ ...result, co2_gasoil: num(v) })} />
+              <EditableOCRField label="ITC nafta" value={String(result.itc_nafta ?? 0)} onChange={(v) => setResult({ ...result, itc_nafta: num(v) })} />
+              <EditableOCRField label="CO2 nafta" value={String(result.co2_nafta ?? 0)} onChange={(v) => setResult({ ...result, co2_nafta: num(v) })} />
               <EditableOCRField label="Total" value={String(result.total ?? 0)} onChange={(v) => setResult({ ...result, total: num(v) })} />
+              <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+                <span className="text-xs text-muted-foreground">
+                  Desglose: {sumaDesglose(result).toLocaleString("es-AR", { minimumFractionDigits: 2 })} · Diferencia con el total:{" "}
+                  <b className={Math.abs((result.total ?? 0) - sumaDesglose(result)) > 1 ? "text-destructive" : ""}>
+                    {((result.total ?? 0) - sumaDesglose(result)).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  </b>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const dif = Number(((result.total ?? 0) - sumaDesglose(result)).toFixed(2));
+                    if (!dif) return;
+                    setResult({ ...result, itc_gasoil: Number(((result.itc_gasoil ?? 0) + dif).toFixed(2)) });
+                  }}
+                >
+                  Cuadrar con el total (a ITC gasoil)
+                </Button>
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Moneda</Label>
                 <Input value={result.moneda ?? "ARS"} readOnly className="mt-1 h-8 text-sm" />
