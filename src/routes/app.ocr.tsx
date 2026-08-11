@@ -123,6 +123,21 @@ const TIPOS_COMPROBANTE = [
 
 type Aviso = { campo: string; nivel: "error" | "warn"; msg: string };
 
+/** ITC total (nafta + gasoil), con compatibilidad con el campo agregado. */
+export const sumaITC = (r: OCRResult) =>
+  (r.itc_nafta ?? 0) + (r.itc_gasoil ?? 0) +
+  ((r.itc_nafta == null && r.itc_gasoil == null) ? (r.itc_combustible ?? 0) : 0);
+
+/** CO2 total (nafta + gasoil), con compatibilidad con el campo agregado. */
+export const sumaCO2 = (r: OCRResult) =>
+  (r.co2_nafta ?? 0) + (r.co2_gasoil ?? 0) +
+  ((r.co2_nafta == null && r.co2_gasoil == null) ? (r.co2_combustible ?? 0) : 0);
+
+/** Suma del desglose que debe igualar al total impreso del comprobante. */
+export const sumaDesglose = (r: OCRResult) =>
+  (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
+  (r.otros_impuestos ?? 0) + sumaITC(r) + sumaCO2(r);
+
 /** Revisión previa campo por campo: marca lo que falta o no cierra antes de guardar. */
 function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   const avisos: Aviso[] = [];
@@ -139,11 +154,14 @@ function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   if (!cuit) avisos.push({ campo: "CUIT", nivel: "warn", msg: "Sin CUIT no se puede vincular con la ficha existente." });
   else if (cuit.length !== 11) avisos.push({ campo: "CUIT", nivel: "warn", msg: "El CUIT no tiene 11 dígitos." });
 
-  const suma =
-    (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
-    (r.otros_impuestos ?? 0) + (r.itc_combustible ?? 0) + (r.co2_combustible ?? 0);
-  if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(suma - (r.total ?? 0)) > Math.max(1, (r.total ?? 0) * 0.01)) {
-    avisos.push({ campo: "Importes", nivel: "warn", msg: "Neto + IVA + percepciones + otros impuestos no coincide con el total leído. Revisá el pie del comprobante." });
+  const suma = sumaDesglose(r);
+  const dif = (r.total ?? 0) - suma;
+  if ((r.total ?? 0) > 0 && suma > 0 && Math.abs(dif) > Math.max(1, (r.total ?? 0) * 0.005)) {
+    avisos.push({
+      campo: "Importes",
+      nivel: "warn",
+      msg: `Faltan ${Math.abs(dif).toLocaleString("es-AR", { minimumFractionDigits: 2 })} para llegar al total. En combustible suele ser ITC gasoil / CO2 gasoil: cargalos abajo o usá "Cuadrar con el total".`,
+    });
   }
   if ((r.total ?? 0) > 0 && !(r.neto ?? 0)) {
     avisos.push({ campo: "Neto", nivel: "warn", msg: "No se leyó el neto gravado (queda fuera del libro IVA)." });
