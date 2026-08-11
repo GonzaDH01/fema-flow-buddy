@@ -22,12 +22,12 @@ function useTesoreria(incluirEstimados: boolean) {
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const [ctas, movs, cuotas, gf, sc, sv, fc, fv, prov, cli] = await Promise.all([
-        supabase.from("fema_cuentas_bancarias").select("id,banco,alias,saldo,tipo_cuenta,activa"),
+      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
         supabase.from("fema_gastos_fijos").select("id,concepto,monto_mensual,dia_vencimiento,activo,mes_fin"),
+        supabase.from("fema_gastos_fijos_mov").select("gasto_fijo_id,anio,mes,pagado"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
         supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria,tipo_comprobante"),
@@ -35,11 +35,6 @@ function useTesoreria(incluirEstimados: boolean) {
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
       ]);
-
-      const cuentas = ((ctas.data ?? []) as any[]).filter((c) => c.activa !== false);
-      const esVista = (c: any) => (c.tipo_cuenta ?? "").toLowerCase().includes("vista");
-      const saldoVista = cuentas.filter(esVista).reduce((s, c) => s + n(c.saldo), 0);
-      const saldoFondos = cuentas.filter((c) => !esVista(c)).reduce((s, c) => s + n(c.saldo), 0);
 
       const nom = (rows: any[] | null, id: string | null) =>
         (rows ?? []).find((r: any) => r.id === id)?.nombre ?? "s/ identificar";
@@ -70,6 +65,11 @@ function useTesoreria(incluirEstimados: boolean) {
       }
 
       // Gastos fijos activos, proyectados a 4 meses
+      const pagados = new Set(
+        ((gfm.data ?? []) as any[])
+          .filter((m) => m.pagado)
+          .map((m) => `${m.gasto_fijo_id}-${m.anio}-${m.mes}`),
+      );
       const base = new Date(`${hoy}T00:00:00Z`);
       for (const g of (gf.data ?? []) as any[]) {
         if (g.activo === false) continue;
@@ -78,6 +78,7 @@ function useTesoreria(incluirEstimados: boolean) {
           const f = d.toISOString().slice(0, 10);
           if (f < hoy) continue;
           if (g.mes_fin && f > g.mes_fin) continue;
+          if (pagados.has(`${g.id}-${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`)) continue;
           flujos.push({
             fecha: f, concepto: `Gasto fijo: ${g.concepto}`, origen: "Gastos fijos",
             monto: -n(g.monto_mensual),
@@ -116,11 +117,8 @@ function useTesoreria(incluirEstimados: boolean) {
         }
       }
 
-      return {
-        saldoVista, saldoFondos,
-        semanas: proyectar(flujos, saldoVista + saldoFondos, hoy, 13),
-        semanasVista: proyectar(flujos, saldoVista, hoy, 13),
-      };
+      const semanas = proyectar(flujos, 0, hoy, 13);
+      return { semanas, semanasVista: semanas };
     },
   });
 }
@@ -143,7 +141,7 @@ function Page() {
             <Wallet className="h-5 w-5 text-primary" /> Tesorería proyectada — 13 semanas
           </h2>
           <p className="text-sm text-muted-foreground">
-            Qué entra y qué sale semana a semana, arrancando desde el saldo real de bancos.
+            Qué entra y qué sale semana a semana según lo cargado: echeqs, cuotas, gastos fijos y saldos de facturas.
           </p>
         </div>
         <div className="flex gap-2">
@@ -156,15 +154,7 @@ function Page() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Caja a la vista</CardTitle></CardHeader>
-          <CardContent className="text-xl font-semibold">{formatPesos(data?.saldoVista ?? 0)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Fondos de inversión</CardTitle></CardHeader>
-          <CardContent className="text-xl font-semibold">{formatPesos(data?.saldoFondos ?? 0)}</CardContent>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos 13 semanas</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-primary">{formatPesos(totIn)}</CardContent>
@@ -173,6 +163,12 @@ function Page() {
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Egresos 13 semanas</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-destructive">{formatPesos(totEg)}</CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Neto acumulado</CardTitle></CardHeader>
+          <CardContent className={`text-xl font-semibold ${totIn - totEg < 0 ? "text-destructive" : ""}`}>
+            {formatPesos(totIn - totEg)}
+          </CardContent>
+        </Card>
       </div>
 
       {deficit ? (
@@ -180,11 +176,11 @@ function Page() {
           <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
             <div className="font-medium text-destructive">
-              La caja a la vista queda en rojo la semana del {formatFecha(deficit.inicio)}
+              El flujo acumulado queda negativo la semana del {formatFecha(deficit.inicio)}
             </div>
             <div className="text-muted-foreground">
-              Saldo proyectado {formatPesos(deficit.saldoFinal)}. Programá un rescate de los fondos de inversión
-              o reprogramá pagos antes de esa fecha.
+              Acumulado {formatPesos(deficit.saldoFinal)}: los egresos comprometidos superan lo que entra.
+              Reprogramá pagos o adelantá cobranzas antes de esa fecha.
             </div>
           </div>
         </div>
@@ -201,7 +197,7 @@ function Page() {
                 <th className="px-3 py-2 text-right">Ingresos</th>
                 <th className="px-3 py-2 text-right">Egresos</th>
                 <th className="px-3 py-2 text-right">Neto</th>
-                <th className="px-3 py-2 text-right">Saldo proyectado</th>
+                <th className="px-3 py-2 text-right">Acumulado</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
