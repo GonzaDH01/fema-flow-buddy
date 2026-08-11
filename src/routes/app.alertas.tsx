@@ -33,7 +33,7 @@ function useAlertas() {
     enabled: !!user,
     queryFn: async (): Promise<Alerta[]> => {
       const hoy = hoyISO();
-      const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf, ctas] = await Promise.all([
+      const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
@@ -44,7 +44,6 @@ function useAlertas() {
         supabase.from("fema_clientes").select("id,nombre"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
         supabase.from("fema_gastos_fijos_mov").select("id,anio,mes,monto,pagado,gasto_fijo_id"),
-        supabase.from("fema_cuentas_bancarias").select("id,banco,alias,saldo,tipo_cuenta,activa"),
       ]);
 
       const out: Alerta[] = [];
@@ -77,17 +76,12 @@ function useAlertas() {
         }
       }
 
-      // 2. Echeqs propios a debitar en los próximos 15 días vs. caja a la vista
-      const caja = ((ctas.data ?? []) as any[])
-        .filter((c) => c.activa !== false && (c.tipo_cuenta ?? "").toLowerCase().includes("vista"))
-        .reduce((s, c) => s + n(c.saldo), 0);
+      // 2. Echeqs propios a debitar en los próximos 15 días
       const propiosProx = ((movs.data ?? []) as any[]).filter(
         (m) => m.direccion === "pago" && m.estado === "en_cartera" && m.vencimiento &&
           (diasHasta(m.vencimiento) ?? 99) <= 15,
       );
-      const compromiso = propiosProx.reduce((s, m) => s + n(m.monto), 0);
-      if (compromiso > 0) {
-        for (const m of propiosProx) {
+      for (const m of propiosProx) {
           const d = diasHasta(m.vencimiento)!;
           out.push({
             id: `propio-${m.id}`,
@@ -99,17 +93,6 @@ function useAlertas() {
               : `Se debita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
           });
-        }
-        if (compromiso > caja) {
-          out.push({
-            id: "caja-insuficiente",
-            severidad: "critica",
-            categoria: "Liquidez",
-            titulo: "Caja a la vista insuficiente para los próximos 15 días",
-            detalle: `Compromisos por ${formatPesos(compromiso)} contra un disponible de ${formatPesos(caja)}. Faltan ${formatPesos(compromiso - caja)} — rescatá de los fondos de inversión.`,
-            monto: compromiso - caja, to: "/app/medios",
-          });
-        }
       }
 
       // 3. Facturas de compra vencidas sin pagar
