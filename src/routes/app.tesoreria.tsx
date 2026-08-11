@@ -22,12 +22,12 @@ function useTesoreria(incluirEstimados: boolean) {
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const [ctas, movs, cuotas, gf, sc, sv, fc, fv, prov, cli] = await Promise.all([
-        supabase.from("fema_cuentas_bancarias").select("id,banco,alias,saldo,tipo_cuenta,activa"),
+      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
         supabase.from("fema_gastos_fijos").select("id,concepto,monto_mensual,dia_vencimiento,activo,mes_fin"),
+        supabase.from("fema_gastos_fijos_mov").select("gasto_fijo_id,anio,mes,pagado"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
         supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria,tipo_comprobante"),
@@ -35,11 +35,6 @@ function useTesoreria(incluirEstimados: boolean) {
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
       ]);
-
-      const cuentas = ((ctas.data ?? []) as any[]).filter((c) => c.activa !== false);
-      const esVista = (c: any) => (c.tipo_cuenta ?? "").toLowerCase().includes("vista");
-      const saldoVista = cuentas.filter(esVista).reduce((s, c) => s + n(c.saldo), 0);
-      const saldoFondos = cuentas.filter((c) => !esVista(c)).reduce((s, c) => s + n(c.saldo), 0);
 
       const nom = (rows: any[] | null, id: string | null) =>
         (rows ?? []).find((r: any) => r.id === id)?.nombre ?? "s/ identificar";
@@ -70,6 +65,11 @@ function useTesoreria(incluirEstimados: boolean) {
       }
 
       // Gastos fijos activos, proyectados a 4 meses
+      const pagados = new Set(
+        ((gfm.data ?? []) as any[])
+          .filter((m) => m.pagado)
+          .map((m) => `${m.gasto_fijo_id}-${m.anio}-${m.mes}`),
+      );
       const base = new Date(`${hoy}T00:00:00Z`);
       for (const g of (gf.data ?? []) as any[]) {
         if (g.activo === false) continue;
@@ -78,6 +78,7 @@ function useTesoreria(incluirEstimados: boolean) {
           const f = d.toISOString().slice(0, 10);
           if (f < hoy) continue;
           if (g.mes_fin && f > g.mes_fin) continue;
+          if (pagados.has(`${g.id}-${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`)) continue;
           flujos.push({
             fecha: f, concepto: `Gasto fijo: ${g.concepto}`, origen: "Gastos fijos",
             monto: -n(g.monto_mensual),
@@ -116,11 +117,8 @@ function useTesoreria(incluirEstimados: boolean) {
         }
       }
 
-      return {
-        saldoVista, saldoFondos,
-        semanas: proyectar(flujos, saldoVista + saldoFondos, hoy, 13),
-        semanasVista: proyectar(flujos, saldoVista, hoy, 13),
-      };
+      const semanas = proyectar(flujos, 0, hoy, 13);
+      return { semanas, semanasVista: semanas };
     },
   });
 }
