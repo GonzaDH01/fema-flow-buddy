@@ -141,7 +141,7 @@ function Page() {
             <Wallet className="h-5 w-5 text-primary" /> Tesorería proyectada — 13 semanas
           </h2>
           <p className="text-sm text-muted-foreground">
-            Qué entra y qué sale semana a semana, arrancando desde el saldo real de bancos.
+            Qué entra y qué sale semana a semana según lo cargado: echeqs, cuotas, gastos fijos y saldos de facturas.
           </p>
         </div>
         <div className="flex gap-2">
@@ -154,15 +154,7 @@ function Page() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Caja a la vista</CardTitle></CardHeader>
-          <CardContent className="text-xl font-semibold">{formatPesos(data?.saldoVista ?? 0)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Fondos de inversión</CardTitle></CardHeader>
-          <CardContent className="text-xl font-semibold">{formatPesos(data?.saldoFondos ?? 0)}</CardContent>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos 13 semanas</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-primary">{formatPesos(totIn)}</CardContent>
@@ -171,6 +163,12 @@ function Page() {
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Egresos 13 semanas</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-destructive">{formatPesos(totEg)}</CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Neto acumulado</CardTitle></CardHeader>
+          <CardContent className={`text-xl font-semibold ${totIn - totEg < 0 ? "text-destructive" : ""}`}>
+            {formatPesos(totIn - totEg)}
+          </CardContent>
+        </Card>
       </div>
 
       {deficit ? (
@@ -178,11 +176,11 @@ function Page() {
           <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
             <div className="font-medium text-destructive">
-              La caja a la vista queda en rojo la semana del {formatFecha(deficit.inicio)}
+              El flujo acumulado queda negativo la semana del {formatFecha(deficit.inicio)}
             </div>
             <div className="text-muted-foreground">
-              Saldo proyectado {formatPesos(deficit.saldoFinal)}. Programá un rescate de los fondos de inversión
-              o reprogramá pagos antes de esa fecha.
+              Acumulado {formatPesos(deficit.saldoFinal)}: los egresos comprometidos superan lo que entra.
+              Reprogramá pagos o adelantá cobranzas antes de esa fecha.
             </div>
           </div>
         </div>
@@ -199,7 +197,7 @@ function Page() {
                 <th className="px-3 py-2 text-right">Ingresos</th>
                 <th className="px-3 py-2 text-right">Egresos</th>
                 <th className="px-3 py-2 text-right">Neto</th>
-                <th className="px-3 py-2 text-right">Saldo proyectado</th>
+                <th className="px-3 py-2 text-right">Acumulado</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
