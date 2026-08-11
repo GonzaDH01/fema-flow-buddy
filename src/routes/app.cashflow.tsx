@@ -479,27 +479,14 @@ function Page() {
               <tr><td colSpan={14} className="py-10 text-center text-muted-foreground">Cargando…</td></tr>
             ) : (
               <>
-                <SectionHeader title="INGRESOS COBRADOS (por cliente / plan)" />
-                {data.ingCobrados.map((r, i) => <DataRow key={`ic-${i}`} row={r} />)}
-                {data.ingCobrados.length === 0 && <EmptyRow />}
-
-                <SectionHeader title="INGRESOS PENDIENTES DE COBRO (facturados)" />
-                {data.ingPendientes.map((r, i) => <DataRow key={`ip-${i}`} row={r} />)}
-                {data.ingPendientes.length === 0 && <EmptyRow />}
-
-                <SectionHeader title="INGRESOS ESTIMADOS (proyección)" />
-                {data.ingEstimados.map((r, i) => <DataRow key={`ie-${i}`} row={r} />)}
-                {data.ingEstimados.length === 0 && <EmptyRow />}
+                <Section id="ic" title="INGRESOS COBRADOS (por cliente / plan)" rows={data.ingCobrados} />
+                <Section id="ip" title="INGRESOS PENDIENTES DE COBRO (facturados)" rows={data.ingPendientes} />
+                <Section id="ie" title="INGRESOS ESTIMADOS (proyección)" rows={data.ingEstimados} />
 
                 <TotalRow label="TOTAL INGRESOS" values={data.totalIng} positive />
 
-                <SectionHeader title="EGRESOS PAGADOS (por proveedor / concepto)" />
-                {data.egPagados.map((r, i) => <DataRow key={`ep-${i}`} row={r} />)}
-                {data.egPagados.length === 0 && <EmptyRow />}
-
-                <SectionHeader title="EGRESOS PENDIENTES (estim.)" />
-                {data.egPendientes.map((r, i) => <DataRow key={`epp-${i}`} row={r} />)}
-                {data.egPendientes.length === 0 && <EmptyRow />}
+                <Section id="ep" title="EGRESOS PAGADOS (por categoría)" rows={data.egPagados} />
+                <Section id="epp" title="EGRESOS PENDIENTES (estim.)" rows={data.egPendientes} />
 
                 <TotalRow label="TOTAL EGRESOS" values={data.totalEg} positive={false} />
 
@@ -518,13 +505,82 @@ function cell(n: number) {
   return n === 0 ? <span className="text-muted-foreground/50">—</span> : formatPesos(n);
 }
 
-function SectionHeader({ title }: { title: string }) {
+/** Sección colapsable, agrupada por categoría con subtotales desplegables. */
+function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }) {
+  const [open, setOpen] = useState(true);
+  const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+
+  const grupos = useMemo(() => {
+    const map = new Map<string, Row[]>();
+    for (const r of rows) {
+      const k = r.cat ?? "Otros";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(r);
+    }
+    return Array.from(map.entries())
+      .map(([cat, rs]) => ({
+        cat,
+        rows: rs,
+        values: empty12().map((_, i) => sum(rs.map((r) => r.values[i]))),
+        sign: rs[0]?.sign ?? "+",
+      }))
+      .sort((a, b) => sum(b.values) - sum(a.values));
+  }, [rows]);
+
+  const totales = empty12().map((_, i) => sum(rows.map((r) => r.values[i])));
+
   return (
-    <tr className="border-t border-border bg-muted/40">
-      <td colSpan={14} className="sticky left-0 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground">
-        ▾ {title}
-      </td>
-    </tr>
+    <>
+      <tr className="no-stripe cursor-pointer border-t border-border bg-muted/40" onClick={() => setOpen((v) => !v)}>
+        <td className="sticky left-0 z-10 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-foreground">
+          <span className="inline-flex items-center gap-1">
+            {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {title}
+            <span className="ml-1 font-normal normal-case text-muted-foreground">
+              {grupos.length} categoría(s) · {rows.length} registro(s)
+            </span>
+          </span>
+        </td>
+        {totales.map((v, i) => (
+          <td key={i} className="px-2 py-2 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">
+            {cell(v)}
+          </td>
+        ))}
+        <td className="px-3 py-2 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">
+          {cell(sum(totales))}
+        </td>
+      </tr>
+
+      {open && rows.length === 0 ? <EmptyRow /> : null}
+
+      {open
+        ? grupos.map((g) => {
+            const abierta = !!abiertas[g.cat];
+            const color = g.sign === "+" ? "text-primary" : "text-destructive";
+            return (
+              <Fragment key={`${id}-${g.cat}`}>
+                <tr
+                  className="no-stripe cursor-pointer border-t border-border/50 bg-muted/15 hover:bg-muted/30"
+                  onClick={() => setAbiertas((s) => ({ ...s, [g.cat]: !s[g.cat] }))}
+                >
+                  <td className="sticky left-0 z-10 bg-card px-3 py-1.5">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium">
+                      {abierta ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {g.cat}
+                      <span className="text-[10px] text-muted-foreground">({g.rows.length})</span>
+                    </span>
+                  </td>
+                  {g.values.map((v, i) => (
+                    <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${v === 0 ? "" : color}`}>{cell(v)}</td>
+                  ))}
+                  <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>{cell(sum(g.values))}</td>
+                </tr>
+                {abierta ? g.rows.map((r, i) => <DataRow key={`${id}-${g.cat}-${i}`} row={r} />) : null}
+              </Fragment>
+            );
+          })
+        : null}
+    </>
   );
 }
 
