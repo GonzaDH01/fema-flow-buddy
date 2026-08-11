@@ -425,6 +425,10 @@ async function loadCashflow(userId: string, anio: number) {
   for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "pago" && m.estado === "pagado"))) {
     egPagados.push(toRow(g, "Pagado", "-"));
   }
+  // Echeqs propios emitidos sin factura asociada: egreso comprometido a futuro.
+  for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "pago" && m.estado === "en_cartera"))) {
+    egPendientes.push(toRow(g, "A debitar", "-"));
+  }
 
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
