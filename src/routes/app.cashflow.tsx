@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Fragment, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -12,6 +14,7 @@ type Row = {
   label: string;
   sub?: string;
   badge?: string;
+  cat?: string;
   values: number[];
   sign: "+" | "-";
   tooltips?: (string | undefined)[];
