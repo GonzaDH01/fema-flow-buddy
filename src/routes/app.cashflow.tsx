@@ -425,9 +425,14 @@ async function loadCashflow(userId: string, anio: number) {
   for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "pago" && m.estado === "pagado"))) {
     egPagados.push(toRow(g, "Pagado", "-"));
   }
-  // Echeqs propios emitidos sin factura asociada: egreso comprometido a futuro.
-  for (const g of agrupar(movsSueltos.filter((m) => m.direccion === "pago" && m.estado === "en_cartera"))) {
-    egPendientes.push(toRow(g, "A debitar", "-"));
+  // Los echeqs propios emitidos ya están imputados a las facturas de compra
+  // (vínculo directo o imputaciones), así que se reflejan en la fila de cada
+  // factura. Solo se agregan aquí los que no tienen ninguna factura asociada.
+  const echeqsSinFactura = movsSueltos.filter(
+    (m) => m.direccion === "pago" && m.estado === "en_cartera" && !m.factura_compra_id,
+  );
+  for (const g of agrupar(echeqsSinFactura)) {
+    egPendientes.push(toRow(g, "A debitar (sin factura)", "-"));
   }
 
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
