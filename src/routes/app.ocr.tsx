@@ -545,13 +545,8 @@ function Page() {
           descripcion: result.descripcion ?? result.emisor ?? null,
           // ITC (nafta + gasoil) va a impuestos_internos.
           // CO2 (nafta + gasoil) + otros tributos van a otros_impuestos.
-          impuestos_internos:
-            (result.itc_nafta ?? 0) + (result.itc_gasoil ?? 0) +
-            ((result.itc_nafta == null && result.itc_gasoil == null) ? (result.itc_combustible ?? 0) : 0),
-          otros_impuestos:
-            (result.otros_impuestos ?? 0) +
-            (result.co2_nafta ?? 0) + (result.co2_gasoil ?? 0) +
-            ((result.co2_nafta == null && result.co2_gasoil == null) ? (result.co2_combustible ?? 0) : 0),
+          impuestos_internos: sumaITC(result),
+          otros_impuestos: (result.otros_impuestos ?? 0) + sumaCO2(result),
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
           imagen_path,
