@@ -205,6 +205,7 @@ async function loadCashflow(userId: string, anio: number) {
       label: g.label,
       sub: g.sub,
       badge: "Estimado",
+      cat: "Estimaciones",
       values: g.values,
       tooltips: g.tooltips.map((t) => (t.length ? t.join("\n") : undefined)),
       sign: "+",
@@ -235,6 +236,7 @@ async function loadCashflow(userId: string, anio: number) {
       label: v.cliente?.nombre ?? "Sin cliente",
       sub,
       badge: planBadge(linked, v.condicion_pago, total) ?? undefined,
+      cat: "Facturas de venta",
       values,
       tooltips,
       sign: "+",
@@ -272,6 +274,7 @@ async function loadCashflow(userId: string, anio: number) {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
       sub,
       badge: planBadge(linked, null, total) ?? undefined,
+      cat: c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
       values,
       tooltips,
       sign: "-",
@@ -284,6 +287,7 @@ async function loadCashflow(userId: string, anio: number) {
     const total = Number(s.sueldo_bruto ?? 0) + Number(s.cargas_sociales ?? 0);
     egPagados.push({
       label: `${s.empleado?.nombre ?? "Empleado"} · Sueldo`,
+      cat: "Sueldos",
       values: placeAt(mes, total),
       sign: "-",
     });
@@ -297,6 +301,7 @@ async function loadCashflow(userId: string, anio: number) {
       label: `AFIP · ${i.periodo ?? ""}`,
       sub: "Impuestos",
       badge: "Impuesto",
+      cat: "Impuestos",
       values: placeAt(Number(i.mes), total),
       sign: "-",
     });
@@ -335,8 +340,8 @@ async function loadCashflow(userId: string, anio: number) {
       }
     }
     const label = `${g.concepto}${g.proveedor?.nombre ? " · " + g.proveedor.nombre : ""}`;
-    if (hasPag) egPagados.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo", values: valsPag, tooltips: tipsPag, sign: "-" });
-    if (hasProy) egPendientes.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo proyectado", values: valsProy, tooltips: tipsProy, sign: "-" });
+    if (hasPag) egPagados.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo", cat: "Gastos fijos", values: valsPag, tooltips: tipsPag, sign: "-" });
+    if (hasProy) egPendientes.push({ label, sub: `${g.categoria} (gasto fijo)`, badge: "Fijo proyectado", cat: "Gastos fijos", values: valsProy, tooltips: tipsProy, sign: "-" });
   }
 
   // Cuotas de créditos
@@ -367,7 +372,7 @@ async function loadCashflow(userId: string, anio: number) {
   for (const g of credGroups.values()) {
     // Si todas las cuotas del año están pagadas, va a pagados; si no, pendientes
     const allPag = g.values.every((v, i) => v === 0 || g.pagado[i]);
-    const row: Row = { label: g.label, sub: g.sub, badge: "Cuota crédito", values: g.values, tooltips: g.tooltips, sign: "-" };
+    const row: Row = { label: g.label, sub: g.sub, badge: "Cuota crédito", cat: "Créditos / financiación", values: g.values, tooltips: g.tooltips, sign: "-" };
     if (allPag) egPagados.push(row); else egPendientes.push(row);
   }
 
@@ -378,7 +383,7 @@ async function loadCashflow(userId: string, anio: number) {
     if (mes >= 1 && mes <= 12) combPorMes[mes - 1] += Number(k.total);
   }
   if (sum(combPorMes) > 0) {
-    egPagados.push({ label: "Combustible", values: combPorMes, sign: "-" });
+    egPagados.push({ label: "Combustible", cat: "Combustible", values: combPorMes, sign: "-" });
   }
 
   // Movimientos de cobro/pago sin factura asociada (echeqs de cartera, transferencias sueltas)
@@ -406,6 +411,7 @@ async function loadCashflow(userId: string, anio: number) {
     label: g.label,
     sub: `${g.sub} (sin factura)`,
     badge,
+    cat: `${g.sub} (sin factura)`,
     values: g.values,
     tooltips: g.tooltips.map((t) => (t.length ? t.join("\n") : undefined)),
     sign,
