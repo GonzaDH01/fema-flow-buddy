@@ -500,7 +500,7 @@ function Page() {
                 <TotalRow label="TOTAL EGRESOS" values={data.totalEg} positive={false} />
 
                 <TotalRow label="NETO (I − G)" values={data.neto} signed />
-                <TotalRow label="ACUMULADO" values={data.acumulado} signed bold />
+                <TotalRow label="ACUMULADO" values={data.acumulado} signed bold totalMode="last" />
               </>
             )}
           </tbody>
@@ -635,9 +635,10 @@ function DataRow({ row }: { row: Row }) {
 }
 
 function TotalRow({
-  label, values, positive, signed, bold,
-}: { label: string; values: number[]; positive?: boolean; signed?: boolean; bold?: boolean }) {
-  const total = sum(values);
+  label, values, positive, signed, bold, totalMode = "sum",
+}: { label: string; values: number[]; positive?: boolean; signed?: boolean; bold?: boolean; totalMode?: "sum" | "last" }) {
+  // El acumulado no se suma: la columna Total es el saldo de cierre del año.
+  const total = totalMode === "last" ? (values[values.length - 1] ?? 0) : sum(values);
   const baseColor = signed
     ? ""
     : positive ? "text-primary" : "text-destructive";
