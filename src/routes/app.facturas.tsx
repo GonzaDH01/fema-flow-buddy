@@ -175,7 +175,11 @@ function Page() {
     [clientes],
   );
 
-  const rows = data ?? [];
+  // Los "Estimados" viven en su propia pestaña; nunca se listan como facturas.
+  const rows = useMemo(
+    () => (data ?? []).filter((r) => r.tipo_comprobante !== "Estimado"),
+    [data],
+  );
 
   // KPIs
   const kpis = useMemo(() => {
