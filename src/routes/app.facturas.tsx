@@ -175,7 +175,11 @@ function Page() {
     [clientes],
   );
 
-  const rows = data ?? [];
+  // Los "Estimados" viven en su propia pestaña; nunca se listan como facturas.
+  const rows = useMemo(
+    () => (data ?? []).filter((r) => r.tipo_comprobante !== "Estimado"),
+    [data],
+  );
 
   // KPIs
   const kpis = useMemo(() => {
@@ -282,6 +286,29 @@ function Page() {
     const iva105 = v.iva_pct === "10.5%" ? neto * 0.105 : 0;
     const total = v.tipo === "A" ? neto * (1 + ivaPct) : neto;
     const periodo = MESES_LARGOS[new Date(v.fecha).getMonth()];
+
+    // Un "Estimado" NO es una factura: va a la tabla de estimaciones (pestaña Estimados)
+    if (v.tipo_comprobante === "Estimado" && !edit) {
+      const base = (v.trabajo || v.observaciones || "Estimado").trim();
+      const cuotas = (v.plan_cuotas && v.plan_cuotas.length > 0)
+        ? v.plan_cuotas.map((c) => ({ vencimiento: c.vencimiento || v.fecha, monto: Number(c.monto) || 0 }))
+        : [{ vencimiento: v.fecha, monto: total }];
+      const inserts = cuotas.map((c, i) => ({
+        user_id: user!.id,
+        cliente_id: v.cliente_id || null,
+        fecha_estimada: c.vencimiento,
+        monto: c.monto,
+        descripcion: cuotas.length > 1 ? `${base} - Cuota ${i + 1}/${cuotas.length}` : base,
+        estado: "estimado",
+      }));
+      const { error } = await supabase.from("fema_estimaciones").insert(inserts);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Estimado creado");
+      qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
+      qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+      close();
+      return;
+    }
 
     const payload = {
       user_id: user!.id,
