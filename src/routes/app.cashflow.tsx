@@ -534,7 +534,9 @@ function Page() {
 
                 <TotalRow label="TOTAL EGRESOS" values={data.totalEg} positive={false} />
 
-                <TotalRow label="NETO (I − G)" values={data.neto} signed />
+                <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
+
+                <TotalRow label="NETO (I − G + Ajustes)" values={data.neto} signed />
                 <TotalRow label="ACUMULADO" values={data.acumulado} signed bold totalMode="last" />
               </>
             )}
