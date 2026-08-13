@@ -45,14 +45,24 @@ function betweenDates(col: string, desde?: string, hasta?: string) {
   return parts;
 }
 
-async function fetchRows(tabla: string, opts: OpcionesExport, cols: string, dateCol = "fecha") {
+const SIN_ANIO = new Set(["fema_empleados", "fema_gastos_fijos", "fema_creditos"]);
+
+async function fetchRows(
+  tabla: string,
+  opts: OpcionesExport,
+  cols: string,
+  dateCol: string | null = "fecha",
+) {
   let q = sb.from(tabla).select(cols);
-  if (opts.anio && tabla !== "fema_empleados" && tabla !== "fema_sueldos") {
+  if (opts.anio && !SIN_ANIO.has(tabla)) {
     q = q.eq("anio", opts.anio);
   }
-  const filters = betweenDates(dateCol, opts.desde, opts.hasta);
-  for (const f of filters) q = q.or(f);
-  const { data, error } = await q.order(dateCol, { ascending: false });
+  if (dateCol) {
+    const filters = betweenDates(dateCol, opts.desde, opts.hasta);
+    for (const f of filters) q = q.or(f);
+    q = q.order(dateCol, { ascending: false });
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
@@ -161,12 +171,12 @@ export async function exportarSeleccion(userId: string, opts: OpcionesExport) {
         break;
       }
       case "sueldos": {
-        const rows = await fetchRows("fema_sueldos", opts, "*", "periodo");
+        const rows = await fetchRows("fema_sueldos", opts, "*", null);
         add("Sueldos", rows);
         break;
       }
       case "impuestos": {
-        const rows = await fetchRows("fema_impuestos", opts, "*");
+        const rows = await fetchRows("fema_impuestos", opts, "*", null);
         add("Impuestos", rows);
         break;
       }
