@@ -1206,7 +1206,7 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
                           Volver
                         </Button>
                       )}
-                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                     </div>
                   </div>
                 </CollapsibleTrigger>
