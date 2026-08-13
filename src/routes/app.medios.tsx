@@ -702,6 +702,7 @@ function Page() {
           <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
           <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
           <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
+          <TabsTrigger value="ajustes">Ajustes de caja</TabsTrigger>
         </TabsList>
 
         {(["todos","echeqs","propios","cheques","transferencias","cesiones"] as const).map(k => (
@@ -743,7 +744,84 @@ function Page() {
             </Card>
           </TabsContent>
         ))}
+
+        <TabsContent value="ajustes">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Ajustes de caja</h3>
+                <Button size="sm" variant="outline" onClick={() => setOpenAjuste(true)}>
+                  <Plus className="w-3 h-3 mr-1" />Nuevo ajuste
+                </Button>
+              </div>
+              {ajustesCaja.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay ajustes de caja registrados.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Cuenta</TableHead>
+                      <TableHead>Concepto / motivo</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead className="text-right">Saldo resultante</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ajustesCaja.map((a: any) => {
+                      const c = cuentas.find((x: any) => x.id === a.cuenta_id);
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell className="whitespace-nowrap">{formatFecha(a.fecha)}</TableCell>
+                          <TableCell className="text-xs">{c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""}` : "—"}</TableCell>
+                          <TableCell className="text-xs">{a.concepto || "—"}</TableCell>
+                          <TableCell>
+                            {a.tipo === "ingreso"
+                              ? <Badge variant="outline" className="border-emerald-500/50 text-emerald-400">Ingreso (+)</Badge>
+                              : <Badge variant="outline" className="border-rose-500/50 text-rose-400">Egreso (−)</Badge>}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold ${a.tipo === "ingreso" ? "text-emerald-400" : "text-rose-400"}`}>
+                            {a.tipo === "ingreso" ? "+" : "−"}{formatPesos(Number(a.monto || 0))}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">
+                            {a.saldo_resultante != null ? formatPesos(Number(a.saldo_resultante)) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="icon" variant="ghost" onClick={() => setEditAjuste(a)}>
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="text-rose-400"
+                              onClick={() => eliminarAjuste(a)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editAjuste} onOpenChange={(v) => { if (!v) setEditAjuste(null); }}>
+        {editAjuste && (
+          <EditarAjusteDialog
+            ajuste={editAjuste}
+            cuentas={cuentas}
+            onClose={() => setEditAjuste(null)}
+            onSaved={() => {
+              setEditAjuste(null);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Card>
         <CardContent className="p-4 space-y-3">
