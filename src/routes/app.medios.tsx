@@ -113,6 +113,7 @@ function Page() {
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
   const [openPase, setOpenPase] = useState(false);
+  const [openAjuste, setOpenAjuste] = useState(false);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
@@ -575,6 +576,9 @@ function Page() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportar}><Download className="w-4 h-4 mr-2" />Exportar Excel</Button>
+          <Button variant="outline" onClick={() => setOpenAjuste(true)}>
+            <Edit3 className="w-4 h-4 mr-2" />Ajuste de caja
+          </Button>
           <Button onClick={() => { setEditMov(null); setOpenMov(true); }}>
             <Plus className="w-4 h-4 mr-2" />Registrar movimiento
           </Button>
@@ -656,6 +660,21 @@ function Page() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={openAjuste} onOpenChange={setOpenAjuste}>
+        {openAjuste && user && (
+          <AjusteCajaDialog
+            cuentas={cuentas}
+            userId={user.id}
+            onClose={() => setOpenAjuste(false)}
+            onSaved={() => {
+              setOpenAjuste(false);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={openPase} onOpenChange={setOpenPase}>
         {openPase && user && (
@@ -2824,6 +2843,111 @@ function CuentaBancariaDialog({
 }
 
 function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
+  return <PaseFondosDialogImpl cuentas={cuentas} userId={userId} onClose={onClose} onSaved={onSaved} />;
+}
+
+function AjusteCajaDialog({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
+  const [modo, setModo] = useState<"ingreso" | "egreso" | "saldo">("ingreso");
+  const [monto, setMonto] = useState("");
+  const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [concepto, setConcepto] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const cta = cuentas.find((c) => c.id === cuentaId);
+  const saldoActual = Number(cta?.saldo || 0);
+  const valor = Number(monto) || 0;
+  const delta = modo === "saldo" ? redondear(valor - saldoActual) : modo === "egreso" ? -valor : valor;
+  const nuevoSaldo = redondear(saldoActual + delta);
+
+  const guardar = async () => {
+    if (!cta) { toast.error("Elegí una cuenta"); return; }
+    if (!monto.trim() || (modo !== "saldo" && valor <= 0)) { toast.error("Ingresá el importe"); return; }
+    if (delta === 0) { toast.error("El ajuste no cambia el saldo"); return; }
+    if (!concepto.trim()) { toast.error("Indicá el motivo del ajuste"); return; }
+    setSaving(true);
+    const { error: e1 } = await sb.from("fema_cuentas_bancarias")
+      .update({ saldo: nuevoSaldo }).eq("id", cta.id);
+    if (e1) { setSaving(false); toast.error(e1.message); return; }
+    const { error: e2 } = await sb.from("fema_caja_mov").insert({
+      user_id: userId,
+      fecha,
+      cuenta_id: cta.id,
+      tipo: delta > 0 ? "ingreso" : "egreso",
+      monto: Math.abs(delta),
+      concepto: `Ajuste de caja — ${concepto.trim()}`,
+      saldo_resultante: nuevoSaldo,
+    });
+    setSaving(false);
+    if (e2) { toast.error(e2.message); return; }
+    toast.success(`Ajuste registrado. Nuevo saldo: ${formatPesos(nuevoSaldo)}`);
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Ajuste de caja</DialogTitle>
+        <DialogDescription>
+          Corregí el saldo de una cuenta con fecha de cualquier mes (por ejemplo julio). Queda asentado
+          como movimiento de caja con su motivo.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cuenta">
+          <Select value={cuentaId} onValueChange={setCuentaId}>
+            <SelectTrigger><SelectValue placeholder="Cuenta" /></SelectTrigger>
+            <SelectContent>
+              {cuentas.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tipo de ajuste">
+            <Select value={modo} onValueChange={(v) => setModo(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ingreso">Sumar a la caja (+)</SelectItem>
+                <SelectItem value="egreso">Restar de la caja (−)</SelectItem>
+                <SelectItem value="saldo">Fijar saldo exacto</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Fecha del ajuste">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label={modo === "saldo" ? "Saldo real de la cuenta" : "Importe"}>
+          <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
+        </FormField>
+        <FormField label="Motivo / concepto">
+          <Textarea rows={2} value={concepto} onChange={(e) => setConcepto(e.target.value)}
+            placeholder="Ej: diferencia con resumen bancario de julio, comisiones, gastos no registrados..." />
+        </FormField>
+        {cta && monto.trim() !== "" && (
+          <p className="text-xs text-muted-foreground">
+            Saldo actual {formatPesos(saldoActual)} → nuevo saldo <b>{formatPesos(nuevoSaldo)}</b>{" "}
+            ({delta >= 0 ? "+" : "−"}{formatPesos(Math.abs(delta))})
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Registrar ajuste"}</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function PaseFondosDialogImpl({ cuentas, userId, onClose, onSaved }: {
   cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
 }) {
   const vista = cuentas.filter((c) => (c.tipo_cuenta ?? "vista") === "vista");
