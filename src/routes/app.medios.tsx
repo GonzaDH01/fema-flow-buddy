@@ -21,9 +21,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Edit3, Receipt, Printer, Link2 } from "lucide-react";
+import { Plus, Download, Pencil, Trash2, ArrowRight, CheckCircle2, FileText, ShoppingCart, Edit3, Receipt, Printer, Link2, ChevronDown } from "lucide-react";
 import { Sparkles, X as XIcon } from "lucide-react";
 import {
   FemaDocHeader, FemaClientBox, FemaWatermark,
@@ -1165,78 +1166,77 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
           {rows.length === 0 ? "No hay echeqs en cartera" : "Ningún echeq coincide con los filtros"}
         </div>
       ) : (
-      <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Nº echeq</TableHead>
-          <TableHead>Recibido de</TableHead>
-          <TableHead>Banco</TableHead>
-          <TableHead>Fecha de pago</TableHead>
-          <TableHead className="text-right">Monto</TableHead>
-          <TableHead>Estado</TableHead>
-          <TableHead>Destino / depósito</TableHead>
-          <TableHead className="text-right">Acciones</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {pagCartera.pageItems.map(m => {
-          const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
-          const enCartera = m.estado === "en_cartera";
-          const vencido = enCartera && dias !== null && dias < 0;
-          const venc = dias !== null && dias < 7 && dias >= 0;
-          const depId = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "")?.[1];
-          const ctaDep = depId ? cuentas.find((c: any) => c.id === depId) : null;
-          return (
-            <TableRow key={m.id} className={vencido ? "bg-red-500/10 hover:bg-red-500/15" : ""}>
-              <TableCell className="font-mono text-xs">{m.numero ?? "—"}{vencido && <Badge variant="outline" className="ml-2 border-red-500/50 text-red-400">Vencido</Badge>}</TableCell>
-              <TableCell>{m.contraparte ?? "—"}</TableCell>
-              <TableCell>{m.banco ?? "—"}</TableCell>
-              <TableCell className={`text-xs ${vencido ? "text-red-400 font-semibold" : venc ? "text-amber-400" : ""}`}>
-                {m.vencimiento ? `${formatFecha(m.vencimiento)} (${dias}d)` : "—"}
-              </TableCell>
-              <TableCell className="text-right font-mono text-emerald-400">{formatPesos(m.monto)}</TableCell>
-              <TableCell><Badge variant="outline" className={ESTADO_VARIANT[m.estado]}>{ESTADO_LABEL[m.estado]}</Badge></TableCell>
-              <TableCell className="text-xs">
-                {m.estado === "cobrado" ? (
-                  <span className="text-emerald-400">
-                    Cobrado por nosotros{ctaDep ? ` · ${ctaDep.banco}` : ""}
-                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
-                  </span>
-                ) : m.estado === "cedido" ? (
-                  <span className="text-amber-400">
-                    Cedido a proveedor
-                    {m.observaciones ? <><br /><span className="text-muted-foreground">{m.observaciones}</span></> : null}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">En cartera</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-1">
-                  {enCartera && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />Marcar cobrado
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => onCeder(m)} className="border-amber-500/40 text-amber-400">
-                        <ArrowRight className="w-3 h-3 mr-1" />Ceder a proveedor
-                      </Button>
-                    </>
-                  )}
-                  {!enCartera && (
-                    <>
-                      <Button size="sm" variant="ghost" onClick={() => onRevertir(m)} className="text-muted-foreground">
-                        Volver a cartera
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-      </Table>
+        <div className="space-y-2">
+          {pagCartera.pageItems.map(m => {
+            const dias = m.vencimiento ? Math.round((new Date(m.vencimiento).getTime() - hoy.getTime()) / 86400000) : null;
+            const enCartera = m.estado === "en_cartera";
+            const vencido = enCartera && dias !== null && dias < 0;
+            const venc = dias !== null && dias < 7 && dias >= 0;
+            const depId = /\[DEP:([^\]]+)\]/.exec(m.observaciones ?? "")?.[1];
+            const ctaDep = depId ? cuentas.find((c: any) => c.id === depId) : null;
+            return (
+              <Collapsible key={m.id} className="rounded-md border border-border bg-card/40">
+                <CollapsibleTrigger asChild>
+                  <div className="group grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 hover:bg-muted/40">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="font-mono text-xs">{m.numero ?? "—"}</span>
+                        {vencido && <Badge variant="outline" className="shrink-0 border-red-500/50 text-red-400 text-[10px]">Vencido</Badge>}
+                      </div>
+                      <span className="min-w-0 truncate text-sm">{m.contraparte ?? "—"}</span>
+                      <span className="font-mono text-sm text-emerald-400">{formatPesos(m.monto)}</span>
+                      <span className={`text-xs ${vencido ? "text-red-400 font-semibold" : venc ? "text-amber-400" : "text-muted-foreground"}`}>
+                        {m.vencimiento ? `${formatFecha(m.vencimiento)} (${dias}d)` : "—"}
+                      </span>
+                      <Badge variant="outline" className={`shrink-0 text-[10px] ${ESTADO_VARIANT[m.estado]}`}>{ESTADO_LABEL[m.estado]}</Badge>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {enCartera && (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400" onClick={(e) => { e.stopPropagation(); onCobrar(m); }} title="Marcar cobrado">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400" onClick={(e) => { e.stopPropagation(); onCeder(m); }} title="Ceder a proveedor">
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {!enCartera && (
+                        <Button size="sm" variant="ghost" className="h-7 text-muted-foreground" onClick={(e) => { e.stopPropagation(); onRevertir(m); }}>
+                          Volver
+                        </Button>
+                      )}
+                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border-t border-border px-3 py-2 text-xs space-y-1">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <div><span className="text-muted-foreground">Banco:</span> {m.banco ?? "—"}</div>
+                      <div><span className="text-muted-foreground">Días:</span> {dias !== null ? `${dias} días` : "—"}</div>
+                      <div><span className="text-muted-foreground">Estado:</span> {ESTADO_LABEL[m.estado]}</div>
+                    </div>
+                    <div>
+                      {m.estado === "cobrado" ? (
+                        <span className="text-emerald-400">
+                          Cobrado por nosotros{ctaDep ? ` · ${ctaDep.banco}` : ""}
+                        </span>
+                      ) : m.estado === "cedido" ? (
+                        <span className="text-amber-400">Cedido a proveedor</span>
+                      ) : (
+                        <span className="text-muted-foreground">En cartera</span>
+                      )}
+                    </div>
+                    {m.observaciones && (
+                      <div className="text-muted-foreground">Obs: {m.observaciones}</div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+        </div>
       )}
       {filtradas.length > 0 && (
         <Paginacion page={pagCartera.page} totalPages={pagCartera.totalPages} total={pagCartera.total}
