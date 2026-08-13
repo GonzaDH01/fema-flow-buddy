@@ -661,10 +661,6 @@ function Page() {
         </CardContent>
       </Card>
 
-      <Dialog open={openPase} onOpenChange={setOpenPase}>
-        {null}
-      </Dialog>
-
       <Dialog open={openAjuste} onOpenChange={setOpenAjuste}>
         {openAjuste && user && (
           <AjusteCajaDialog
