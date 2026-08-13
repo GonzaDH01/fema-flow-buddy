@@ -490,7 +490,7 @@ async function loadCashflow(userId: string, anio: number) {
 
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
-  const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesValues[i]);
+  const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesNeto[i]);
   const acumulado: number[] = [];
   neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, 0);
 
