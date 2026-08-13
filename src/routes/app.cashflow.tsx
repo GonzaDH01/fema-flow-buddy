@@ -440,9 +440,10 @@ async function loadCashflow(userId: string, anio: number) {
 
   // Ajustes de caja puros (los que crea el botón "Ajuste de caja" en Medios de Pago).
   // Se excluyen movimientos vinculados a pagos o pases de fondos para no duplicar.
-  const ajustesRows: Row[] = [];
-  const ajustesValues = empty12();
-  const ajustesTips: string[][] = Array.from({ length: 12 }, () => []);
+  const ajustesPos = empty12();
+  const ajustesNeg = empty12();
+  const tipsPos: string[][] = Array.from({ length: 12 }, () => []);
+  const tipsNeg: string[][] = Array.from({ length: 12 }, () => []);
   for (const cm of (cajaMov.data ?? []) as any[]) {
     const concepto = String(cm.concepto ?? "");
     if (!concepto.startsWith("Ajuste de caja")) continue;
@@ -451,24 +452,41 @@ async function loadCashflow(userId: string, anio: number) {
     if (mes < 1 || mes > 12) continue;
     const monto = Number(cm.monto || 0);
     if (monto === 0) continue;
-    const sign: "+" | "-" = cm.tipo === "ingreso" ? "+" : "-";
-    const delta = sign === "+" ? monto : -monto;
-    ajustesValues[mes - 1] += delta;
     const cuenta = cm.cuenta ? `${cm.cuenta.banco}${cm.cuenta.alias ? ` · ${cm.cuenta.alias}` : ""}` : "Cuenta";
     const motivo = concepto.replace(/^Ajuste de caja\s*[-—]?\s*/, "").trim() || "Sin motivo";
-    ajustesTips[mes - 1].push(`${cuenta}: ${motivo} · ${sign === "+" ? "+" : "−"}${formatPesos(monto)}`);
+    const tip = `${cuenta}: ${motivo} · ${formatPesos(monto)}`;
+    if (cm.tipo === "ingreso") {
+      ajustesPos[mes - 1] += monto;
+      tipsPos[mes - 1].push(tip);
+    } else {
+      ajustesNeg[mes - 1] += monto;
+      tipsNeg[mes - 1].push(tip);
+    }
   }
-  if (sum(ajustesValues.map(Math.abs)) > 0) {
+  const ajustesRows: Row[] = [];
+  if (sum(ajustesPos) > 0) {
     ajustesRows.push({
-      label: "Ajustes de caja",
-      sub: "Correcciones de saldo bancario",
-      badge: "Ajuste",
+      label: "Ajustes de caja (+)",
+      sub: "Correcciones que suman saldo",
+      badge: "Ajuste +",
       cat: "Ajustes",
-      values: ajustesValues,
-      tooltips: ajustesTips.map((t) => (t.length ? t.join("\n") : undefined)),
+      values: ajustesPos,
+      tooltips: tipsPos.map((t) => (t.length ? t.join("\n") : undefined)),
       sign: "+",
     });
   }
+  if (sum(ajustesNeg) > 0) {
+    ajustesRows.push({
+      label: "Ajustes de caja (−)",
+      sub: "Correcciones que restan saldo",
+      badge: "Ajuste −",
+      cat: "Ajustes",
+      values: ajustesNeg,
+      tooltips: tipsNeg.map((t) => (t.length ? t.join("\n") : undefined)),
+      sign: "-",
+    });
+  }
+  const ajustesNeto = empty12().map((_, i) => ajustesPos[i] - ajustesNeg[i]);
 
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
