@@ -164,6 +164,29 @@ function Page() {
   const cajaEgresos = cajaFiltrada.filter((m: any) => m.tipo === "egreso")
     .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
 
+  // Ajustes manuales de caja (no vinculados a pagos ni a pases entre cuentas)
+  const ajustesCaja = cajaMovs
+    .filter((m: any) => !m.movimiento_pago_id && !m.mov_fondo_id
+      && String(m.concepto || "").toLowerCase().startsWith("ajuste de caja"))
+    .sort((a: any, b: any) => String(b.fecha).localeCompare(String(a.fecha)));
+  const [editAjuste, setEditAjuste] = useState<any | null>(null);
+
+  const eliminarAjuste = async (a: any) => {
+    if (!confirm("¿Eliminar este ajuste de caja? Se revierte el saldo de la cuenta.")) return;
+    const cta = cuentas.find((c: any) => c.id === a.cuenta_id);
+    const delta = (a.tipo === "ingreso" ? -1 : 1) * Number(a.monto || 0);
+    if (cta) {
+      const { error } = await sb.from("fema_cuentas_bancarias")
+        .update({ saldo: redondear(Number(cta.saldo || 0) + delta) }).eq("id", cta.id);
+      if (error) { toast.error(error.message); return; }
+    }
+    const { error } = await sb.from("fema_caja_mov").delete().eq("id", a.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Ajuste eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+  };
+
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
     const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
