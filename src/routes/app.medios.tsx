@@ -113,6 +113,7 @@ function Page() {
   const [editCta, setEditCta] = useState<any | null>(null);
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
   const [openPase, setOpenPase] = useState(false);
+  const [openAjuste, setOpenAjuste] = useState(false);
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
@@ -575,6 +576,9 @@ function Page() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportar}><Download className="w-4 h-4 mr-2" />Exportar Excel</Button>
+          <Button variant="outline" onClick={() => setOpenAjuste(true)}>
+            <Edit3 className="w-4 h-4 mr-2" />Ajuste de caja
+          </Button>
           <Button onClick={() => { setEditMov(null); setOpenMov(true); }}>
             <Plus className="w-4 h-4 mr-2" />Registrar movimiento
           </Button>
@@ -656,6 +660,25 @@ function Page() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={openPase} onOpenChange={setOpenPase}>
+        {null}
+      </Dialog>
+
+      <Dialog open={openAjuste} onOpenChange={setOpenAjuste}>
+        {openAjuste && user && (
+          <AjusteCajaDialog
+            cuentas={cuentas}
+            userId={user.id}
+            onClose={() => setOpenAjuste(false)}
+            onSaved={() => {
+              setOpenAjuste(false);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={openPase} onOpenChange={setOpenPase}>
         {openPase && user && (
