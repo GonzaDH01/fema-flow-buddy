@@ -1177,7 +1177,7 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
             return (
               <Collapsible key={m.id} className="rounded-md border border-border bg-card/40">
                 <CollapsibleTrigger asChild>
-                  <div className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 hover:bg-muted/40">
+                  <div className="group grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 hover:bg-muted/40">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className="font-mono text-xs">{m.numero ?? "—"}</span>
