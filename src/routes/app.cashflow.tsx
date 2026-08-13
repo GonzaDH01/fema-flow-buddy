@@ -30,7 +30,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred, cajaMov] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
@@ -61,6 +61,9 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_creditos_cuotas" as any)
       .select("numero_cuota,fecha_vencimiento,monto,estado,credito:fema_creditos(acreedor,descripcion,cantidad_cuotas)")
       .gte("fecha_vencimiento", `${anio}-01-01`).lte("fecha_vencimiento", `${anio}-12-31`),
+    supabase.from("fema_caja_mov" as any)
+      .select("fecha,cuenta_id,tipo,monto,concepto,saldo_resultante,cuenta:fema_cuentas_bancarias(banco,alias)")
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
   ]);
 
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
