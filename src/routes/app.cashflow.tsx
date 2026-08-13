@@ -438,13 +438,45 @@ async function loadCashflow(userId: string, anio: number) {
     egPendientes.push(toRow(g, "A debitar (sin factura)", "-"));
   }
 
+  // Ajustes de caja puros (los que crea el botón "Ajuste de caja" en Medios de Pago).
+  // Se excluyen movimientos vinculados a pagos o pases de fondos para no duplicar.
+  const ajustesRows: Row[] = [];
+  const ajustesValues = empty12();
+  const ajustesTips: string[][] = Array.from({ length: 12 }, () => []);
+  for (const cm of (cajaMov.data ?? []) as any[]) {
+    const concepto = String(cm.concepto ?? "");
+    if (!concepto.startsWith("Ajuste de caja")) continue;
+    if (cm.movimiento_pago_id || cm.mov_fondo_id) continue;
+    const mes = Number((cm.fecha ?? "").slice(5, 7));
+    if (mes < 1 || mes > 12) continue;
+    const monto = Number(cm.monto || 0);
+    if (monto === 0) continue;
+    const sign: "+" | "-" = cm.tipo === "ingreso" ? "+" : "-";
+    const delta = sign === "+" ? monto : -monto;
+    ajustesValues[mes - 1] += delta;
+    const cuenta = cm.cuenta ? `${cm.cuenta.banco}${cm.cuenta.alias ? ` · ${cm.cuenta.alias}` : ""}` : "Cuenta";
+    const motivo = concepto.replace(/^Ajuste de caja\s*[-—]?\s*/, "").trim() || "Sin motivo";
+    ajustesTips[mes - 1].push(`${cuenta}: ${motivo} · ${sign === "+" ? "+" : "−"}${formatPesos(monto)}`);
+  }
+  if (sum(ajustesValues.map(Math.abs)) > 0) {
+    ajustesRows.push({
+      label: "Ajustes de caja",
+      sub: "Correcciones de saldo bancario",
+      badge: "Ajuste",
+      cat: "Ajustes",
+      values: ajustesValues,
+      tooltips: ajustesTips.map((t) => (t.length ? t.join("\n") : undefined)),
+      sign: "+",
+    });
+  }
+
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
-  const neto = totalIng.map((v, i) => v - totalEg[i]);
+  const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesValues[i]);
   const acumulado: number[] = [];
   neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, 0);
 
-  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, totalIng, totalEg, neto, acumulado };
+  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado };
 }
 
 function Page() {
