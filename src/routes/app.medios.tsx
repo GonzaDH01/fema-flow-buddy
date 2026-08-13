@@ -2950,7 +2950,6 @@ function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
 }
 
 function AjusteCajaDialog({ cuentas, userId, onClose, onSaved }: {
-
   cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
 }) {
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
