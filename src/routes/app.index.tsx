@@ -59,7 +59,12 @@ async function loadKPIs(_userId: string, anio: number) {
     }
   }
   const echeqsEnCartera = mv
-    .filter((m) => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")
+    .filter(
+      (m) =>
+        (m.instrumento === "echeq" || m.instrumento === "cheque_fisico") &&
+        m.direccion === "cobro" &&
+        m.estado === "en_cartera",
+    )
     .reduce((a, m) => a + Number(m.monto), 0);
 
   // Movimientos no vinculados a una factura (ej. echeqs importados del banco):
@@ -223,7 +228,7 @@ function Dashboard() {
       icon: Clock,
       color: "text-accent",
     },
-    { label: "Echeqs en cartera", value: data?.echeqsEnCartera ?? 0, sub: "cobrados, pendientes de acreditar", icon: FileText, color: "text-blue-400" },
+    { label: "Cheques en cartera", value: data?.echeqsEnCartera ?? 0, sub: "echeqs + cheques físicos a cobrar", icon: FileText, color: "text-blue-400" },
     {
       label: "Egresos pagados",
       value: data?.egresosPagados ?? 0,
