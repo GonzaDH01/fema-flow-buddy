@@ -145,10 +145,15 @@ export function AppShell() {
 
   const handleExport = async () => {
     if (!user) return;
+    const modulos = exportByPath[loc.pathname];
     setExporting(true);
     const t = toast.loading("Generando Excel...");
     try {
-      await exportarExcelCompleto(year, user.id);
+      if (modulos && modulos.length > 0) {
+        await exportarSeleccion(user.id, { anio: year, modulos, formato: "xlsx" });
+      } else {
+        await exportarExcelCompleto(year, user.id);
+      }
       toast.success("Excel generado", { id: t });
     } catch (e: any) {
       toast.error(e.message ?? "Error al exportar", { id: t });
