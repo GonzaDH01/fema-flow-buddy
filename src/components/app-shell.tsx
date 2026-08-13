@@ -15,10 +15,31 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { exportarExcelCompleto } from "@/lib/exportar-excel";
+import { exportarExcelCompleto, exportarSeleccion, type ModuloExport } from "@/lib/exportar-excel";
 import { BuscadorGlobal } from "@/components/buscador-global";
 
 type NavItem = { to: string; label: string; icon: any; exact?: boolean; key: string };
+
+// Módulos exportables según la pantalla actual: la descarga trae solo esos datos.
+const exportByPath: Record<string, ModuloExport[]> = {
+  "/app": ["cashflow"],
+  "/app/cashflow": ["cashflow"],
+  "/app/tesoreria": ["medios_pago", "cuentas_bancarias"],
+  "/app/cuentas": ["facturas_venta", "facturas_compra"],
+  "/app/rentabilidad": ["facturas_venta", "facturas_compra"],
+  "/app/facturas": ["facturas_venta"],
+  "/app/clientes": ["clientes"],
+  "/app/presupuestos": ["clientes"],
+  "/app/compras": ["facturas_compra"],
+  "/app/proveedores": ["proveedores"],
+  "/app/franco": ["facturas_compra"],
+  "/app/medios": ["medios_pago", "cuentas_bancarias"],
+  "/app/creditos": ["creditos"],
+  "/app/combustible": ["combustible"],
+  "/app/empleados": ["empleados", "sueldos"],
+  "/app/impuestos": ["impuestos"],
+  "/app/auditoria": ["facturas_venta", "facturas_compra", "impuestos"],
+};
 const sections: { title: string; items: NavItem[] }[] = [
   {
     title: "Principal",
@@ -124,10 +145,15 @@ export function AppShell() {
 
   const handleExport = async () => {
     if (!user) return;
+    const modulos = exportByPath[loc.pathname];
     setExporting(true);
     const t = toast.loading("Generando Excel...");
     try {
-      await exportarExcelCompleto(year, user.id);
+      if (modulos && modulos.length > 0) {
+        await exportarSeleccion(user.id, { anio: year, modulos, formato: "xlsx" });
+      } else {
+        await exportarExcelCompleto(year, user.id);
+      }
       toast.success("Excel generado", { id: t });
     } catch (e: any) {
       toast.error(e.message ?? "Error al exportar", { id: t });
