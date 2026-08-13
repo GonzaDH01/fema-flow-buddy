@@ -164,6 +164,29 @@ function Page() {
   const cajaEgresos = cajaFiltrada.filter((m: any) => m.tipo === "egreso")
     .reduce((s: number, m: any) => s + Number(m.monto || 0), 0);
 
+  // Ajustes manuales de caja (no vinculados a pagos ni a pases entre cuentas)
+  const ajustesCaja = cajaMovs
+    .filter((m: any) => !m.movimiento_pago_id && !m.mov_fondo_id
+      && String(m.concepto || "").toLowerCase().startsWith("ajuste de caja"))
+    .sort((a: any, b: any) => String(b.fecha).localeCompare(String(a.fecha)));
+  const [editAjuste, setEditAjuste] = useState<any | null>(null);
+
+  const eliminarAjuste = async (a: any) => {
+    if (!confirm("¿Eliminar este ajuste de caja? Se revierte el saldo de la cuenta.")) return;
+    const cta = cuentas.find((c: any) => c.id === a.cuenta_id);
+    const delta = (a.tipo === "ingreso" ? -1 : 1) * Number(a.monto || 0);
+    if (cta) {
+      const { error } = await sb.from("fema_cuentas_bancarias")
+        .update({ saldo: redondear(Number(cta.saldo || 0) + delta) }).eq("id", cta.id);
+      if (error) { toast.error(error.message); return; }
+    }
+    const { error } = await sb.from("fema_caja_mov").delete().eq("id", a.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Ajuste eliminado");
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+  };
+
   const eliminarMovFondo = async (m: any) => {
     if (!confirm("¿Eliminar este pase de dinero? Se revierten los saldos.")) return;
     const { error } = await (sb as any).rpc("fema_eliminar_mov_fondo", { _id: m.id });
@@ -702,6 +725,7 @@ function Page() {
           <TabsTrigger value="cheques">Cheques físicos</TabsTrigger>
           <TabsTrigger value="transferencias">Transferencias</TabsTrigger>
           <TabsTrigger value="cesiones">Cesiones</TabsTrigger>
+          <TabsTrigger value="ajustes">Ajustes de caja</TabsTrigger>
         </TabsList>
 
         {(["todos","echeqs","propios","cheques","transferencias","cesiones"] as const).map(k => (
@@ -743,7 +767,84 @@ function Page() {
             </Card>
           </TabsContent>
         ))}
+
+        <TabsContent value="ajustes">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Ajustes de caja</h3>
+                <Button size="sm" variant="outline" onClick={() => setOpenAjuste(true)}>
+                  <Plus className="w-3 h-3 mr-1" />Nuevo ajuste
+                </Button>
+              </div>
+              {ajustesCaja.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay ajustes de caja registrados.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Cuenta</TableHead>
+                      <TableHead>Concepto / motivo</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead className="text-right">Saldo resultante</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ajustesCaja.map((a: any) => {
+                      const c = cuentas.find((x: any) => x.id === a.cuenta_id);
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell className="whitespace-nowrap">{formatFecha(a.fecha)}</TableCell>
+                          <TableCell className="text-xs">{c ? `${c.banco}${c.alias ? ` · ${c.alias}` : ""}` : "—"}</TableCell>
+                          <TableCell className="text-xs">{a.concepto || "—"}</TableCell>
+                          <TableCell>
+                            {a.tipo === "ingreso"
+                              ? <Badge variant="outline" className="border-emerald-500/50 text-emerald-400">Ingreso (+)</Badge>
+                              : <Badge variant="outline" className="border-rose-500/50 text-rose-400">Egreso (−)</Badge>}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold ${a.tipo === "ingreso" ? "text-emerald-400" : "text-rose-400"}`}>
+                            {a.tipo === "ingreso" ? "+" : "−"}{formatPesos(Number(a.monto || 0))}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">
+                            {a.saldo_resultante != null ? formatPesos(Number(a.saldo_resultante)) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="icon" variant="ghost" onClick={() => setEditAjuste(a)}>
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="text-rose-400"
+                              onClick={() => eliminarAjuste(a)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editAjuste} onOpenChange={(v) => { if (!v) setEditAjuste(null); }}>
+        {editAjuste && (
+          <EditarAjusteDialog
+            ajuste={editAjuste}
+            cuentas={cuentas}
+            onClose={() => setEditAjuste(null)}
+            onSaved={() => {
+              setEditAjuste(null);
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+              qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+            }}
+          />
+        )}
+      </Dialog>
 
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -2849,6 +2950,115 @@ function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
 }
 
 function AjusteCajaDialog({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
+  return <AjusteCajaDialogInner cuentas={cuentas} userId={userId} onClose={onClose} onSaved={onSaved} />;
+}
+
+function EditarAjusteDialog({ ajuste, cuentas, onClose, onSaved }: {
+  ajuste: any; cuentas: any[]; onClose: () => void; onSaved: () => void;
+}) {
+  const motivoInicial = String(ajuste.concepto || "").replace(/^Ajuste de caja\s*—\s*/i, "");
+  const [cuentaId, setCuentaId] = useState<string>(ajuste.cuenta_id ?? "");
+  const [tipo, setTipo] = useState<"ingreso" | "egreso">(ajuste.tipo === "egreso" ? "egreso" : "ingreso");
+  const [monto, setMonto] = useState<string>(String(Number(ajuste.monto || 0)));
+  const [fecha, setFecha] = useState<string>(ajuste.fecha ?? new Date().toISOString().split("T")[0]);
+  const [concepto, setConcepto] = useState<string>(motivoInicial);
+  const [saving, setSaving] = useState(false);
+
+  const deltaOriginal = (ajuste.tipo === "ingreso" ? 1 : -1) * Number(ajuste.monto || 0);
+  const deltaNuevo = (tipo === "ingreso" ? 1 : -1) * (Number(monto) || 0);
+
+  const guardar = async () => {
+    const valor = Number(monto) || 0;
+    if (!cuentaId) { toast.error("Elegí una cuenta"); return; }
+    if (valor <= 0) { toast.error("Ingresá el importe"); return; }
+    if (!concepto.trim()) { toast.error("Indicá el motivo del ajuste"); return; }
+    setSaving(true);
+
+    // Revertir el impacto original y aplicar el nuevo (puede cambiar de cuenta)
+    const ctaVieja = cuentas.find((c: any) => c.id === ajuste.cuenta_id);
+    const ctaNueva = cuentas.find((c: any) => c.id === cuentaId);
+    let saldoResultante: number | null = null;
+    if (ctaVieja && ctaVieja.id === cuentaId) {
+      saldoResultante = redondear(Number(ctaVieja.saldo || 0) - deltaOriginal + deltaNuevo);
+      const { error } = await sb.from("fema_cuentas_bancarias").update({ saldo: saldoResultante }).eq("id", ctaVieja.id);
+      if (error) { setSaving(false); toast.error(error.message); return; }
+    } else {
+      if (ctaVieja) {
+        const { error } = await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: redondear(Number(ctaVieja.saldo || 0) - deltaOriginal) }).eq("id", ctaVieja.id);
+        if (error) { setSaving(false); toast.error(error.message); return; }
+      }
+      if (ctaNueva) {
+        saldoResultante = redondear(Number(ctaNueva.saldo || 0) + deltaNuevo);
+        const { error } = await sb.from("fema_cuentas_bancarias").update({ saldo: saldoResultante }).eq("id", ctaNueva.id);
+        if (error) { setSaving(false); toast.error(error.message); return; }
+      }
+    }
+
+    const { error } = await sb.from("fema_caja_mov").update({
+      fecha, cuenta_id: cuentaId, tipo, monto: valor,
+      concepto: `Ajuste de caja — ${concepto.trim()}`,
+      saldo_resultante: saldoResultante,
+    }).eq("id", ajuste.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Ajuste actualizado");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Editar ajuste de caja</DialogTitle>
+        <DialogDescription>
+          Al guardar se revierte el impacto anterior sobre el saldo y se aplica el nuevo.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cuenta">
+          <Select value={cuentaId} onValueChange={setCuentaId}>
+            <SelectTrigger><SelectValue placeholder="Cuenta" /></SelectTrigger>
+            <SelectContent>
+              {cuentas.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tipo">
+            <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ingreso">Sumar a la caja (+)</SelectItem>
+                <SelectItem value="egreso">Restar de la caja (−)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Importe">
+          <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
+        </FormField>
+        <FormField label="Motivo / concepto">
+          <Textarea rows={2} value={concepto} onChange={(e) => setConcepto(e.target.value)} />
+        </FormField>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function AjusteCajaDialogInner({ cuentas, userId, onClose, onSaved }: {
   cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
 }) {
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
