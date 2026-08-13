@@ -30,7 +30,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred, cajaMov] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
@@ -61,6 +61,9 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_creditos_cuotas" as any)
       .select("numero_cuota,fecha_vencimiento,monto,estado,credito:fema_creditos(acreedor,descripcion,cantidad_cuotas)")
       .gte("fecha_vencimiento", `${anio}-01-01`).lte("fecha_vencimiento", `${anio}-12-31`),
+    supabase.from("fema_caja_mov" as any)
+      .select("fecha,cuenta_id,tipo,monto,concepto,saldo_resultante,cuenta:fema_cuentas_bancarias(banco,alias)")
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
   ]);
 
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
@@ -435,13 +438,63 @@ async function loadCashflow(userId: string, anio: number) {
     egPendientes.push(toRow(g, "A debitar (sin factura)", "-"));
   }
 
+  // Ajustes de caja puros (los que crea el botón "Ajuste de caja" en Medios de Pago).
+  // Se excluyen movimientos vinculados a pagos o pases de fondos para no duplicar.
+  const ajustesPos = empty12();
+  const ajustesNeg = empty12();
+  const tipsPos: string[][] = Array.from({ length: 12 }, () => []);
+  const tipsNeg: string[][] = Array.from({ length: 12 }, () => []);
+  for (const cm of (cajaMov.data ?? []) as any[]) {
+    const concepto = String(cm.concepto ?? "");
+    if (!concepto.startsWith("Ajuste de caja")) continue;
+    if (cm.movimiento_pago_id || cm.mov_fondo_id) continue;
+    const mes = Number((cm.fecha ?? "").slice(5, 7));
+    if (mes < 1 || mes > 12) continue;
+    const monto = Number(cm.monto || 0);
+    if (monto === 0) continue;
+    const cuenta = cm.cuenta ? `${cm.cuenta.banco}${cm.cuenta.alias ? ` · ${cm.cuenta.alias}` : ""}` : "Cuenta";
+    const motivo = concepto.replace(/^Ajuste de caja\s*[-—]?\s*/, "").trim() || "Sin motivo";
+    const tip = `${cuenta}: ${motivo} · ${formatPesos(monto)}`;
+    if (cm.tipo === "ingreso") {
+      ajustesPos[mes - 1] += monto;
+      tipsPos[mes - 1].push(tip);
+    } else {
+      ajustesNeg[mes - 1] += monto;
+      tipsNeg[mes - 1].push(tip);
+    }
+  }
+  const ajustesRows: Row[] = [];
+  if (sum(ajustesPos) > 0) {
+    ajustesRows.push({
+      label: "Ajustes de caja (+)",
+      sub: "Correcciones que suman saldo",
+      badge: "Ajuste +",
+      cat: "Ajustes",
+      values: ajustesPos,
+      tooltips: tipsPos.map((t) => (t.length ? t.join("\n") : undefined)),
+      sign: "+",
+    });
+  }
+  if (sum(ajustesNeg) > 0) {
+    ajustesRows.push({
+      label: "Ajustes de caja (−)",
+      sub: "Correcciones que restan saldo",
+      badge: "Ajuste −",
+      cat: "Ajustes",
+      values: ajustesNeg,
+      tooltips: tipsNeg.map((t) => (t.length ? t.join("\n") : undefined)),
+      sign: "-",
+    });
+  }
+  const ajustesNeto = empty12().map((_, i) => ajustesPos[i] - ajustesNeg[i]);
+
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
-  const neto = totalIng.map((v, i) => v - totalEg[i]);
+  const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesNeto[i]);
   const acumulado: number[] = [];
   neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, 0);
 
-  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, totalIng, totalEg, neto, acumulado };
+  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado };
 }
 
 function Page() {
@@ -499,7 +552,9 @@ function Page() {
 
                 <TotalRow label="TOTAL EGRESOS" values={data.totalEg} positive={false} />
 
-                <TotalRow label="NETO (I − G)" values={data.neto} signed />
+                <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
+
+                <TotalRow label="NETO (I − G + Ajustes)" values={data.neto} signed />
                 <TotalRow label="ACUMULADO" values={data.acumulado} signed bold totalMode="last" />
               </>
             )}
