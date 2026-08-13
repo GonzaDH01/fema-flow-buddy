@@ -15,10 +15,17 @@ export const Route = createFileRoute("/app/tesoreria")({ component: Page });
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
-function useTesoreria(incluirEstimados: boolean) {
+const HORIZONTES = [
+  { key: "1m", label: "1 mes", semanas: 5 },
+  { key: "3m", label: "3 meses", semanas: 13 },
+  { key: "6m", label: "6 meses", semanas: 26 },
+  { key: "12m", label: "1 año", semanas: 52 },
+] as const;
+
+function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["fema_tesoreria", incluirEstimados, user?.id],
+    queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, user?.id],
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
@@ -71,9 +78,10 @@ function useTesoreria(incluirEstimados: boolean) {
           .map((m) => `${m.gasto_fijo_id}-${m.anio}-${m.mes}`),
       );
       const base = new Date(`${hoy}T00:00:00Z`);
+      const mesesProyeccion = Math.ceil(semanasHorizonte / 4) + 1;
       for (const g of (gf.data ?? []) as any[]) {
         if (g.activo === false) continue;
-        for (let k = 0; k < 4; k++) {
+        for (let k = 0; k < mesesProyeccion; k++) {
           const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + k, Math.min(n(g.dia_vencimiento) || 10, 28)));
           const f = d.toISOString().slice(0, 10);
           if (f < hoy) continue;
@@ -117,7 +125,7 @@ function useTesoreria(incluirEstimados: boolean) {
         }
       }
 
-      const semanas = proyectar(flujos, 0, hoy, 13);
+      const semanas = proyectar(flujos, 0, hoy, semanasHorizonte);
       return { semanas, semanasVista: semanas };
     },
   });
@@ -125,7 +133,9 @@ function useTesoreria(incluirEstimados: boolean) {
 
 function Page() {
   const [estimados, setEstimados] = useState(true);
-  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados);
+  const [horizonte, setHorizonte] = useState<(typeof HORIZONTES)[number]["key"]>("3m");
+  const cfg = HORIZONTES.find((h) => h.key === horizonte)!;
+  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados, cfg.semanas);
   const [abierta, setAbierta] = useState<string | null>(null);
 
   const semanas: Semana[] = data?.semanas ?? [];
@@ -138,13 +148,26 @@ function Page() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Wallet className="h-5 w-5 text-primary" /> Tesorería proyectada — 13 semanas
+            <Wallet className="h-5 w-5 text-primary" /> Tesorería proyectada — {cfg.label} ({cfg.semanas} semanas)
           </h2>
           <p className="text-sm text-muted-foreground">
             Qué entra y qué sale semana a semana según lo cargado: echeqs, cuotas, gastos fijos y saldos de facturas.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <div className="flex rounded-md border border-border p-0.5">
+            {HORIZONTES.map((h) => (
+              <Button
+                key={h.key}
+                size="sm"
+                variant={h.key === horizonte ? "default" : "ghost"}
+                className="h-7 px-3 text-xs"
+                onClick={() => { setHorizonte(h.key); setAbierta(null); }}
+              >
+                {h.label}
+              </Button>
+            ))}
+          </div>
           <Button size="sm" variant={estimados ? "default" : "outline"} onClick={() => setEstimados((v) => !v)}>
             {estimados ? "Con estimados" : "Solo documentos ciertos"}
           </Button>
@@ -156,11 +179,11 @@ function Page() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos 13 semanas</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos {cfg.label}</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-primary">{formatPesos(totIn)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Egresos 13 semanas</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Egresos {cfg.label}</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-destructive">{formatPesos(totEg)}</CardContent>
         </Card>
         <Card>
