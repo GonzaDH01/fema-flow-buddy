@@ -2952,6 +2952,115 @@ function PaseFondosDialog({ cuentas, userId, onClose, onSaved }: {
 function AjusteCajaDialog({ cuentas, userId, onClose, onSaved }: {
   cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
 }) {
+  return <AjusteCajaDialogInner cuentas={cuentas} userId={userId} onClose={onClose} onSaved={onSaved} />;
+}
+
+function EditarAjusteDialog({ ajuste, cuentas, onClose, onSaved }: {
+  ajuste: any; cuentas: any[]; onClose: () => void; onSaved: () => void;
+}) {
+  const motivoInicial = String(ajuste.concepto || "").replace(/^Ajuste de caja\s*—\s*/i, "");
+  const [cuentaId, setCuentaId] = useState<string>(ajuste.cuenta_id ?? "");
+  const [tipo, setTipo] = useState<"ingreso" | "egreso">(ajuste.tipo === "egreso" ? "egreso" : "ingreso");
+  const [monto, setMonto] = useState<string>(String(Number(ajuste.monto || 0)));
+  const [fecha, setFecha] = useState<string>(ajuste.fecha ?? new Date().toISOString().split("T")[0]);
+  const [concepto, setConcepto] = useState<string>(motivoInicial);
+  const [saving, setSaving] = useState(false);
+
+  const deltaOriginal = (ajuste.tipo === "ingreso" ? 1 : -1) * Number(ajuste.monto || 0);
+  const deltaNuevo = (tipo === "ingreso" ? 1 : -1) * (Number(monto) || 0);
+
+  const guardar = async () => {
+    const valor = Number(monto) || 0;
+    if (!cuentaId) { toast.error("Elegí una cuenta"); return; }
+    if (valor <= 0) { toast.error("Ingresá el importe"); return; }
+    if (!concepto.trim()) { toast.error("Indicá el motivo del ajuste"); return; }
+    setSaving(true);
+
+    // Revertir el impacto original y aplicar el nuevo (puede cambiar de cuenta)
+    const ctaVieja = cuentas.find((c: any) => c.id === ajuste.cuenta_id);
+    const ctaNueva = cuentas.find((c: any) => c.id === cuentaId);
+    let saldoResultante: number | null = null;
+    if (ctaVieja && ctaVieja.id === cuentaId) {
+      saldoResultante = redondear(Number(ctaVieja.saldo || 0) - deltaOriginal + deltaNuevo);
+      const { error } = await sb.from("fema_cuentas_bancarias").update({ saldo: saldoResultante }).eq("id", ctaVieja.id);
+      if (error) { setSaving(false); toast.error(error.message); return; }
+    } else {
+      if (ctaVieja) {
+        const { error } = await sb.from("fema_cuentas_bancarias")
+          .update({ saldo: redondear(Number(ctaVieja.saldo || 0) - deltaOriginal) }).eq("id", ctaVieja.id);
+        if (error) { setSaving(false); toast.error(error.message); return; }
+      }
+      if (ctaNueva) {
+        saldoResultante = redondear(Number(ctaNueva.saldo || 0) + deltaNuevo);
+        const { error } = await sb.from("fema_cuentas_bancarias").update({ saldo: saldoResultante }).eq("id", ctaNueva.id);
+        if (error) { setSaving(false); toast.error(error.message); return; }
+      }
+    }
+
+    const { error } = await sb.from("fema_caja_mov").update({
+      fecha, cuenta_id: cuentaId, tipo, monto: valor,
+      concepto: `Ajuste de caja — ${concepto.trim()}`,
+      saldo_resultante: saldoResultante,
+    }).eq("id", ajuste.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Ajuste actualizado");
+    onSaved();
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Editar ajuste de caja</DialogTitle>
+        <DialogDescription>
+          Al guardar se revierte el impacto anterior sobre el saldo y se aplica el nuevo.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3">
+        <FormField label="Cuenta">
+          <Select value={cuentaId} onValueChange={setCuentaId}>
+            <SelectTrigger><SelectValue placeholder="Cuenta" /></SelectTrigger>
+            <SelectContent>
+              {cuentas.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Tipo">
+            <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ingreso">Sumar a la caja (+)</SelectItem>
+                <SelectItem value="egreso">Restar de la caja (−)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Fecha">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Importe">
+          <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} />
+        </FormField>
+        <FormField label="Motivo / concepto">
+          <Textarea rows={2} value={concepto} onChange={(e) => setConcepto(e.target.value)} />
+        </FormField>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function AjusteCajaDialogInner({ cuentas, userId, onClose, onSaved }: {
+  cuentas: any[]; userId: string; onClose: () => void; onSaved: () => void;
+}) {
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
   const [modo, setModo] = useState<"ingreso" | "egreso" | "saldo">("ingreso");
   const [monto, setMonto] = useState("");
