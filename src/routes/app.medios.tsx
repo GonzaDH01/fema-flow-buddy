@@ -860,10 +860,15 @@ function Page() {
 
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Cartera de echeqs disponibles para ceder</h3>
-            <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
-          </div>
+          <Collapsible defaultOpen={false} className="group/cart space-y-3">
+            <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 text-left">
+              <h3 className="font-semibold flex items-center gap-2">
+                <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/cart:rotate-180" />
+                Cartera de echeqs disponibles para ceder
+              </h3>
+              <span className="text-xs text-muted-foreground">Echeqs recibidos de clientes aún no usados para pagar proveedores</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
           <CarteraEcheqs
             rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro")}
             onCeder={ceder}
@@ -872,6 +877,8 @@ function Page() {
             cuentas={cuentas}
             onDepositar={(m) => setDepositoMov(m)}
           />
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
 
