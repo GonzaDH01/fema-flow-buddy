@@ -744,14 +744,17 @@ function Page() {
           <TabsContent key={k} value={k}>
             <Card>
               <CardContent className="p-4 space-y-3">
+                <Collapsible defaultOpen className="group/mov space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">
+                  <CollapsibleTrigger className="font-semibold flex items-center gap-2 text-left">
+                    <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/mov:rotate-180" />
                     {k === "todos" ? "Todos los movimientos"
                       : k === "echeqs" ? "Echeqs"
                       : k === "propios" ? "Echeqs / cheques propios emitidos"
                       : k === "cheques" ? "Cheques físicos"
                       : k === "transferencias" ? "Transferencias" : "Cesiones"}
-                  </h3>
+                    <span className="text-xs text-muted-foreground font-normal">{filas[k].length}</span>
+                  </CollapsibleTrigger>
                   <div className="flex gap-2">
                     <Select value={ordenar} onValueChange={setOrdenar}>
                       <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
@@ -773,8 +776,13 @@ function Page() {
                     <Input placeholder="Buscar..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-[200px]" />
                   </div>
                 </div>
-                {k === "propios" && <ResumenPropios rows={filas.propios} />}
-                <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} onConciliar={(m) => setConciliarMov(m)} />
+                <CollapsibleContent className="space-y-3">
+                  {k === "propios" && <ResumenPropios rows={filas.propios} />}
+                  <div className="max-h-[520px] overflow-auto">
+                    <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} onConciliar={(m) => setConciliarMov(m)} />
+                  </div>
+                </CollapsibleContent>
+                </Collapsible>
               </CardContent>
             </Card>
           </TabsContent>
