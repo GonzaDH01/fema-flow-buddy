@@ -623,23 +623,32 @@ function Page() {
 
       <Card className="border-rose-500/30">
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold">Echeqs / cheques propios emitidos (pendientes de débito)</h3>
-              <p className="text-xs text-muted-foreground">
-                La factura ya queda abonada con el plan de pago elegido. El importe se descuenta de la caja
-                recién el día de la fecha de pago de cada documento: al llegar esa fecha, tocá <b>Debitar de caja</b>.
-              </p>
+          <Collapsible defaultOpen={false} className="group/emit space-y-3">
+          <CollapsibleTrigger className="w-full flex items-start justify-between gap-3 text-left">
+            <div className="flex items-start gap-2">
+              <ChevronDown className="w-4 h-4 mt-1 shrink-0 transition-transform group-data-[state=open]/emit:rotate-180" />
+              <div>
+                <h3 className="font-semibold">
+                  Echeqs / cheques propios emitidos (pendientes de débito)
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">{emitidosPendientes.length} doc.</span>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  La factura ya queda abonada con el plan de pago elegido. El importe se descuenta de la caja
+                  recién el día de la fecha de pago de cada documento: al llegar esa fecha, tocá <b>Debitar de caja</b>.
+                </p>
+              </div>
             </div>
             <span className="text-sm font-semibold text-rose-400 whitespace-nowrap">
               {formatPesos(totalEmitidosPend)}
             </span>
-          </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
           {emitidosPendientes.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               No hay echeqs propios pendientes de débito.
             </p>
           ) : (
+            <div className="max-h-[380px] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -681,7 +690,10 @@ function Page() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
+          </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
 
