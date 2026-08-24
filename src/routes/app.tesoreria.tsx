@@ -22,14 +22,14 @@ const HORIZONTES = [
   { key: "12m", label: "1 año", semanas: 52 },
 ] as const;
 
-function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
+function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, incluirSaldoBanco: boolean) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, user?.id],
+    queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, incluirSaldoBanco, user?.id],
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli] = await Promise.all([
+      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli, ctas] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
