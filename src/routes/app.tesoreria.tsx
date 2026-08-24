@@ -177,6 +177,9 @@ function Page() {
           <Button size="sm" variant={estimados ? "default" : "outline"} onClick={() => setEstimados((v) => !v)}>
             {estimados ? "Con estimados" : "Solo documentos ciertos"}
           </Button>
+          <Button size="sm" variant={conSaldo ? "default" : "outline"} onClick={() => setConSaldo((v) => !v)}>
+            {conSaldo ? "Con saldo de bancos" : "Desde cero"}
+          </Button>
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Actualizar
           </Button>
