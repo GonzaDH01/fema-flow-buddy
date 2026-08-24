@@ -22,14 +22,14 @@ const HORIZONTES = [
   { key: "12m", label: "1 año", semanas: 52 },
 ] as const;
 
-function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
+function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, incluirSaldoBanco: boolean) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, user?.id],
+    queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, incluirSaldoBanco, user?.id],
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli] = await Promise.all([
+      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli, ctas] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
@@ -41,7 +41,11 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
+        supabase.from("fema_cuentas_bancarias").select("id,banco,alias,tipo_cuenta,saldo,activa"),
       ]);
+
+      const cuentas = ((ctas.data ?? []) as any[]).filter((c) => c.activa !== false);
+      const saldoBanco = cuentas.reduce((s, c) => s + n(c.saldo), 0);
 
       const nom = (rows: any[] | null, id: string | null) =>
         (rows ?? []).find((r: any) => r.id === id)?.nombre ?? "s/ identificar";
@@ -125,8 +129,9 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
         }
       }
 
-      const semanas = proyectar(flujos, 0, hoy, semanasHorizonte);
-      return { semanas, semanasVista: semanas };
+      const inicial = incluirSaldoBanco ? saldoBanco : 0;
+      const semanas = proyectar(flujos, inicial, hoy, semanasHorizonte);
+      return { semanas, semanasVista: semanas, saldoBanco, cuentas };
     },
   });
 }
@@ -134,8 +139,9 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number) {
 function Page() {
   const [estimados, setEstimados] = useState(true);
   const [horizonte, setHorizonte] = useState<(typeof HORIZONTES)[number]["key"]>("3m");
+  const [conSaldo, setConSaldo] = useState(true);
   const cfg = HORIZONTES.find((h) => h.key === horizonte)!;
-  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados, cfg.semanas);
+  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados, cfg.semanas, conSaldo);
   const [abierta, setAbierta] = useState<string | null>(null);
 
   const semanas: Semana[] = data?.semanas ?? [];
@@ -171,13 +177,30 @@ function Page() {
           <Button size="sm" variant={estimados ? "default" : "outline"} onClick={() => setEstimados((v) => !v)}>
             {estimados ? "Con estimados" : "Solo documentos ciertos"}
           </Button>
+          <Button size="sm" variant={conSaldo ? "default" : "outline"} onClick={() => setConSaldo((v) => !v)}>
+            {conSaldo ? "Con saldo de bancos" : "Desde cero"}
+          </Button>
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Actualizar
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Saldo inicial bancos</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-xl font-semibold">{formatPesos(conSaldo ? (data?.saldoBanco ?? 0) : 0)}</div>
+            <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+              {(data?.cuentas ?? []).map((c: any) => (
+                <div key={c.id} className="flex justify-between gap-2">
+                  <span className="truncate">{c.alias || c.banco}</span>
+                  <span className="tabular-nums">{formatPesos(Number(c.saldo ?? 0))}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos {cfg.label}</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-primary">{formatPesos(totIn)}</CardContent>
