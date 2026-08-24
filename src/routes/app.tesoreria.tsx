@@ -129,8 +129,9 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
         }
       }
 
-      const semanas = proyectar(flujos, 0, hoy, semanasHorizonte);
-      return { semanas, semanasVista: semanas };
+      const inicial = incluirSaldoBanco ? saldoBanco : 0;
+      const semanas = proyectar(flujos, inicial, hoy, semanasHorizonte);
+      return { semanas, semanasVista: semanas, saldoBanco, cuentas };
     },
   });
 }
