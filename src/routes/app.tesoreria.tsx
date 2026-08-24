@@ -186,7 +186,21 @@ function Page() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Saldo inicial bancos</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-xl font-semibold">{formatPesos(conSaldo ? (data?.saldoBanco ?? 0) : 0)}</div>
+            <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+              {(data?.cuentas ?? []).map((c: any) => (
+                <div key={c.id} className="flex justify-between gap-2">
+                  <span className="truncate">{c.alias || c.banco}</span>
+                  <span className="tabular-nums">{formatPesos(Number(c.saldo ?? 0))}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Ingresos {cfg.label}</CardTitle></CardHeader>
           <CardContent className="text-xl font-semibold text-primary">{formatPesos(totIn)}</CardContent>
