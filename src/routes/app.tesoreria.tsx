@@ -41,7 +41,11 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
+        supabase.from("fema_cuentas_bancarias").select("id,banco,alias,tipo_cuenta,saldo,activa"),
       ]);
+
+      const cuentas = ((ctas.data ?? []) as any[]).filter((c) => c.activa !== false);
+      const saldoBanco = cuentas.reduce((s, c) => s + n(c.saldo), 0);
 
       const nom = (rows: any[] | null, id: string | null) =>
         (rows ?? []).find((r: any) => r.id === id)?.nombre ?? "s/ identificar";
