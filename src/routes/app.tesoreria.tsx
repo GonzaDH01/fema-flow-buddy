@@ -139,8 +139,9 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
 function Page() {
   const [estimados, setEstimados] = useState(true);
   const [horizonte, setHorizonte] = useState<(typeof HORIZONTES)[number]["key"]>("3m");
+  const [conSaldo, setConSaldo] = useState(true);
   const cfg = HORIZONTES.find((h) => h.key === horizonte)!;
-  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados, cfg.semanas);
+  const { data, isLoading, isFetching, refetch } = useTesoreria(estimados, cfg.semanas, conSaldo);
   const [abierta, setAbierta] = useState<string | null>(null);
 
   const semanas: Semana[] = data?.semanas ?? [];
