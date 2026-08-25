@@ -2237,7 +2237,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                     <TableHead>Banco</TableHead>
                     <TableHead>Vencimiento</TableHead>
                     <TableHead className="text-right">Monto ($)</TableHead>
-                    <TableHead>Obs.</TableHead>
+                    <TableHead>Observaciones</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>

@@ -354,7 +354,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
             <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">{esCompra ? "Proveedor" : "Cliente"}</th>
-                <th className="px-3 py-2 text-right">Comprob.</th>
+                <th className="px-3 py-2 text-right">Comprobante</th>
                 <th className="px-3 py-2 text-right">Facturado</th>
                 <th className="px-3 py-2 text-right">{esCompra ? "Pagado" : "Cobrado"}</th>
                 <th className="px-3 py-2 text-right">Programado</th>

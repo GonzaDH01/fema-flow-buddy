@@ -149,7 +149,7 @@ function Page() {
   const exportar = async () => {
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows.map((r) => ({
-      Codigo: r.codigo ?? "",
+      Código: r.codigo ?? "",
       RazonSocial: r.nombre,
       CUIT: r.cuit ?? "",
       CondicionIVA: r.condicion_iva ?? "",
