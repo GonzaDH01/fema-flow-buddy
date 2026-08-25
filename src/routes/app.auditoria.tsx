@@ -501,10 +501,10 @@ function Page() {
               <TableHeader><TableRow>
                 <TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Nº Factura</TableHead>
                 <TableHead>Cliente</TableHead><TableHead>CUIT</TableHead>
-                <TableHead>Trabajo / Cultivo</TableHead><TableHead className="text-right">Hect.</TableHead>
+                <TableHead>Trabajo / Cultivo</TableHead><TableHead className="text-right">Hectáreas</TableHead>
                 <TableHead className="text-right">Mts bolsa</TableHead>
                 <TableHead className="text-right">Neto (sin IVA)</TableHead><TableHead className="text-right">IVA 21%</TableHead>
-                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percep.</TableHead>
+                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percepciones</TableHead>
                 <TableHead className="text-right">Total</TableHead><TableHead className="text-right">Cobrado</TableHead>
                 <TableHead className="text-right">Saldo</TableHead><TableHead>Estado</TableHead>
                 <TableHead>Fecha cobro</TableHead><TableHead>Forma pago</TableHead>
@@ -559,7 +559,7 @@ function Page() {
                 <TableHead>Proveedor</TableHead><TableHead>CUIT</TableHead>
                 <TableHead>Categoría</TableHead><TableHead>Descripción</TableHead>
                 <TableHead className="text-right">Neto (sin IVA)</TableHead><TableHead className="text-right">IVA 21%</TableHead>
-                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percep.</TableHead>
+                <TableHead className="text-right">IVA 10,5%</TableHead><TableHead className="text-right">Percepciones</TableHead>
                 <TableHead className="text-right">Imp. int. / otros</TableHead>
                 <TableHead className="text-right">Total</TableHead><TableHead className="text-right">Pagado</TableHead>
                 <TableHead className="text-right">Saldo</TableHead>
@@ -654,7 +654,7 @@ function Page() {
                 <TableHead>Rol</TableHead>
                 <TableHead className="text-right">Básico</TableHead><TableHead className="text-right">Adicional</TableHead>
                 <TableHead className="text-right">Total</TableHead><TableHead>Estado</TableHead>
-                <TableHead>Obs.</TableHead>
+                <TableHead>Observaciones</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {(resumen.sue as any[]).length === 0 ? (

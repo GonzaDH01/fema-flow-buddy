@@ -315,7 +315,7 @@ function Page() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{eq?.nombre ?? "—"}</span>
-                            {eq?.tenencia === "Transportista" && <Badge variant="outline" className="text-amber-500 border-amber-500/40">Transp.</Badge>}
+                            {eq?.tenencia === "Transportista" && <Badge variant="outline" className="text-amber-500 border-amber-500/40">Transportista</Badge>}
                           </div>
                           {eq?.transportista && <div className="text-xs text-muted-foreground">{eq.transportista}</div>}
                         </TableCell>

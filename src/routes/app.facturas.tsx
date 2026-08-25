@@ -665,9 +665,9 @@ function SummaryTable({ title, col1, rows }: {
         <TableHeader>
           <TableRow>
             <TableHead>{col1}</TableHead>
-            <TableHead className="text-right">Trab.</TableHead>
-            <TableHead className="text-right">Has</TableHead>
-            <TableHead className="text-right">Mts bolsa</TableHead>
+            <TableHead className="text-right">Trabajos</TableHead>
+            <TableHead className="text-right">Hectáreas</TableHead>
+            <TableHead className="text-right">Metros de bolsa</TableHead>
             <TableHead className="text-right">Facturado</TableHead>
           </TableRow>
         </TableHeader>
