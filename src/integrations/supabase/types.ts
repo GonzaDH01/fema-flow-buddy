@@ -271,6 +271,77 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_bonos_campana: {
+        Row: {
+          anio: number
+          base_facturado: number
+          campana: string
+          created_at: string
+          criterio: string
+          empleado_id: string | null
+          estado: string
+          hectareas: number
+          id: string
+          metros_bolsa: number
+          monto_fijo: number
+          monto_total: number
+          observaciones: string | null
+          porcentaje: number
+          updated_at: string
+          user_id: string
+          valor_ha: number
+          valor_metro: number
+        }
+        Insert: {
+          anio?: number
+          base_facturado?: number
+          campana: string
+          created_at?: string
+          criterio?: string
+          empleado_id?: string | null
+          estado?: string
+          hectareas?: number
+          id?: string
+          metros_bolsa?: number
+          monto_fijo?: number
+          monto_total?: number
+          observaciones?: string | null
+          porcentaje?: number
+          updated_at?: string
+          user_id?: string
+          valor_ha?: number
+          valor_metro?: number
+        }
+        Update: {
+          anio?: number
+          base_facturado?: number
+          campana?: string
+          created_at?: string
+          criterio?: string
+          empleado_id?: string | null
+          estado?: string
+          hectareas?: number
+          id?: string
+          metros_bolsa?: number
+          monto_fijo?: number
+          monto_total?: number
+          observaciones?: string | null
+          porcentaje?: number
+          updated_at?: string
+          user_id?: string
+          valor_ha?: number
+          valor_metro?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_bonos_campana_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_caja_mov: {
         Row: {
           concepto: string | null
@@ -1404,6 +1475,7 @@ export type Database = {
       fema_pagos_empleado: {
         Row: {
           anio: number | null
+          bono_id: string | null
           created_at: string
           empleado_id: string | null
           estado: string
@@ -1424,6 +1496,7 @@ export type Database = {
         }
         Insert: {
           anio?: number | null
+          bono_id?: string | null
           created_at?: string
           empleado_id?: string | null
           estado?: string
@@ -1444,6 +1517,7 @@ export type Database = {
         }
         Update: {
           anio?: number | null
+          bono_id?: string | null
           created_at?: string
           empleado_id?: string | null
           estado?: string
@@ -1463,6 +1537,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fema_pagos_empleado_bono_id_fkey"
+            columns: ["bono_id"]
+            isOneToOne: false
+            referencedRelation: "fema_bonos_campana"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fema_pagos_empleado_empleado_id_fkey"
             columns: ["empleado_id"]
