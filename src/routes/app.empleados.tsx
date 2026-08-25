@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
+import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
+
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
 
@@ -61,7 +63,7 @@ function Page() {
           <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="horas">Horas trabajadas</TabsTrigger>
+          <TabsTrigger value="horas">Semanas trabajadas</TabsTrigger>
           <TabsTrigger value="campana">Campaña / Bonos</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
@@ -69,7 +71,8 @@ function Page() {
         <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
-        <TabsContent value="horas"><HorasTab /></TabsContent>
+        <TabsContent value="horas" className="space-y-4"><SemanasTrabajadasTab /><HorasTab /></TabsContent>
+
         <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="reporte"><ReporteTab /></TabsContent>
       </Tabs>
