@@ -551,6 +551,7 @@ function Page() {
           ...base,
           proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
+          empleado_id: empleadoId || null,
           descripcion: result.descripcion ?? result.emisor ?? null,
           // ITC (nafta + gasoil) va a impuestos_internos.
           // CO2 (nafta + gasoil) + otros tributos van a otros_impuestos.
