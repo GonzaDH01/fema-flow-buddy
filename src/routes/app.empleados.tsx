@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
+import { CampanaTab } from "@/components/empleados-campana";
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
 
@@ -61,6 +62,7 @@ function Page() {
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="horas">Horas trabajadas</TabsTrigger>
+          <TabsTrigger value="campana">Campaña / Bonos</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
@@ -68,6 +70,7 @@ function Page() {
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="horas"><HorasTab /></TabsContent>
+        <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="reporte"><ReporteTab /></TabsContent>
       </Tabs>
     </div>
