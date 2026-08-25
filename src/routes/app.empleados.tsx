@@ -70,6 +70,7 @@ function Page() {
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="horas"><HorasTab /></TabsContent>
+        <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="reporte"><ReporteTab /></TabsContent>
       </Tabs>
     </div>
