@@ -196,6 +196,15 @@ function Page() {
   const [busqueda, setBusqueda] = useState("");
   const [destinoId, setDestinoId] = useState<string | null>(null);
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
+  const [empleadoId, setEmpleadoId] = useState<string>("");
+
+  const { data: empleadosOCR } = useQuery({
+    queryKey: ["fema_empleados_min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("fema_empleados").select("id,nombre").order("nombre");
+      return (data ?? []) as { id: string; nombre: string }[];
+    },
+  });
 
   const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
 
