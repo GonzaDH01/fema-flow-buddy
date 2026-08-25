@@ -378,6 +378,26 @@ export function FacturasEmpleadoTab() {
   });
   const facMap = useMemo(() => Object.fromEntries((facturas ?? []).map((f) => [f.id, f])), [facturas]);
 
+  const [filtroCat, setFiltroCat] = useState("empleados");
+  const facturasFiltradas = useMemo(() => {
+    const list = facturas ?? [];
+    if (filtroCat === "empleados") return list.filter((f) => !!f.empleado_id);
+    if (filtroCat === "terceros") return list.filter((f) => !f.empleado_id);
+    return list;
+  }, [facturas, filtroCat]);
+  const totalFiltrado = useMemo(
+    () => facturasFiltradas.reduce((a, f) => a + Number(f.total ?? 0), 0),
+    [facturasFiltradas],
+  );
+
+  const asignarEmpleado = async (facturaId: string, empleadoId: string | null) => {
+    const { error } = await supabase
+      .from("fema_facturas_compra").update({ empleado_id: empleadoId }).eq("id", facturaId);
+    if (error) return toast.error(error.message);
+    toast.success(empleadoId ? "Factura asignada al empleado" : "Marcada como tercero");
+    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+  };
+
   const eliminarSol = async (s: SolicitudFactura) => {
     await supabase.from("fema_pagos_empleado").update({ solicitud_id: null }).eq("solicitud_id", s.id);
     const { error } = await supabase.from("fema_solicitudes_factura_empleado").delete().eq("id", s.id);
@@ -464,11 +484,24 @@ export function FacturasEmpleadoTab() {
       </div>
 
       <div className="rounded-lg border bg-card">
-        <div className="border-b p-4">
-          <h3 className="font-medium">Facturas de mano de obra / honorarios</h3>
-          <p className="text-xs text-muted-foreground">
-            Comprobantes cargados desde OCR o Compras con categoría Mano de Obra u Honorarios. El pago se registra en Medios de pago.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+          <div>
+            <h3 className="font-medium">Facturas de mano de obra / honorarios</h3>
+            <p className="text-xs text-muted-foreground">
+              Asigná el empleado en cada comprobante. Los que quedan “Sin asignar” son terceros/tercerizados y no cuentan como empleados.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Categoría</span>
+            <Select value={filtroCat} onValueChange={setFiltroCat}>
+              <SelectTrigger className="h-8 w-52"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="empleados">Solo empleados</SelectItem>
+                <SelectItem value="terceros">Terceros / sin asignar</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -480,14 +513,27 @@ export function FacturasEmpleadoTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(facturas ?? []).length === 0 && (
+              {facturasFiltradas.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sin facturas</TableCell></TableRow>
               )}
-              {(facturas ?? []).map((f) => (
+              {facturasFiltradas.map((f) => (
                 <TableRow key={f.id}>
                   <TableCell>{formatFecha(f.fecha)}</TableCell>
                   <TableCell className="font-mono text-xs">{f.numero ?? "s/n"}</TableCell>
-                  <TableCell>{f.empleado_id ? empMap[f.empleado_id] ?? "—" : <span className="text-xs text-muted-foreground">Sin asignar</span>}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={f.empleado_id ?? "none"}
+                      onValueChange={(v) => asignarEmpleado(f.id, v === "none" ? null : v)}
+                    >
+                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin asignar (tercero)</SelectItem>
+                        {(empleados ?? []).map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell className="max-w-[260px] truncate text-xs text-muted-foreground">{f.descripcion ?? "—"}</TableCell>
                   <TableCell className="text-right font-semibold">{formatPesos(f.total)}</TableCell>
                   <TableCell>
@@ -500,7 +546,12 @@ export function FacturasEmpleadoTab() {
             </TableBody>
           </Table>
         </div>
+        <div className="flex justify-end gap-6 border-t p-3 text-sm">
+          <span className="text-muted-foreground">Comprobantes: <b className="text-foreground">{facturasFiltradas.length}</b></span>
+          <span className="text-muted-foreground">Total: <b className="text-foreground">{formatPesos(totalFiltrado)}</b></span>
+        </div>
       </div>
+
 
       <Dialog open={!!vincular} onOpenChange={(o) => !o && setVincular(null)}>
         <DialogContent className="max-w-lg">
