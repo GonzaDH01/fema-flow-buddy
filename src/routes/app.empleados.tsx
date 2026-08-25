@@ -44,7 +44,7 @@ type Hora = {
 };
 
 function Page() {
-  const [tab, setTab] = useState("liquidaciones");
+  const [tab, setTab] = useState("pagos");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
