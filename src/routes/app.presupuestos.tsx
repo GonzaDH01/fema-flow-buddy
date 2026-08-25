@@ -569,7 +569,7 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
         <table className="mt-3 w-full border-collapse text-[10.5px]">
           <thead>
             <tr>
-              <th className="border-y-2 border-black px-2 py-1 text-left">Codigo</th>
+              <th className="border-y-2 border-black px-2 py-1 text-left">Código</th>
               <th className="border-y-2 border-black px-2 py-1 text-left">Descripción</th>
               <th className="border-y-2 border-black px-2 py-1 text-right">Cant.</th>
               <th className="border-y-2 border-black px-2 py-1 text-right">Pcio. Unit.</th>
@@ -670,7 +670,7 @@ function renderPrintHTML(p: Presupuesto, items: any[]) {
     ])}
     <table class="fema">
       <thead><tr>
-        <th>Codigo</th><th>Descripción</th>
+        <th>Código</th><th>Descripción</th>
         <th class="right">Cant.</th><th class="right">Pcio. Unit.</th><th class="right">Total</th>
       </tr></thead>
       <tbody>${rowsHTML}</tbody>
