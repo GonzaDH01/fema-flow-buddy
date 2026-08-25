@@ -438,7 +438,7 @@ function Page() {
                   <TableCell>
                     {esInfo(r)
                       ? <Badge variant="outline" className="border-sky-500/40 text-sky-500"
-                          title="Nota de crédito / débito: sólo informativa, impacta en Auditoría (IVA e impuestos) y no requiere pago.">
+                          title="Nota de crédito / débito: solo informativa, impacta en Auditoría (IVA e impuestos) y no requiere pago.">
                           ● Informativa
                         </Badge>
                       : r.estado === "pagada"
