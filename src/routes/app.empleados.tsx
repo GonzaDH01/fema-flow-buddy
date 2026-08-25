@@ -80,6 +80,7 @@ function HeaderActions({ tab }: { tab: string }) {
       <Button variant="outline" size="sm" onClick={() => exportEmpleados()}>
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
+      {tab === "pagos" && <NuevoPagoDialog />}
       {tab === "liquidaciones" && <NuevaLiquidacionDialog />}
       {tab === "personal" && <NuevoEmpleadoDialog />}
       {tab === "horas" && <NuevaHoraDialog />}
