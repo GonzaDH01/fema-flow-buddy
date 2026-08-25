@@ -62,6 +62,7 @@ function Page() {
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="horas">Horas trabajadas</TabsTrigger>
+          <TabsTrigger value="campana">Campaña / Bonos</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
