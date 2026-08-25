@@ -196,6 +196,15 @@ function Page() {
   const [busqueda, setBusqueda] = useState("");
   const [destinoId, setDestinoId] = useState<string | null>(null);
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
+  const [empleadoId, setEmpleadoId] = useState<string>("");
+
+  const { data: empleadosOCR } = useQuery({
+    queryKey: ["fema_empleados_min"],
+    queryFn: async () => {
+      const { data } = await supabase.from("fema_empleados").select("id,nombre").order("nombre");
+      return (data ?? []) as { id: string; nombre: string }[];
+    },
+  });
 
   const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
 
@@ -542,6 +551,7 @@ function Page() {
           ...base,
           proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
+          empleado_id: empleadoId || null,
           descripcion: result.descripcion ?? result.emisor ?? null,
           // ITC (nafta + gasoil) va a impuestos_internos.
           // CO2 (nafta + gasoil) + otros tributos van a otros_impuestos.
@@ -765,6 +775,24 @@ function Page() {
                   ))}
                 </select>
               </div>
+              {kind === "compra" && ["Mano_de_Obra", "Honorarios"].includes(result.categoria_sugerida ?? "") && (
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Empleado (factura de mano de obra)</Label>
+                  <select
+                    value={empleadoId}
+                    onChange={(e) => setEmpleadoId(e.target.value)}
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="">Sin asignar</option>
+                    {(empleadosOCR ?? []).map((e) => (
+                      <option key={e.id} value={e.id}>{e.nombre}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Al asignar un empleado, la factura aparece en Empleados → Facturas y su pago se registra desde Medios de pago.
+                  </p>
+                </div>
+              )}
               <div>
                 <Label className="text-xs text-muted-foreground">Tipo de comprobante (editable)</Label>
                 <select

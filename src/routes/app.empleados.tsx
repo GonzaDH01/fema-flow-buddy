@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
 
@@ -43,7 +44,7 @@ type Hora = {
 };
 
 function Page() {
-  const [tab, setTab] = useState("liquidaciones");
+  const [tab, setTab] = useState("pagos");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -54,12 +55,16 @@ function Page() {
         <HeaderActions tab={tab} />
       </div>
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="pagos">Pagos</TabsTrigger>
+          <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="horas">Horas trabajadas</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
+        <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
+        <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="horas"><HorasTab /></TabsContent>
@@ -75,6 +80,7 @@ function HeaderActions({ tab }: { tab: string }) {
       <Button variant="outline" size="sm" onClick={() => exportEmpleados()}>
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
+      {tab === "pagos" && <NuevoPagoDialog />}
       {tab === "liquidaciones" && <NuevaLiquidacionDialog />}
       {tab === "personal" && <NuevoEmpleadoDialog />}
       {tab === "horas" && <NuevaHoraDialog />}

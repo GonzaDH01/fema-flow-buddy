@@ -764,6 +764,7 @@ export type Database = {
           categoria: Database["public"]["Enums"]["categoria_compra"] | null
           created_at: string
           descripcion: string | null
+          empleado_id: string | null
           estado: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
           fecha_pago: string | null
@@ -793,6 +794,7 @@ export type Database = {
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
           created_at?: string
           descripcion?: string | null
+          empleado_id?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
           fecha_pago?: string | null
@@ -822,6 +824,7 @@ export type Database = {
           categoria?: Database["public"]["Enums"]["categoria_compra"] | null
           created_at?: string
           descripcion?: string | null
+          empleado_id?: string | null
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha?: string
           fecha_pago?: string | null
@@ -847,6 +850,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fema_facturas_compra_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fema_facturas_compra_proveedor_id_fkey"
             columns: ["proveedor_id"]
@@ -1391,6 +1401,84 @@ export type Database = {
           },
         ]
       }
+      fema_pagos_empleado: {
+        Row: {
+          anio: number | null
+          created_at: string
+          empleado_id: string | null
+          estado: string
+          fecha: string
+          forma_pago: string | null
+          horas: number
+          id: string
+          mes: number | null
+          modalidad: string
+          monto: number
+          observaciones: string | null
+          periodo_desde: string | null
+          periodo_hasta: string | null
+          solicitud_id: string | null
+          tareas: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          estado?: string
+          fecha?: string
+          forma_pago?: string | null
+          horas?: number
+          id?: string
+          mes?: number | null
+          modalidad?: string
+          monto?: number
+          observaciones?: string | null
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          solicitud_id?: string | null
+          tareas?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          estado?: string
+          fecha?: string
+          forma_pago?: string | null
+          horas?: number
+          id?: string
+          mes?: number | null
+          modalidad?: string
+          monto?: number
+          observaciones?: string | null
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          solicitud_id?: string | null
+          tareas?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_pagos_empleado_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_pagos_empleado_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "fema_solicitudes_factura_empleado"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_periodos_cierre: {
         Row: {
           anio: number
@@ -1607,6 +1695,79 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fema_solicitudes_factura_empleado: {
+        Row: {
+          anio: number | null
+          created_at: string
+          empleado_id: string | null
+          estado: string
+          factura_compra_id: string | null
+          fecha: string
+          id: string
+          mes: number | null
+          observaciones: string | null
+          periodo_desde: string | null
+          periodo_hasta: string | null
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          created_at?: string
+          empleado_id?: string | null
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number | null
+          observaciones?: string | null
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_solicitudes_factura_empleado_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_solicitudes_factura_empleado_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_solicitudes_factura_empleado_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+        ]
       }
       fema_sueldos: {
         Row: {
