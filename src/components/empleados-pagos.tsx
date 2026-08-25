@@ -378,6 +378,26 @@ export function FacturasEmpleadoTab() {
   });
   const facMap = useMemo(() => Object.fromEntries((facturas ?? []).map((f) => [f.id, f])), [facturas]);
 
+  const [filtroCat, setFiltroCat] = useState("empleados");
+  const facturasFiltradas = useMemo(() => {
+    const list = facturas ?? [];
+    if (filtroCat === "empleados") return list.filter((f) => !!f.empleado_id);
+    if (filtroCat === "terceros") return list.filter((f) => !f.empleado_id);
+    return list;
+  }, [facturas, filtroCat]);
+  const totalFiltrado = useMemo(
+    () => facturasFiltradas.reduce((a, f) => a + Number(f.total ?? 0), 0),
+    [facturasFiltradas],
+  );
+
+  const asignarEmpleado = async (facturaId: string, empleadoId: string | null) => {
+    const { error } = await supabase
+      .from("fema_facturas_compra").update({ empleado_id: empleadoId }).eq("id", facturaId);
+    if (error) return toast.error(error.message);
+    toast.success(empleadoId ? "Factura asignada al empleado" : "Marcada como tercero");
+    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+  };
+
   const eliminarSol = async (s: SolicitudFactura) => {
     await supabase.from("fema_pagos_empleado").update({ solicitud_id: null }).eq("solicitud_id", s.id);
     const { error } = await supabase.from("fema_solicitudes_factura_empleado").delete().eq("id", s.id);
