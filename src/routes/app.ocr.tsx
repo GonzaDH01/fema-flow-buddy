@@ -775,6 +775,24 @@ function Page() {
                   ))}
                 </select>
               </div>
+              {kind === "compra" && ["Mano_de_Obra", "Honorarios"].includes(result.categoria_sugerida ?? "") && (
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Empleado (factura de mano de obra)</Label>
+                  <select
+                    value={empleadoId}
+                    onChange={(e) => setEmpleadoId(e.target.value)}
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="">Sin asignar</option>
+                    {(empleadosOCR ?? []).map((e) => (
+                      <option key={e.id} value={e.id}>{e.nombre}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Al asignar un empleado, la factura aparece en Empleados → Facturas y su pago se registra desde Medios de pago.
+                  </p>
+                </div>
+              )}
               <div>
                 <Label className="text-xs text-muted-foreground">Tipo de comprobante (editable)</Label>
                 <select
