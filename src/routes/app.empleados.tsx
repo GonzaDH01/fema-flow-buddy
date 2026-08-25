@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
 
