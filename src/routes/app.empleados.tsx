@@ -54,12 +54,16 @@ function Page() {
         <HeaderActions tab={tab} />
       </div>
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="pagos">Pagos</TabsTrigger>
+          <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="horas">Horas trabajadas</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
+        <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
+        <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="horas"><HorasTab /></TabsContent>
