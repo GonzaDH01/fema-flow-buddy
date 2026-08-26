@@ -31,6 +31,7 @@ import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
 import { Route as AppMediosRouteImport } from './routes/app.medios'
 import { Route as AppOcrRouteImport } from './routes/app.ocr'
 import { Route as AppPresupuestosRouteImport } from './routes/app.presupuestos'
+import { Route as AppProductosRouteImport } from './routes/app.productos'
 import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
 import { Route as AppRentabilidadRouteImport } from './routes/app.rentabilidad'
 import { Route as AppTesoreriaRouteImport } from './routes/app.tesoreria'
@@ -147,6 +148,11 @@ const AppPresupuestosRoute = AppPresupuestosRouteImport.update({
   path: '/presupuestos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProductosRoute = AppProductosRouteImport.update({
+  id: '/productos',
+  path: '/productos',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProveedoresRoute = AppProveedoresRouteImport.update({
   id: '/proveedores',
   path: '/proveedores',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/productos': typeof AppProductosRoute
   '/app/proveedores': typeof AppProveedoresRoute
   '/app/rentabilidad': typeof AppRentabilidadRoute
   '/app/tesoreria': typeof AppTesoreriaRoute
@@ -223,6 +230,7 @@ export interface FileRoutesByTo {
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/productos': typeof AppProductosRoute
   '/app/proveedores': typeof AppProveedoresRoute
   '/app/rentabilidad': typeof AppRentabilidadRoute
   '/app/tesoreria': typeof AppTesoreriaRoute
@@ -253,6 +261,7 @@ export interface FileRoutesById {
   '/app/medios': typeof AppMediosRoute
   '/app/ocr': typeof AppOcrRoute
   '/app/presupuestos': typeof AppPresupuestosRoute
+  '/app/productos': typeof AppProductosRoute
   '/app/proveedores': typeof AppProveedoresRoute
   '/app/rentabilidad': typeof AppRentabilidadRoute
   '/app/tesoreria': typeof AppTesoreriaRoute
@@ -284,6 +293,7 @@ export interface FileRouteTypes {
     | '/app/medios'
     | '/app/ocr'
     | '/app/presupuestos'
+    | '/app/productos'
     | '/app/proveedores'
     | '/app/rentabilidad'
     | '/app/tesoreria'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/app/medios'
     | '/app/ocr'
     | '/app/presupuestos'
+    | '/app/productos'
     | '/app/proveedores'
     | '/app/rentabilidad'
     | '/app/tesoreria'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/app/medios'
     | '/app/ocr'
     | '/app/presupuestos'
+    | '/app/productos'
     | '/app/proveedores'
     | '/app/rentabilidad'
     | '/app/tesoreria'
@@ -513,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPresupuestosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/productos': {
+      id: '/app/productos'
+      path: '/productos'
+      fullPath: '/app/productos'
+      preLoaderRoute: typeof AppProductosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/proveedores': {
       id: '/app/proveedores'
       path: '/proveedores'
@@ -569,6 +588,7 @@ interface AppRouteChildren {
   AppMediosRoute: typeof AppMediosRoute
   AppOcrRoute: typeof AppOcrRoute
   AppPresupuestosRoute: typeof AppPresupuestosRoute
+  AppProductosRoute: typeof AppProductosRoute
   AppProveedoresRoute: typeof AppProveedoresRoute
   AppRentabilidadRoute: typeof AppRentabilidadRoute
   AppTesoreriaRoute: typeof AppTesoreriaRoute
@@ -594,6 +614,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMediosRoute: AppMediosRoute,
   AppOcrRoute: AppOcrRoute,
   AppPresupuestosRoute: AppPresupuestosRoute,
+  AppProductosRoute: AppProductosRoute,
   AppProveedoresRoute: AppProveedoresRoute,
   AppRentabilidadRoute: AppRentabilidadRoute,
   AppTesoreriaRoute: AppTesoreriaRoute,

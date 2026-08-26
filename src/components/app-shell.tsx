@@ -3,7 +3,7 @@ import {
   LayoutDashboard, TrendingUp, FileText, Users, ShoppingCart, Fuel,
   Truck, UserCheck, Calculator, ClipboardList, CreditCard, Banknote, Shield, LogOut,
   Download, Menu, ScanLine, UserCog, Image as ImageIcon, BookOpen, Bell, Wallet, PieChart,
-  FileDown, ChevronLeft, ChevronRight,
+  FileDown, ChevronLeft, ChevronRight, Package,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -57,6 +57,7 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       { to: "/app/facturas", label: "Facturas", icon: FileText, key: "facturas" },
       { to: "/app/clientes", label: "Clientes", icon: Users, key: "clientes" },
+      { to: "/app/productos", label: "Productos", icon: Package, key: "productos" },
     ],
   },
   {
@@ -109,6 +110,7 @@ const titleByPath: Record<string, string> = {
   "/app/alertas": "Centro de Alertas",
   "/app/facturas": "Facturas de Venta",
   "/app/clientes": "Clientes",
+  "/app/productos": "Productos",
   "/app/compras": "Compras",
   "/app/combustible": "Combustible",
   "/app/proveedores": "Proveedores",

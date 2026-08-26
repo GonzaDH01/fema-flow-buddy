@@ -1729,6 +1729,42 @@ export type Database = {
           },
         ]
       }
+      fema_productos: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          nombre: string
+          observaciones: string | null
+          precio: number | null
+          unidad_medida: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          id?: string
+          nombre: string
+          observaciones?: string | null
+          precio?: number | null
+          unidad_medida: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          nombre?: string
+          observaciones?: string | null
+          precio?: number | null
+          unidad_medida?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fema_proveedores: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_compra"] | null
