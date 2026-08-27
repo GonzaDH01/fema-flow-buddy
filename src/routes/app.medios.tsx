@@ -401,14 +401,42 @@ function Page() {
       ? `${(m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "")} [${marca}:${cuentaId}]`.trim()
       : ((m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim() || null);
     // Operación única en el servidor: estado + saldo bancario + estado de la factura
-    const { error } = await (sb as any).rpc("fema_impactar_caja", {
+    let { error } = await rpcResiliente("fema_impactar_caja", {
       _mov_id: m.id,
       _nuevo_estado: nuevoEstado,
       _cuenta_id: cuentaId,
       _es_pago: esPago,
     });
+    // Si la red sigue fallando, se marca el estado directamente (plan B) para no bloquear la operación.
+    if (error && esErrorDeRed(error.message)) {
+      const { error: updErr } = await sb.from("fema_movimientos_pago")
+        .update({ estado: nuevoEstado, observaciones: obs }).eq("id", m.id);
+      if (!updErr) {
+        if (cuentaId) {
+          const cta = cuentas.find((c: any) => c.id === cuentaId);
+          if (cta) {
+            const nuevo = Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(m.monto);
+            await sb.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cuentaId);
+            await sb.from("fema_caja_mov").insert({
+              user_id: user!.id,
+              fecha: m.vencimiento ?? m.fecha_emision ?? new Date().toISOString().slice(0, 10),
+              cuenta_id: cuentaId, tipo: esPago ? "egreso" : "ingreso", monto: m.monto,
+              concepto: `${m.contraparte ?? m.instrumento}${m.numero ? ` Nº ${m.numero}` : ""}`,
+              movimiento_pago_id: m.id, saldo_resultante: nuevo,
+            });
+          }
+        }
+        await reconciliarFactura(m.factura_venta_id, "venta");
+        await reconciliarFactura(m.factura_compra_id, "compra");
+        error = null;
+      }
+    }
     if (error) {
-      toast.error(`No se pudo registrar el movimiento: ${error.message}`);
+      toast.error(
+        esErrorDeRed(error.message)
+          ? "Sin conexión con el servidor. Revisá tu internet (o un bloqueador de anuncios) e intentá de nuevo."
+          : `No se pudo registrar el movimiento: ${error.message}`,
+      );
       await movsQ.refetch();
       return;
     }
