@@ -474,11 +474,16 @@ function Page() {
 
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
-    const { error } = await (sb as any).rpc("fema_revertir_caja", {
+    const { error } = await rpcResiliente("fema_revertir_caja", {
       _mov_id: m.id,
       _estado: "en_cartera",
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(esErrorDeRed(error.message)
+        ? "Sin conexión con el servidor. Revisá tu internet e intentá de nuevo."
+        : error.message);
+      return;
+    }
     qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
     qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
     toast.success("Echeq devuelto a cartera");
