@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tabs as OuterTabs, TabsList as OuterTabsList, TabsTrigger as OuterTabsTrigger, TabsContent as OuterTabsContent } from "@/components/ui/tabs";
 import { GastosFijos } from "@/components/gastos-fijos";
+import { ControlMes } from "@/components/control-mes";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -120,7 +121,7 @@ function Page() {
   const [edit, setEdit] = useState<Row | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "parcial" | "pagada" | "informativas">("todas");
   const [search, setSearch] = useState("");
-  const [outerTab, setOuterTab] = useState<"compras" | "fijos">("compras");
+  const [outerTab, setOuterTab] = useState<"compras" | "fijos" | "control">("compras");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [filtroProv, setFiltroProv] = useState<string>("__all");
