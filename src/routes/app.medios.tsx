@@ -52,6 +52,23 @@ type Mov = {
 
 const sb = supabase as any;
 
+const esErrorDeRed = (msg?: string | null) =>
+  !!msg && /networkerror|failed to fetch|load failed|network request failed|fetch/i.test(msg);
+
+// Llama a una función del servidor reintentando cuando la red falla de forma transitoria
+// (el navegador devuelve "NetworkError when attempting to fetch resource").
+async function rpcResiliente(fn: string, params: Record<string, unknown>, intentos = 3) {
+  let ultimo: { message: string } | null = null;
+  for (let i = 0; i < intentos; i++) {
+    const { error } = await sb.rpc(fn, params);
+    if (!error) return { error: null as null };
+    ultimo = error;
+    if (!esErrorDeRed(error.message)) return { error };
+    await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+  }
+  return { error: ultimo };
+}
+
 // Reconcilia el estado de una factura (venta/compra) según movimientos directos + imputaciones.
 // Si la suma cubre el total → marca cobrada/pagada; si no → vuelve a pendiente.
 async function reconciliarFactura(facturaId: string | null | undefined, tipo: "venta" | "compra") {
