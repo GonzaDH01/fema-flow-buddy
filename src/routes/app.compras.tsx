@@ -297,10 +297,15 @@ function Page() {
         <OuterTabsList>
           <OuterTabsTrigger value="compras">Compras</OuterTabsTrigger>
           <OuterTabsTrigger value="fijos">Gastos Fijos</OuterTabsTrigger>
+          <OuterTabsTrigger value="control">Control mes</OuterTabsTrigger>
         </OuterTabsList>
         <OuterTabsContent value="fijos" className="mt-4">
           <GastosFijos />
         </OuterTabsContent>
+        <OuterTabsContent value="control" className="mt-4">
+          <ControlMes />
+        </OuterTabsContent>
+
         <OuterTabsContent value="compras" className="mt-4 space-y-4">
       <div className="flex items-center justify-between">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
