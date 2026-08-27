@@ -152,7 +152,7 @@ function Page() {
         ]}
       />
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-        <FormDialog onSubmit={onSubmit} initial={edit} />
+        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} />
       </Dialog>
     </>
   );
@@ -216,7 +216,7 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
         </FormField>
         <DialogFooter>
           <Button type="submit" disabled={f.formState.isSubmitting}>
-            Guardar
+            {initial ? "Guardar cambios" : "Crear producto"}
           </Button>
         </DialogFooter>
       </form>
