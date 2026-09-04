@@ -774,7 +774,11 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
-      tipo_comprobante: (initial?.tipo_comprobante as any) ?? "Factura",
+      tipo_comprobante: (() => {
+        const raw = initial?.tipo_comprobante ?? "Factura";
+        // Algunas filas viejas (p.ej. cargadas por OCR) guardan el valor en minúsculas.
+        return (TIPOS_COMPROBANTE.find((t) => t.toLowerCase() === raw.toLowerCase()) ?? "Factura") as FormVals["tipo_comprobante"];
+      })(),
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
       fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
