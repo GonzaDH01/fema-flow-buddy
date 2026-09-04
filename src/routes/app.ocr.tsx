@@ -26,6 +26,12 @@ type OCRResult = {
   receptor_telefono?: string | null; receptor_email?: string | null;
   receptor_condicion_iva?: string | null; receptor_iibb?: string | null;
   descripcion?: string | null; categoria_sugerida?: string;
+  items?: Array<{
+    descripcion?: string | null;
+    cantidad?: number | string | null;
+    precio_unitario?: number | string | null;
+    importe?: number | string | null;
+  }> | null;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
   itc_nafta?: number; itc_gasoil?: number; co2_nafta?: number; co2_gasoil?: number;
@@ -35,6 +41,54 @@ type OCRResult = {
 
 type DocKind = "compra" | "venta";
 type Modo = "nuevo" | "adjuntar";
+
+const num = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+
+const fmtImporte = (v: unknown) => {
+  const n = num(v);
+  return n === null ? null : n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/** Detalle del comprobante, una línea por producto/ítem. */
+export function armarObservaciones(result: OCRResult): string {
+  const lineas: string[] = [];
+  if (result.emisor) lineas.push(`OCR: ${result.emisor}`);
+  else lineas.push("OCR");
+
+  const items = (result.items ?? []).filter((i: any) => (i?.descripcion ?? "").toString().trim());
+  if (items.length) {
+    lineas.push("Detalle:");
+    for (const it of items) {
+      const cant = num(it.cantidad);
+      const pu = fmtImporte(it.precio_unitario);
+      const imp = fmtImporte(it.importe);
+      const partes = [
+        cant !== null ? `${cant} x` : null,
+        String(it.descripcion).trim(),
+        pu ? `@ $${pu}` : null,
+        imp ? `= $${imp}` : null,
+      ].filter(Boolean);
+      lineas.push(`- ${partes.join(" ")}`);
+    }
+  } else if (result.descripcion) {
+    // Fallback: separar el detalle plano en líneas por comas / punto y coma / viñetas.
+    const partes = String(result.descripcion)
+      .split(/\s*(?:[;•|]|\n|,(?=\s*[A-Za-zÁÉÍÓÚÑ0-9]))\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (partes.length > 1) {
+      lineas.push("Detalle:");
+      for (const p of partes) lineas.push(`- ${p}`);
+    } else {
+      lineas.push(`Detalle: ${result.descripcion}`);
+    }
+  }
+  return lineas.join("\n").trim();
+}
 
 async function listAllPaths(prefix: string): Promise<string[]> {
   const out: string[] = [];
@@ -531,7 +585,7 @@ function Page() {
         percepciones: result.percepciones ?? 0,
         total: result.total ?? 0,
         tipo_comprobante: normalizarTipoComprobante(result.tipo),
-        observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
+        observaciones: armarObservaciones(result),
       };
       // Subir imagen al bucket privado
       let imagen_path: string | null = null;

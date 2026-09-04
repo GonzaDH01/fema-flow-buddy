@@ -70,7 +70,12 @@ Campos exactos:
   "receptor_email": "string|null",
   "receptor_condicion_iva": "string|null",
   "receptor_iibb": "string|null",
+  "items": [ { "descripcion": "string", "cantidad": 0, "precio_unitario": 0, "importe": 0 } ],
+  // "items" = una entrada por CADA renglón del detalle del comprobante (productos o servicios),
+  // en el mismo orden en que aparecen. No agrupes ni resumas varios renglones en uno.
+  // Si no podés leer cantidad/precio/importe de un renglón, usá null. Si no hay detalle, devolvé [].
   "descripcion": "string|null",
+
   "categoria_sugerida": "Gasoil_Combustible|Repuestos_JD|Repuestos|Mecanicos|Gomeria|Inoculante|Transportistas|Seguros|Servicios|Herramientas|Mano_de_Obra|Honorarios|Maquinaria_Rodados|Pago_Creditos|Inversiones|Franco_Particular|Otro",
   // Reglas de categoría:
   // - Si es_combustible=true o el emisor es estación de servicio (YPF, Axion, Shell, Puma, Servicentro, Estación de Servicio, Red Mercosur, FASENA, etc.) o el producto contiene "diesel/gasoil/nafta/v-power/quantium/infinia/euro" → categoria_sugerida="Gasoil_Combustible".
