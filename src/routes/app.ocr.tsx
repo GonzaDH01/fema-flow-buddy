@@ -59,7 +59,7 @@ export function armarObservaciones(result: OCRResult): string {
   if (result.emisor) lineas.push(`OCR: ${result.emisor}`);
   else lineas.push("OCR");
 
-  const items = (result.items ?? []).filter((i) => (i?.descripcion ?? "").toString().trim());
+  const items = (result.items ?? []).filter((i: any) => (i?.descripcion ?? "").toString().trim());
   if (items.length) {
     lineas.push("Detalle:");
     for (const it of items) {
