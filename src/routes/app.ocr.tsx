@@ -537,7 +537,7 @@ function Page() {
         percepciones: result.percepciones ?? 0,
         total: result.total ?? 0,
         tipo_comprobante: normalizarTipoComprobante(result.tipo),
-        observaciones: `OCR: ${result.emisor ?? ""}${result.descripcion ? " - " + result.descripcion : ""}`.trim(),
+        observaciones: armarObservaciones(result),
       };
       // Subir imagen al bucket privado
       let imagen_path: string | null = null;
