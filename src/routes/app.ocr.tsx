@@ -26,6 +26,12 @@ type OCRResult = {
   receptor_telefono?: string | null; receptor_email?: string | null;
   receptor_condicion_iva?: string | null; receptor_iibb?: string | null;
   descripcion?: string | null; categoria_sugerida?: string;
+  items?: Array<{
+    descripcion?: string | null;
+    cantidad?: number | string | null;
+    precio_unitario?: number | string | null;
+    importe?: number | string | null;
+  }> | null;
   es_combustible?: boolean; neto?: number; iva_21?: number; iva_105?: number;
   itc_combustible?: number; co2_combustible?: number; otros_impuestos?: number;
   itc_nafta?: number; itc_gasoil?: number; co2_nafta?: number; co2_gasoil?: number;
