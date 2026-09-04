@@ -42,6 +42,54 @@ type OCRResult = {
 type DocKind = "compra" | "venta";
 type Modo = "nuevo" | "adjuntar";
 
+const num = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+
+const fmtImporte = (v: unknown) => {
+  const n = num(v);
+  return n === null ? null : n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/** Detalle del comprobante, una línea por producto/ítem. */
+export function armarObservaciones(result: OcrResult): string {
+  const lineas: string[] = [];
+  if (result.emisor) lineas.push(`OCR: ${result.emisor}`);
+  else lineas.push("OCR");
+
+  const items = (result.items ?? []).filter((i) => (i?.descripcion ?? "").toString().trim());
+  if (items.length) {
+    lineas.push("Detalle:");
+    for (const it of items) {
+      const cant = num(it.cantidad);
+      const pu = fmtImporte(it.precio_unitario);
+      const imp = fmtImporte(it.importe);
+      const partes = [
+        cant !== null ? `${cant} x` : null,
+        String(it.descripcion).trim(),
+        pu ? `@ $${pu}` : null,
+        imp ? `= $${imp}` : null,
+      ].filter(Boolean);
+      lineas.push(`- ${partes.join(" ")}`);
+    }
+  } else if (result.descripcion) {
+    // Fallback: separar el detalle plano en líneas por comas / punto y coma / viñetas.
+    const partes = String(result.descripcion)
+      .split(/\s*(?:[;•|]|\n|,(?=\s*[A-Za-zÁÉÍÓÚÑ0-9]))\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (partes.length > 1) {
+      lineas.push("Detalle:");
+      for (const p of partes) lineas.push(`- ${p}`);
+    } else {
+      lineas.push(`Detalle: ${result.descripcion}`);
+    }
+  }
+  return lineas.join("\n").trim();
+}
+
 async function listAllPaths(prefix: string): Promise<string[]> {
   const out: string[] = [];
   const { data, error } = await supabase.storage.from("facturas-img").list(prefix, { limit: 1000 });
