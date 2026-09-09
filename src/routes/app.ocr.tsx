@@ -1039,7 +1039,7 @@ function Page() {
               )}
               <Button onClick={guardar} disabled={saving || modo === "adjuntar" || errores.length > 0}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-                Guardar como {kind === "compra" ? "compra" : "venta"}
+                {kind === "remito" ? "Guardar remito" : `Guardar como ${kind === "compra" ? "compra" : "venta"}`}
               </Button>
             </div>
           )}
