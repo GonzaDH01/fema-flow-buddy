@@ -48,9 +48,14 @@ Reglas ESPECÍFICAS para COMBUSTIBLE (muy importante — hoy se pierden estos im
 - En tickets B/C de estación de servicio: el precio de pizarra ya incluye IVA. neto = total - (itc + co2 + otros + percepciones). Nunca dejes itc/co2 en 0 si el ticket los discrimina en el pie.
 - Verificá coherencia: neto + iva_21 + iva_105 + impuestos internos + otros_impuestos + percepciones ≈ total. Si no cierra, volvé a leer el pie del comprobante buscando la línea de impuesto que falta (casi siempre es una percepción de IIBB) antes de tocar nada; sólo si no encontrás la etiqueta, imputá la diferencia en "otros_impuestos". Nunca la sumes al neto ni cambies el total impreso.
 
+Reglas para REMITOS (muy importante):
+- Un remito es un comprobante de ENTREGA de mercadería: suele decir "REMITO", "Remito R", "Documento no válido como factura" y normalmente NO tiene importes.
+- Si el documento es un remito, devolvé tipo="remito" y cargá igual: numero, fecha, emisor, receptor, CUIT de ambos y el detalle completo de renglones en "items" (descripción y cantidad; precio_unitario e importe pueden ser null).
+- En un remito dejá neto, iva_21, iva_105, percepciones y total en 0 salvo que el documento imprima importes.
+
 Campos exactos:
 {
-  "tipo": "factura|recibo|ticket|otro",
+  "tipo": "factura|recibo|ticket|remito|otro",
   "letra": "A|B|C|M|E|null",
   "numero": "string|null",
   "fecha": "YYYY-MM-DD|null",
