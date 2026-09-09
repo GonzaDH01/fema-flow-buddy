@@ -258,6 +258,7 @@ function Page() {
   const [destinoId, setDestinoId] = useState<string | null>(null);
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
+  const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
 
   const { data: empleadosOCR } = useQuery({
     queryKey: ["fema_empleados_min"],
