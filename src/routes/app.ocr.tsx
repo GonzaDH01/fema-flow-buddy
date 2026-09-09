@@ -443,9 +443,11 @@ function Page() {
       if (parsed.emisor !== crudo.emisor) {
         toast.warning("Detecté a FEMA Agronegocios como emisor: invertí emisor y receptor. Revisá los datos.");
       }
-      toast.success("Comprobante analizado");
-      const existente = await buscarDuplicado(parsed);
-      if (existente) setDupe(existente);
+      toast.success(kind === "remito" ? "Remito analizado" : "Comprobante analizado");
+      if (kind !== "remito") {
+        const existente = await buscarDuplicado(parsed);
+        if (existente) setDupe(existente);
+      }
     } catch (e: any) {
       toast.error(e.message ?? "Error");
     } finally {
