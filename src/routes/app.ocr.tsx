@@ -720,13 +720,42 @@ function Page() {
           >
             <Receipt className="mr-1.5 h-4 w-4" /> Factura de venta / servicio
           </Button>
+          <Button
+            type="button"
+            variant={kind === "remito" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setKind("remito"); setModo("nuevo"); setDestinoId(null); }}
+          >
+            <Truck className="mr-1.5 h-4 w-4" /> Remito
+          </Button>
         </div>
         <p className="ml-auto text-xs text-muted-foreground">
-          {kind === "compra" ? "Se cargará en Compras" : "Se cargará en Facturas (ventas)"}
+          {kind === "compra"
+            ? "Se cargará en Compras"
+            : kind === "venta"
+              ? "Se cargará en Facturas (ventas)"
+              : "Se cargará en Imágenes → Remitos, con número interno correlativo"}
         </p>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+      {kind === "remito" && (
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+          <Label className="text-sm font-medium">El remito es de:</Label>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant={remitoTipo === "compra" ? "default" : "outline"} onClick={() => setRemitoTipo("compra")}>
+              Mercadería recibida (proveedor)
+            </Button>
+            <Button type="button" size="sm" variant={remitoTipo === "venta" ? "default" : "outline"} onClick={() => setRemitoTipo("venta")}>
+              Mercadería entregada (cliente)
+            </Button>
+          </div>
+          <p className="ml-auto text-xs text-muted-foreground">
+            El remito no genera factura ni movimiento de caja: queda archivado para consulta.
+          </p>
+        </div>
+      )}
+
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" ? "hidden" : ""}`}>
         <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
