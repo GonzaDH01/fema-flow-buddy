@@ -462,7 +462,47 @@ function Page() {
     return Number.isFinite(n) ? n : 0;
   };
 
+  /** Los remitos no generan factura: se guardan en su propio registro con número correlativo. */
+  const guardarRemito = async () => {
+    if (!result || !user) return toast.error("Sin datos o sesión");
+    setSaving(true);
+    try {
+      let imagen_path: string | null = null;
+      if (b64 && mime) {
+        try { imagen_path = await subirImagen(); } catch { /* no bloquear el guardado */ }
+      }
+      const fecha = result.fecha ?? new Date().toISOString().slice(0, 10);
+      const nombre = (remitoTipo === "venta" ? (result.receptor ?? result.emisor) : result.emisor)?.trim() || null;
+      const cuit = onlyDigits(remitoTipo === "venta" ? (result.cuit_receptor ?? result.cuit_emisor) : result.cuit_emisor) || null;
+      const { data, error } = await supabase
+        .from("fema_remitos")
+        .insert({
+          user_id: user.id,
+          fecha,
+          tipo: remitoTipo,
+          numero: result.numero ?? null,
+          tercero_nombre: nombre,
+          tercero_cuit: cuit,
+          detalle: armarObservaciones(result),
+          imagen_path,
+          anio: Number(fecha.slice(0, 4)),
+          mes: Number(fecha.slice(5, 7)),
+        })
+        .select("serie")
+        .single();
+      if (error) throw error;
+      toast.success(`Remito guardado con el número interno ${data?.serie ?? ""}`);
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["fema_remitos"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar el remito");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const guardar = async () => {
+    if (kind === "remito") return guardarRemito();
     if (!result || !user) return toast.error("Sin datos o sesión");
     setSaving(true);
     try {
