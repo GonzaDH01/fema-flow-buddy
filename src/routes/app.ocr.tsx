@@ -268,7 +268,7 @@ function Page() {
     },
   });
 
-  const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+  const tablaKind = kind === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
 
   // Verifica si un archivo sigue existiendo en el bucket (puede haber sido eliminado)
   const existeArchivo = async (path?: string | null) => {
