@@ -195,8 +195,15 @@ export const sumaDesglose = (r: OCRResult) =>
 /** Revisión previa campo por campo: marca lo que falta o no cierra antes de guardar. */
 function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   const avisos: Aviso[] = [];
-  const tercero = kind === "compra" ? r.emisor : r.receptor;
-  const cuitTercero = kind === "compra" ? r.cuit_emisor : r.cuit_receptor;
+  const tercero = kind === "venta" ? r.receptor : r.emisor;
+  const cuitTercero = kind === "venta" ? r.cuit_receptor : r.cuit_emisor;
+
+  if (kind === "remito") {
+    if (!r.fecha) avisos.push({ campo: "Fecha", nivel: "error", msg: "No se pudo leer la fecha del remito." });
+    if (!r.numero) avisos.push({ campo: "Número", nivel: "warn", msg: "El remito no tiene número impreso legible." });
+    if (!tercero) avisos.push({ campo: "Emisor", nivel: "warn", msg: "No se leyó quién emitió el remito." });
+    return avisos;
+  }
 
   if (!r.fecha) avisos.push({ campo: "Fecha", nivel: "error", msg: "No se pudo leer la fecha del comprobante." });
   if (!(r.total ?? 0)) avisos.push({ campo: "Total", nivel: "error", msg: "El total quedó en cero: cargalo a mano." });
