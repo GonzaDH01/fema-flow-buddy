@@ -328,6 +328,9 @@ function Page() {
           <TabsTrigger value="venta">
             <Receipt className="mr-1.5 h-4 w-4" /> Ventas / Servicios
           </TabsTrigger>
+          <TabsTrigger value="remitos">
+            <Truck className="mr-1.5 h-4 w-4" /> Remitos
+          </TabsTrigger>
           <TabsTrigger value="control">
             <ShieldCheck className="mr-1.5 h-4 w-4" /> Control
           </TabsTrigger>
@@ -337,6 +340,9 @@ function Page() {
         </TabsContent>
         <TabsContent value="venta" className="mt-4">
           <Panel kind="venta" />
+        </TabsContent>
+        <TabsContent value="remitos" className="mt-4">
+          <RemitosPanel />
         </TabsContent>
         <TabsContent value="control" className="mt-4">
           <ControlPanel />
