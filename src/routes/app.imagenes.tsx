@@ -314,9 +314,9 @@ function Page() {
   return (
     <div className="p-4 md:p-6">
       <header className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Facturas</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Comprobantes</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Archivo de comprobantes escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
+          Archivo de facturas y remitos escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
         </p>
       </header>
 
