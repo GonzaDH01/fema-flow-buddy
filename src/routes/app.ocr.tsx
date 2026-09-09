@@ -39,7 +39,7 @@ type OCRResult = {
   producto_combustible?: string | null; moneda?: string;
 };
 
-type DocKind = "compra" | "venta";
+type DocKind = "compra" | "venta" | "remito";
 type Modo = "nuevo" | "adjuntar";
 
 const num = (v: unknown): number | null => {
