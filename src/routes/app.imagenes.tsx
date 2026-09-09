@@ -6,7 +6,7 @@ import JSZip from "jszip";
 import { usePaginacion, Paginacion } from "@/components/paginacion";
 import {
   Image as ImageIcon, Download, Trash2, ShoppingCart, Receipt, FileImage, Loader2,
-  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off,
+  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off, Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -314,9 +314,9 @@ function Page() {
   return (
     <div className="p-4 md:p-6">
       <header className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Facturas</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Imágenes de Comprobantes</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Archivo de comprobantes escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
+          Archivo de facturas y remitos escaneados. Descargá individualmente, en lote (ZIP) o liberá espacio del almacenamiento.
         </p>
       </header>
 
@@ -328,6 +328,9 @@ function Page() {
           <TabsTrigger value="venta">
             <Receipt className="mr-1.5 h-4 w-4" /> Ventas / Servicios
           </TabsTrigger>
+          <TabsTrigger value="remitos">
+            <Truck className="mr-1.5 h-4 w-4" /> Remitos
+          </TabsTrigger>
           <TabsTrigger value="control">
             <ShieldCheck className="mr-1.5 h-4 w-4" /> Control
           </TabsTrigger>
@@ -337,6 +340,9 @@ function Page() {
         </TabsContent>
         <TabsContent value="venta" className="mt-4">
           <Panel kind="venta" />
+        </TabsContent>
+        <TabsContent value="remitos" className="mt-4">
+          <RemitosPanel />
         </TabsContent>
         <TabsContent value="control" className="mt-4">
           <ControlPanel />
@@ -570,6 +576,263 @@ function ControlPanel() {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+type Remito = {
+  id: string;
+  serie: number;
+  fecha: string;
+  tipo: string;
+  numero: string | null;
+  tercero_nombre: string | null;
+  detalle: string | null;
+  imagen_path: string | null;
+};
+
+/** Remitos cargados desde OCR: no son facturas, se archivan con número interno correlativo. */
+function RemitosPanel() {
+  const qc = useQueryClient();
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const [desde, setDesde] = useState<string>(first.toISOString().slice(0, 10));
+  const [hasta, setHasta] = useState<string>(now.toISOString().slice(0, 10));
+  const [tipo, setTipo] = useState<"todos" | "compra" | "venta">("todos");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const [abierto, setAbierto] = useState<string | null>(null);
+
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ["fema_remitos", desde, hasta, tipo],
+    queryFn: async (): Promise<Remito[]> => {
+      let q = supabase
+        .from("fema_remitos")
+        .select("id, serie, fecha, tipo, numero, tercero_nombre, detalle, imagen_path")
+        .order("serie", { ascending: false });
+      if (desde) q = q.gte("fecha", desde);
+      if (hasta) q = q.lte("fecha", hasta);
+      if (tipo !== "todos") q = q.eq("tipo", tipo);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Remito[];
+    },
+  });
+
+  const pag = usePaginacion(rows ?? [], 50);
+  const selectedRows = useMemo(() => (rows ?? []).filter((r) => selected[r.id]), [rows, selected]);
+  const allSelected = (rows?.length ?? 0) > 0 && selectedRows.length === (rows?.length ?? 0);
+
+  const nombreArchivo = (r: Remito) => {
+    const ext = (r.imagen_path ?? "").split(".").pop() ?? "bin";
+    return `remito_${String(r.serie).padStart(5, "0")}_${r.fecha}.${ext}`;
+  };
+
+  const ver = async (r: Remito) => {
+    if (!r.imagen_path) return toast.error("Este remito no tiene imagen");
+    try { window.open(await signedUrl(r.imagen_path), "_blank"); }
+    catch (e: any) { toast.error(e.message ?? "Error al abrir la imagen"); }
+  };
+
+  const descargarUno = async (r: Remito) => {
+    if (!r.imagen_path) return toast.error("Este remito no tiene imagen");
+    try {
+      const res = await fetch(await signedUrl(r.imagen_path));
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = nombreArchivo(r);
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) { toast.error(e.message ?? "Error al descargar"); }
+  };
+
+  const descargarZip = async (liberarEspacio: boolean) => {
+    const conImagen = selectedRows.filter((r) => r.imagen_path);
+    if (conImagen.length === 0) return toast.error("Seleccioná al menos un remito con imagen");
+    setBusy(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(`remitos_${desde}_a_${hasta}`)!;
+      for (const r of conImagen) {
+        try {
+          const res = await fetch(await signedUrl(r.imagen_path!));
+          folder.file(nombreArchivo(r), await res.blob());
+        } catch { /* saltar archivos rotos */ }
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = `remitos_${desde}_a_${hasta}.zip`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+
+      if (liberarEspacio) {
+        const paths = conImagen.map((r) => r.imagen_path!);
+        const { error: delErr } = await supabase.storage.from("facturas-img").remove(paths);
+        if (delErr) throw delErr;
+        const { error: updErr } = await supabase
+          .from("fema_remitos")
+          .update({ imagen_path: null })
+          .in("id", conImagen.map((r) => r.id));
+        if (updErr) throw updErr;
+        toast.success(`Se liberó espacio: ${paths.length} imagen(es) eliminadas`);
+        setSelected({});
+      } else {
+        toast.success(`ZIP descargado (${conImagen.length} remitos)`);
+      }
+      qc.invalidateQueries({ queryKey: ["fema_remitos"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error en la descarga");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Desde (fecha del remito)</Label>
+          <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-9" />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Hasta</Label>
+          <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-9" />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Tipo</Label>
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as any)}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="todos">Todos</option>
+            <option value="compra">Recibidos (proveedor)</option>
+            <option value="venta">Entregados (cliente)</option>
+          </select>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => { setDesde(""); setHasta(""); }}>Limpiar</Button>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Badge variant="secondary">{rows?.length ?? 0} remito(s)</Badge>
+          <Badge>{selectedRows.length} seleccionado(s)</Badge>
+          <Button size="sm" variant="outline" onClick={() => descargarZip(false)} disabled={busy || selectedRows.length === 0}>
+            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Descargar ZIP
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={busy || selectedRows.length === 0}>
+                <Trash2 className="mr-1.5 h-4 w-4" /> Descargar y liberar espacio
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Descargar y eliminar del almacenamiento</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se descargará un ZIP con las imágenes seleccionadas y luego se eliminarán del
+                  almacenamiento. Los datos del remito (número interno, fecha, detalle) se conservan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => descargarZip(true)}>Descargar y liberar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left">
+            <tr>
+              <th className="w-10 px-3 py-2">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={() => {
+                    if (!rows) return;
+                    if (allSelected) setSelected({});
+                    else setSelected(Object.fromEntries(rows.map((r) => [r.id, true])));
+                  }}
+                />
+              </th>
+              <th className="px-3 py-2">N° interno</th>
+              <th className="px-3 py-2">Fecha</th>
+              <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">Proveedor / Cliente</th>
+              <th className="px-3 py-2">N° remito</th>
+              <th className="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-t border-border">
+                  {Array.from({ length: 7 }).map((__, j) => (
+                    <td key={j} className="px-3 py-2"><Skeleton className="h-4 w-full" /></td>
+                  ))}
+                </tr>
+              ))
+            ) : (rows?.length ?? 0) === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Truck className="h-8 w-8" />
+                    <p>No hay remitos en el rango seleccionado</p>
+                    <p className="text-xs">Los remitos se cargan desde el módulo OCR.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              pag.pageItems.map((r) => (
+                <tr key={r.id} className="border-t border-border align-top">
+                  <td className="px-3 py-2">
+                    <Checkbox
+                      checked={!!selected[r.id]}
+                      onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: v === true }))}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-mono font-medium">{String(r.serie).padStart(5, "0")}</td>
+                  <td className="px-3 py-2">{r.fecha}</td>
+                  <td className="px-3 py-2">
+                    <Badge variant="secondary">{r.tipo === "venta" ? "Entregado" : "Recibido"}</Badge>
+                  </td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      className="text-left hover:underline"
+                      onClick={() => setAbierto(abierto === r.id ? null : r.id)}
+                    >
+                      {r.tercero_nombre ?? "—"}
+                    </button>
+                    {abierto === r.id && r.detalle && (
+                      <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">{r.detalle}</pre>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{r.numero ?? "—"}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => ver(r)} disabled={!r.imagen_path}>
+                        <ImageIcon className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => descargarUno(r)} disabled={!r.imagen_path}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <Paginacion
+          page={pag.page}
+          totalPages={pag.totalPages}
+          total={pag.total}
+          pageSize={pag.pageSize}
+          onPage={pag.setPage}
+          label="remitos"
+        />
+      </div>
     </div>
   );
 }

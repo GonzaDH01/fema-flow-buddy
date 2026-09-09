@@ -1813,6 +1813,81 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_remitos: {
+        Row: {
+          anio: number | null
+          cliente_id: string | null
+          created_at: string
+          detalle: string | null
+          fecha: string
+          id: string
+          imagen_path: string | null
+          mes: number | null
+          numero: string | null
+          observaciones: string | null
+          proveedor_id: string | null
+          serie: number
+          tercero_cuit: string | null
+          tercero_nombre: string | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anio?: number | null
+          cliente_id?: string | null
+          created_at?: string
+          detalle?: string | null
+          fecha?: string
+          id?: string
+          imagen_path?: string | null
+          mes?: number | null
+          numero?: string | null
+          observaciones?: string | null
+          proveedor_id?: string | null
+          serie?: number
+          tercero_cuit?: string | null
+          tercero_nombre?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anio?: number | null
+          cliente_id?: string | null
+          created_at?: string
+          detalle?: string | null
+          fecha?: string
+          id?: string
+          imagen_path?: string | null
+          mes?: number | null
+          numero?: string | null
+          observaciones?: string | null
+          proveedor_id?: string | null
+          serie?: number
+          tercero_cuit?: string | null
+          tercero_nombre?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_remitos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_remitos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "fema_proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_solicitudes_factura_empleado: {
         Row: {
           anio: number | null

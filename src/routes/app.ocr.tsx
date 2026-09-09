@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ type OCRResult = {
   producto_combustible?: string | null; moneda?: string;
 };
 
-type DocKind = "compra" | "venta";
+type DocKind = "compra" | "venta" | "remito";
 type Modo = "nuevo" | "adjuntar";
 
 const num = (v: unknown): number | null => {
@@ -195,8 +195,15 @@ export const sumaDesglose = (r: OCRResult) =>
 /** Revisión previa campo por campo: marca lo que falta o no cierra antes de guardar. */
 function revisarOCR(r: OCRResult, kind: DocKind): Aviso[] {
   const avisos: Aviso[] = [];
-  const tercero = kind === "compra" ? r.emisor : r.receptor;
-  const cuitTercero = kind === "compra" ? r.cuit_emisor : r.cuit_receptor;
+  const tercero = kind === "venta" ? r.receptor : r.emisor;
+  const cuitTercero = kind === "venta" ? r.cuit_receptor : r.cuit_emisor;
+
+  if (kind === "remito") {
+    if (!r.fecha) avisos.push({ campo: "Fecha", nivel: "error", msg: "No se pudo leer la fecha del remito." });
+    if (!r.numero) avisos.push({ campo: "Número", nivel: "warn", msg: "El remito no tiene número impreso legible." });
+    if (!tercero) avisos.push({ campo: "Emisor", nivel: "warn", msg: "No se leyó quién emitió el remito." });
+    return avisos;
+  }
 
   if (!r.fecha) avisos.push({ campo: "Fecha", nivel: "error", msg: "No se pudo leer la fecha del comprobante." });
   if (!(r.total ?? 0)) avisos.push({ campo: "Total", nivel: "error", msg: "El total quedó en cero: cargalo a mano." });
@@ -251,6 +258,7 @@ function Page() {
   const [destinoId, setDestinoId] = useState<string | null>(null);
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
+  const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
 
   const { data: empleadosOCR } = useQuery({
     queryKey: ["fema_empleados_min"],
@@ -260,7 +268,7 @@ function Page() {
     },
   });
 
-  const tablaKind = kind === "compra" ? "fema_facturas_compra" : "fema_facturas_venta";
+  const tablaKind = kind === "venta" ? "fema_facturas_venta" : "fema_facturas_compra";
 
   // Verifica si un archivo sigue existiendo en el bucket (puede haber sido eliminado)
   const existeArchivo = async (path?: string | null) => {
@@ -435,9 +443,11 @@ function Page() {
       if (parsed.emisor !== crudo.emisor) {
         toast.warning("Detecté a FEMA Agronegocios como emisor: invertí emisor y receptor. Revisá los datos.");
       }
-      toast.success("Comprobante analizado");
-      const existente = await buscarDuplicado(parsed);
-      if (existente) setDupe(existente);
+      toast.success(kind === "remito" ? "Remito analizado" : "Comprobante analizado");
+      if (kind !== "remito") {
+        const existente = await buscarDuplicado(parsed);
+        if (existente) setDupe(existente);
+      }
     } catch (e: any) {
       toast.error(e.message ?? "Error");
     } finally {
@@ -452,7 +462,47 @@ function Page() {
     return Number.isFinite(n) ? n : 0;
   };
 
+  /** Los remitos no generan factura: se guardan en su propio registro con número correlativo. */
+  const guardarRemito = async () => {
+    if (!result || !user) return toast.error("Sin datos o sesión");
+    setSaving(true);
+    try {
+      let imagen_path: string | null = null;
+      if (b64 && mime) {
+        try { imagen_path = await subirImagen(); } catch { /* no bloquear el guardado */ }
+      }
+      const fecha = result.fecha ?? new Date().toISOString().slice(0, 10);
+      const nombre = (remitoTipo === "venta" ? (result.receptor ?? result.emisor) : result.emisor)?.trim() || null;
+      const cuit = onlyDigits(remitoTipo === "venta" ? (result.cuit_receptor ?? result.cuit_emisor) : result.cuit_emisor) || null;
+      const { data, error } = await supabase
+        .from("fema_remitos")
+        .insert({
+          user_id: user.id,
+          fecha,
+          tipo: remitoTipo,
+          numero: result.numero ?? null,
+          tercero_nombre: nombre,
+          tercero_cuit: cuit,
+          detalle: armarObservaciones(result),
+          imagen_path,
+          anio: Number(fecha.slice(0, 4)),
+          mes: Number(fecha.slice(5, 7)),
+        })
+        .select("serie")
+        .single();
+      if (error) throw error;
+      toast.success(`Remito guardado con el número interno ${data?.serie ?? ""}`);
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["fema_remitos"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar el remito");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const guardar = async () => {
+    if (kind === "remito") return guardarRemito();
     if (!result || !user) return toast.error("Sin datos o sesión");
     setSaving(true);
     try {
@@ -647,7 +697,7 @@ function Page() {
   return (
     <div className="p-4 md:p-6">
       <header className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">OCR de Facturas</h2>
+        <h2 className="text-2xl font-bold tracking-tight">OCR de Facturas y Remitos</h2>
         <p className="mt-1 text-sm text-muted-foreground">Subí una imagen o PDF para extraer datos automáticamente con IA.</p>
       </header>
 
@@ -670,13 +720,42 @@ function Page() {
           >
             <Receipt className="mr-1.5 h-4 w-4" /> Factura de venta / servicio
           </Button>
+          <Button
+            type="button"
+            variant={kind === "remito" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setKind("remito"); setModo("nuevo"); setDestinoId(null); }}
+          >
+            <Truck className="mr-1.5 h-4 w-4" /> Remito
+          </Button>
         </div>
         <p className="ml-auto text-xs text-muted-foreground">
-          {kind === "compra" ? "Se cargará en Compras" : "Se cargará en Facturas (ventas)"}
+          {kind === "compra"
+            ? "Se cargará en Compras"
+            : kind === "venta"
+              ? "Se cargará en Facturas (ventas)"
+              : "Se cargará en Imágenes → Remitos, con número interno correlativo"}
         </p>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+      {kind === "remito" && (
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+          <Label className="text-sm font-medium">El remito es de:</Label>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant={remitoTipo === "compra" ? "default" : "outline"} onClick={() => setRemitoTipo("compra")}>
+              Mercadería recibida (proveedor)
+            </Button>
+            <Button type="button" size="sm" variant={remitoTipo === "venta" ? "default" : "outline"} onClick={() => setRemitoTipo("venta")}>
+              Mercadería entregada (cliente)
+            </Button>
+          </div>
+          <p className="ml-auto text-xs text-muted-foreground">
+            El remito no genera factura ni movimiento de caja: queda archivado para consulta.
+          </p>
+        </div>
+      )}
+
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" ? "hidden" : ""}`}>
         <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
@@ -815,6 +894,36 @@ function Page() {
             <p className="grid h-64 place-items-center text-sm text-muted-foreground">
               Subí una factura y presioná Analizar.
             </p>
+          ) : kind === "remito" ? (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <EditableOCRField label="Número de remito" value={result.numero ?? ""} onChange={(v) => setResult({ ...result, numero: v })} />
+              <div>
+                <Label className="text-xs text-muted-foreground">Fecha</Label>
+                <Input type="date" value={result.fecha ?? ""} onChange={(e) => setResult({ ...result, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
+              </div>
+              <EditableOCRField label="Emisor" value={result.emisor ?? ""} onChange={(v) => setResult({ ...result, emisor: v })} />
+              <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(v) => setResult({ ...result, cuit_emisor: onlyDigits(v) })} />
+              <EditableOCRField label="Receptor" value={result.receptor ?? ""} onChange={(v) => setResult({ ...result, receptor: v })} />
+              <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(v) => setResult({ ...result, cuit_receptor: onlyDigits(v) })} />
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Detalle leído (se guarda con el remito)</Label>
+                <textarea
+                  readOnly
+                  value={armarObservaciones(result)}
+                  className="mt-1 h-40 w-full rounded-md border border-input bg-muted/30 p-2 text-xs"
+                />
+              </div>
+              {avisos.length > 0 && (
+                <div className="col-span-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">Revisión previa</p>
+                  {avisos.map((a, i) => (
+                    <p key={i} className={`text-xs ${a.nivel === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                      {a.nivel === "error" ? "✕" : "!"} <b>{a.campo}:</b> {a.msg}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="col-span-2">
@@ -930,7 +1039,7 @@ function Page() {
               )}
               <Button onClick={guardar} disabled={saving || modo === "adjuntar" || errores.length > 0}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-                Guardar como {kind === "compra" ? "compra" : "venta"}
+                {kind === "remito" ? "Guardar remito" : `Guardar como ${kind === "compra" ? "compra" : "venta"}`}
               </Button>
             </div>
           )}
