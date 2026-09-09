@@ -894,6 +894,36 @@ function Page() {
             <p className="grid h-64 place-items-center text-sm text-muted-foreground">
               Subí una factura y presioná Analizar.
             </p>
+          ) : kind === "remito" ? (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <EditableOCRField label="Número de remito" value={result.numero ?? ""} onChange={(v) => setResult({ ...result, numero: v })} />
+              <div>
+                <Label className="text-xs text-muted-foreground">Fecha</Label>
+                <Input type="date" value={result.fecha ?? ""} onChange={(e) => setResult({ ...result, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
+              </div>
+              <EditableOCRField label="Emisor" value={result.emisor ?? ""} onChange={(v) => setResult({ ...result, emisor: v })} />
+              <EditableOCRField label="CUIT emisor" value={result.cuit_emisor ?? ""} onChange={(v) => setResult({ ...result, cuit_emisor: onlyDigits(v) })} />
+              <EditableOCRField label="Receptor" value={result.receptor ?? ""} onChange={(v) => setResult({ ...result, receptor: v })} />
+              <EditableOCRField label="CUIT receptor" value={result.cuit_receptor ?? ""} onChange={(v) => setResult({ ...result, cuit_receptor: onlyDigits(v) })} />
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Detalle leído (se guarda con el remito)</Label>
+                <textarea
+                  readOnly
+                  value={armarObservaciones(result)}
+                  className="mt-1 h-40 w-full rounded-md border border-input bg-muted/30 p-2 text-xs"
+                />
+              </div>
+              {avisos.length > 0 && (
+                <div className="col-span-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">Revisión previa</p>
+                  {avisos.map((a, i) => (
+                    <p key={i} className={`text-xs ${a.nivel === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                      {a.nivel === "error" ? "✕" : "!"} <b>{a.campo}:</b> {a.msg}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="col-span-2">
