@@ -777,6 +777,7 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      items: [],
       plan_cuotas: prefill
         ? prefill.group.cuotas.map((c) => ({
             vencimiento: c.vencimiento,
