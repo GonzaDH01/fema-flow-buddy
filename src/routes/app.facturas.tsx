@@ -794,6 +794,62 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
   const ivaPctStr = f.watch("iva_pct");
   const tipoComp = f.watch("tipo_comprobante");
   const cuotas = f.watch("plan_cuotas") ?? [];
+  const items = f.watch("items") ?? [];
+
+  // Catálogo de productos: precios y unidades para autocompletar
+  const { data: productos } = useQuery({
+    queryKey: ["fema_productos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_productos")
+        .select("id,nombre,unidad_medida,precio,precio_venta,stock")
+        .order("nombre");
+      if (error) throw error;
+      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; stock: number }[];
+    },
+  });
+  const precioDe = (p: { precio: number | null; precio_venta: number | null }) => Number(p.precio_venta ?? p.precio ?? 0);
+  const porUnidad = (u: string) => (productos ?? []).filter((p) => p.unidad_medida === u);
+
+  // Ítems ya guardados al editar una factura
+  const { data: itemsGuardados } = useQuery({
+    queryKey: ["fema_venta_items", initial?.id],
+    enabled: !!initial?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_venta_items")
+        .select("producto_id,descripcion,unidad,cantidad,precio_unitario")
+        .eq("factura_venta_id", initial!.id)
+        .order("orden");
+      if (error) throw error;
+      return data as { producto_id: string | null; descripcion: string; unidad: string | null; cantidad: number; precio_unitario: number }[];
+    },
+  });
+  useEffect(() => {
+    if (!itemsGuardados || itemsGuardados.length === 0) return;
+    f.setValue(
+      "items",
+      itemsGuardados.map((it) => ({
+        producto_id: it.producto_id ?? "",
+        descripcion: it.descripcion,
+        unidad: it.unidad ?? "",
+        cantidad: Number(it.cantidad),
+        precio_unitario: Number(it.precio_unitario),
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsGuardados]);
+
+  const setItems = (arr: NonNullable<FormVals["items"]>) => f.setValue("items", arr, { shouldDirty: true });
+  const addItem = () => setItems([...items, { producto_id: "", descripcion: "", unidad: "", cantidad: 1, precio_unitario: 0 }]);
+  const updateItem = (i: number, patch: Partial<NonNullable<FormVals["items"]>[number]>) =>
+    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const elegirProducto = (i: number, id: string) => {
+    const p = (productos ?? []).find((x) => x.id === id);
+    if (!p) return;
+    updateItem(i, { producto_id: id, descripcion: p.nombre, unidad: p.unidad_medida, precio_unitario: precioDe(p) });
+  };
 
   // Plan controls
   const [planQty, setPlanQty] = useState(6);
