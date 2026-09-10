@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import { Search, PackagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CrudTable } from "@/components/crud-table";
@@ -20,15 +20,21 @@ export const Route = createFileRoute("/app/productos")({ component: Page });
 
 const CATS = ["Combustible", "Insumos", "Servicios", "Cotizaciones", "Traslados", "Otro"] as const;
 const UNIDADES = ["Litro", "Metro", "Hectarea", "Unidad", "Dolar", "Viaje", "Kilogramo", "Tonelada"] as const;
+const TIPOS_MOV = ["entrada", "salida", "ajuste"] as const;
+
+const numOpt = z
+  .string()
+  .optional()
+  .or(z.literal(""))
+  .refine((v) => !v || !isNaN(Number(v)), { message: "Debe ser un número" });
 
 const schema = z.object({
   nombre: z.string().min(2).max(150),
   unidad_medida: z.enum(UNIDADES),
-  precio: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((v) => !v || !isNaN(Number(v)), { message: "Debe ser un número" }),
+  precio_compra: numOpt,
+  precio_venta: numOpt,
+  stock: numOpt,
+  stock_minimo: numOpt,
   categoria: z.enum(CATS),
   observaciones: z.string().max(300).optional().or(z.literal("")),
 });
@@ -38,15 +44,24 @@ type Row = {
   nombre: string;
   unidad_medida: string;
   precio: number | null;
+  precio_compra: number | null;
+  precio_venta: number | null;
+  stock: number;
+  stock_minimo: number;
   categoria: string;
   observaciones: string | null;
 };
+
+const money = (n: number | null) =>
+  n == null ? "—" : `$ ${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+const qty = (n: number) => Number(n ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 
 function Page() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
+  const [movProd, setMovProd] = useState<Row | null>(null);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -54,7 +69,7 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,categoria,observaciones")
+        .select("id,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Row[];
@@ -79,11 +94,16 @@ function Page() {
   };
 
   const onSubmit = async (v: FormVals) => {
+    const venta = v.precio_venta ? Number(v.precio_venta) : null;
     const payload = {
       user_id: user!.id,
       nombre: v.nombre,
       unidad_medida: v.unidad_medida,
-      precio: v.precio ? Number(v.precio) : null,
+      precio: venta,
+      precio_compra: v.precio_compra ? Number(v.precio_compra) : null,
+      precio_venta: venta,
+      stock: v.stock ? Number(v.stock) : 0,
+      stock_minimo: v.stock_minimo ? Number(v.stock_minimo) : 0,
       categoria: v.categoria,
       observaciones: v.observaciones || null,
     };
@@ -113,7 +133,7 @@ function Page() {
     <>
       <CrudTable<Row>
         title="Productos"
-        description="Catálogo de productos y servicios"
+        description="Catálogo con precios de compra, venta y stock"
         rows={filtered}
         loading={isLoading}
         emptyLabel="productos"
@@ -140,12 +160,29 @@ function Page() {
         columns={[
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "Unidad", cell: (r) => r.unidad_medida },
+          { header: "P. compra", cell: (r) => money(r.precio_compra) },
+          { header: "P. venta", cell: (r) => money(r.precio_venta ?? r.precio) },
           {
-            header: "Precio",
-            cell: (r) =>
-              r.precio != null
-                ? r.precio.toLocaleString("es-AR", { minimumFractionDigits: 2 })
-                : "—",
+            header: "Stock",
+            cell: (r) => (
+              <span className="flex items-center gap-2">
+                <span className={Number(r.stock) <= Number(r.stock_minimo) ? "font-semibold text-destructive" : ""}>
+                  {qty(r.stock)}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMovProd(r);
+                  }}
+                >
+                  <PackagePlus className="mr-1 h-3.5 w-3.5" />
+                  Cargar
+                </Button>
+              </span>
+            ),
           },
           { header: "Categoría", cell: (r) => <Badge variant="secondary">{r.categoria}</Badge> },
           { header: "Observaciones", cell: (r) => r.observaciones ?? "—" },
@@ -154,7 +191,109 @@ function Page() {
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
         <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} />
       </Dialog>
+      <Dialog open={!!movProd} onOpenChange={(v) => !v && setMovProd(null)}>
+        {movProd && (
+          <MovDialog
+            key={movProd.id}
+            producto={movProd}
+            onDone={() => {
+              setMovProd(null);
+              qc.invalidateQueries({ queryKey: ["fema_productos"] });
+            }}
+          />
+        )}
+      </Dialog>
     </>
+  );
+}
+
+function MovDialog({ producto, onDone }: { producto: Row; onDone: () => void }) {
+  const { user } = useAuth();
+  const [tipo, setTipo] = useState<(typeof TIPOS_MOV)[number]>("entrada");
+  const [cantidad, setCantidad] = useState("");
+  const [costo, setCosto] = useState(producto.precio_compra != null ? String(producto.precio_compra) : "");
+  const [motivo, setMotivo] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const cant = Number(cantidad || 0);
+  const nuevo = tipo === "ajuste" ? cant : tipo === "entrada" ? Number(producto.stock) + cant : Number(producto.stock) - cant;
+
+  const guardar = async () => {
+    if (!cantidad || isNaN(cant)) {
+      toast.error("Ingresá una cantidad");
+      return;
+    }
+    setSaving(true);
+    const { error: movErr } = await supabase.from("fema_stock_mov").insert({
+      user_id: user!.id,
+      producto_id: producto.id,
+      tipo,
+      cantidad: cant,
+      costo_unitario: costo ? Number(costo) : null,
+      motivo: motivo || null,
+      stock_resultante: nuevo,
+    });
+    if (movErr) {
+      setSaving(false);
+      toast.error(movErr.message);
+      return;
+    }
+    const patch: { stock: number; precio_compra?: number } = { stock: nuevo };
+    if (tipo === "entrada" && costo) patch.precio_compra = Number(costo);
+    const { error } = await supabase.from("fema_productos").update(patch).eq("id", producto.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Stock actualizado");
+    onDone();
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Cargar stock — {producto.nombre}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+          Stock actual: <span className="font-semibold">{qty(producto.stock)}</span> {producto.unidad_medida}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Movimiento">
+            <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="entrada">Entrada (suma)</SelectItem>
+                <SelectItem value="salida">Salida (resta)</SelectItem>
+                <SelectItem value="ajuste">Ajuste (valor final)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Cantidad" required>
+            <Input type="number" step="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Precio de compra unitario">
+            <Input type="number" step="0.01" value={costo} onChange={(e) => setCosto(e.target.value)} />
+          </FormField>
+          <FormField label="Motivo">
+            <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Compra, consumo, ajuste…" />
+          </FormField>
+        </div>
+        <div className="rounded-md border border-border p-3 text-sm">
+          Stock resultante: <span className="font-semibold">{qty(nuevo)}</span> {producto.unidad_medida}
+        </div>
+      </div>
+      <DialogFooter>
+        <Button onClick={guardar} disabled={saving}>
+          Guardar movimiento
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 
@@ -164,7 +303,10 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
     defaultValues: {
       nombre: initial?.nombre ?? "",
       unidad_medida: (initial?.unidad_medida as any) ?? "Unidad",
-      precio: initial?.precio != null ? String(initial.precio) : "",
+      precio_compra: initial?.precio_compra != null ? String(initial.precio_compra) : "",
+      precio_venta: initial?.precio_venta != null ? String(initial.precio_venta) : initial?.precio != null ? String(initial.precio) : "",
+      stock: initial?.stock != null ? String(initial.stock) : "0",
+      stock_minimo: initial?.stock_minimo != null ? String(initial.stock_minimo) : "0",
       categoria: (initial?.categoria as any) ?? "Otro",
       observaciones: initial?.observaciones ?? "",
     },
@@ -193,24 +335,37 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Precio" error={f.formState.errors.precio?.message}>
-            <Input type="number" step="0.01" {...f.register("precio")} />
+          <FormField label="Categoría">
+            <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
-        <FormField label="Categoría">
-          <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CATS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Precio de compra" error={f.formState.errors.precio_compra?.message}>
+            <Input type="number" step="0.01" {...f.register("precio_compra")} />
+          </FormField>
+          <FormField label="Precio de venta" error={f.formState.errors.precio_venta?.message}>
+            <Input type="number" step="0.01" {...f.register("precio_venta")} />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Stock actual" error={f.formState.errors.stock?.message}>
+            <Input type="number" step="0.01" {...f.register("stock")} />
+          </FormField>
+          <FormField label="Stock mínimo" error={f.formState.errors.stock_minimo?.message}>
+            <Input type="number" step="0.01" {...f.register("stock_minimo")} />
+          </FormField>
+        </div>
         <FormField label="Observaciones">
           <Input {...f.register("observaciones")} />
         </FormField>

@@ -1737,6 +1737,10 @@ export type Database = {
           nombre: string
           observaciones: string | null
           precio: number | null
+          precio_compra: number | null
+          precio_venta: number | null
+          stock: number
+          stock_minimo: number
           unidad_medida: string
           updated_at: string
           user_id: string
@@ -1748,6 +1752,10 @@ export type Database = {
           nombre: string
           observaciones?: string | null
           precio?: number | null
+          precio_compra?: number | null
+          precio_venta?: number | null
+          stock?: number
+          stock_minimo?: number
           unidad_medida: string
           updated_at?: string
           user_id: string
@@ -1759,6 +1767,10 @@ export type Database = {
           nombre?: string
           observaciones?: string | null
           precio?: number | null
+          precio_compra?: number | null
+          precio_venta?: number | null
+          stock?: number
+          stock_minimo?: number
           unidad_medida?: string
           updated_at?: string
           user_id?: string
@@ -1961,6 +1973,56 @@ export type Database = {
           },
         ]
       }
+      fema_stock_mov: {
+        Row: {
+          cantidad: number
+          costo_unitario: number | null
+          created_at: string
+          fecha: string
+          id: string
+          motivo: string | null
+          producto_id: string
+          stock_resultante: number | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cantidad?: number
+          costo_unitario?: number | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          motivo?: string | null
+          producto_id: string
+          stock_resultante?: number | null
+          tipo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cantidad?: number
+          costo_unitario?: number | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          motivo?: string | null
+          producto_id?: string
+          stock_resultante?: number | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_stock_mov_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "fema_productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_sueldos: {
         Row: {
           adicional: number | null
@@ -2067,6 +2129,73 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fema_venta_items: {
+        Row: {
+          cantidad: number
+          created_at: string
+          descripcion: string
+          factura_venta_id: string
+          id: string
+          importe: number
+          orden: number | null
+          precio_unitario: number
+          producto_id: string | null
+          unidad: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          descripcion: string
+          factura_venta_id: string
+          id?: string
+          importe?: number
+          orden?: number | null
+          precio_unitario?: number
+          producto_id?: string | null
+          unidad?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          descripcion?: string
+          factura_venta_id?: string
+          id?: string
+          importe?: number
+          orden?: number | null
+          precio_unitario?: number
+          producto_id?: string | null
+          unidad?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_venta_items_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_venta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_venta_items_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_venta"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_venta_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "fema_productos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fema_viajes_transp: {
         Row: {

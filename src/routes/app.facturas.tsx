@@ -56,6 +56,13 @@ const schema = z.object({
   precio_ha: z.coerce.number().min(0),
   metros_bolsa: z.coerce.number().min(0),
   precio_metro: z.coerce.number().min(0),
+  items: z.array(z.object({
+    producto_id: z.string().optional().or(z.literal("")),
+    descripcion: z.string(),
+    unidad: z.string().optional().or(z.literal("")),
+    cantidad: z.coerce.number().min(0),
+    precio_unitario: z.coerce.number().min(0),
+  })).optional(),
   estado: z.enum(["pendiente", "cobrada"]),
   fecha_cobro: z.string().optional().or(z.literal("")),
   forma_cobro: z.string().optional().or(z.literal("")),
@@ -280,7 +287,9 @@ function Page() {
     // calc
     const importePicado = (v.hectareas || 0) * (v.precio_ha || 0);
     const importeBolsa = (v.metros_bolsa || 0) * (v.precio_metro || 0);
-    const neto = importePicado + importeBolsa;
+    const itemsList = (v.items ?? []).filter((it) => (it.descripcion ?? "").trim() !== "" || Number(it.cantidad) > 0);
+    const importeItems = itemsList.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+    const neto = importePicado + importeBolsa + importeItems;
     const ivaPct = v.iva_pct === "21%" ? 0.21 : v.iva_pct === "10.5%" ? 0.105 : v.iva_pct === "27%" ? 0.27 : 0;
     const iva21 = v.iva_pct === "21%" ? neto * 0.21 : 0;
     const iva105 = v.iva_pct === "10.5%" ? neto * 0.105 : 0;
@@ -340,6 +349,26 @@ function Page() {
       const { data: ins, error } = await supabase.from("fema_facturas_venta").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
       facturaId = (ins as any)?.id ?? null;
+    }
+    if (facturaId) {
+      if (edit) await supabase.from("fema_venta_items").delete().eq("factura_venta_id", facturaId);
+      if (itemsList.length > 0) {
+        const { error: errIt } = await supabase.from("fema_venta_items").insert(
+          itemsList.map((it, i) => ({
+            user_id: user!.id,
+            factura_venta_id: facturaId!,
+            producto_id: it.producto_id || null,
+            descripcion: it.descripcion || "Ítem",
+            unidad: it.unidad || null,
+            cantidad: Number(it.cantidad || 0),
+            precio_unitario: Number(it.precio_unitario || 0),
+            importe: Number(it.cantidad || 0) * Number(it.precio_unitario || 0),
+            orden: i + 1,
+          })),
+        );
+        if (errIt) toast.error(`Ítems: ${errIt.message}`);
+      }
+      qc.invalidateQueries({ queryKey: ["fema_venta_items"] });
     }
     if (facturaId && v.plan_cuotas && v.plan_cuotas.length > 0) {
       const movs = v.plan_cuotas.map((c, i) => ({
@@ -748,6 +777,7 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      items: [],
       plan_cuotas: prefill
         ? prefill.group.cuotas.map((c) => ({
             vencimiento: c.vencimiento,
@@ -764,6 +794,62 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
   const ivaPctStr = f.watch("iva_pct");
   const tipoComp = f.watch("tipo_comprobante");
   const cuotas = f.watch("plan_cuotas") ?? [];
+  const items = f.watch("items") ?? [];
+
+  // Catálogo de productos: precios y unidades para autocompletar
+  const { data: productos } = useQuery({
+    queryKey: ["fema_productos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_productos")
+        .select("id,nombre,unidad_medida,precio,precio_venta,stock")
+        .order("nombre");
+      if (error) throw error;
+      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; stock: number }[];
+    },
+  });
+  const precioDe = (p: { precio: number | null; precio_venta: number | null }) => Number(p.precio_venta ?? p.precio ?? 0);
+  const porUnidad = (u: string) => (productos ?? []).filter((p) => p.unidad_medida === u);
+
+  // Ítems ya guardados al editar una factura
+  const { data: itemsGuardados } = useQuery({
+    queryKey: ["fema_venta_items", initial?.id],
+    enabled: !!initial?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_venta_items")
+        .select("producto_id,descripcion,unidad,cantidad,precio_unitario")
+        .eq("factura_venta_id", initial!.id)
+        .order("orden");
+      if (error) throw error;
+      return data as { producto_id: string | null; descripcion: string; unidad: string | null; cantidad: number; precio_unitario: number }[];
+    },
+  });
+  useEffect(() => {
+    if (!itemsGuardados || itemsGuardados.length === 0) return;
+    f.setValue(
+      "items",
+      itemsGuardados.map((it) => ({
+        producto_id: it.producto_id ?? "",
+        descripcion: it.descripcion,
+        unidad: it.unidad ?? "",
+        cantidad: Number(it.cantidad),
+        precio_unitario: Number(it.precio_unitario),
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsGuardados]);
+
+  const setItems = (arr: NonNullable<FormVals["items"]>) => f.setValue("items", arr, { shouldDirty: true });
+  const addItem = () => setItems([...items, { producto_id: "", descripcion: "", unidad: "", cantidad: 1, precio_unitario: 0 }]);
+  const updateItem = (i: number, patch: Partial<NonNullable<FormVals["items"]>[number]>) =>
+    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const elegirProducto = (i: number, id: string) => {
+    const p = (productos ?? []).find((x) => x.id === id);
+    if (!p) return;
+    updateItem(i, { producto_id: id, descripcion: p.nombre, unidad: p.unidad_medida, precio_unitario: precioDe(p) });
+  };
 
   // Plan controls
   const [planQty, setPlanQty] = useState(6);
@@ -781,7 +867,8 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
 
   const importePicado = has * pHa;
   const importeBolsa = mts * pMt;
-  const neto = importePicado + importeBolsa;
+  const importeItems = items.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+  const neto = importePicado + importeBolsa + importeItems;
   const ivaPct = ivaPctStr === "21%" ? 0.21 : ivaPctStr === "10.5%" ? 0.105 : ivaPctStr === "27%" ? 0.27 : 0;
   const ivaMonto = tipo === "A" ? neto * ivaPct : 0;
   const total = neto + ivaMonto;
@@ -896,7 +983,23 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de picado
           </legend>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <FormField label="Producto del catálogo (precio por hectárea)">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const p = (productos ?? []).find((x) => x.id === id);
+                if (p) f.setValue("precio_ha", precioDe(p), { shouldDirty: true });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Traer precio desde Productos…" /></SelectTrigger>
+              <SelectContent>
+                {porUnidad("Hectarea").map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre} — {formatPesos(precioDe(p))}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
             <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
             <FormField label="Importe">
@@ -909,7 +1012,23 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de embolsado
           </legend>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <FormField label="Producto del catálogo (precio por metro)">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const p = (productos ?? []).find((x) => x.id === id);
+                if (p) f.setValue("precio_metro", precioDe(p), { shouldDirty: true });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Traer precio desde Productos…" /></SelectTrigger>
+              <SelectContent>
+                {porUnidad("Metro").map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre} — {formatPesos(precioDe(p))}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
             <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
             <FormField label="Importe">
@@ -917,6 +1036,59 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
             </FormField>
           </div>
         </fieldset>
+
+        <fieldset className="rounded-md border border-border p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Otros productos y servicios
+          </legend>
+          {items.length === 0 && (
+            <p className="text-xs text-muted-foreground">Podés agregar productos del catálogo con su cantidad y precio.</p>
+          )}
+          <div className="space-y-2">
+            {items.map((it, i) => (
+              <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+                <Select value={it.producto_id || ""} onValueChange={(v) => elegirProducto(i, v)}>
+                  <SelectTrigger className="col-span-4 h-8 text-xs"><SelectValue placeholder="Producto…" /></SelectTrigger>
+                  <SelectContent>
+                    {(productos ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.nombre} ({p.unidad_medida})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="col-span-3 h-8 text-xs"
+                  placeholder="Descripción"
+                  value={it.descripcion}
+                  onChange={(e) => updateItem(i, { descripcion: e.target.value })}
+                />
+                <Input
+                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Cant."
+                  value={it.cantidad}
+                  onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })}
+                />
+                <Input
+                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Precio"
+                  value={it.precio_unitario}
+                  onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })}
+                />
+                <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeItem(i)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <Button type="button" size="sm" variant="outline" onClick={addItem}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar producto
+            </Button>
+            {items.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Subtotal ítems: <span className="font-semibold text-foreground">{formatPesos(importeItems)}</span>
+              </span>
+            )}
+          </div>
+        </fieldset>
+
 
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
           <div className="flex justify-between py-1"><span className="text-muted-foreground">Subtotal (neto)</span><span>{formatPesos(neto)}</span></div>
