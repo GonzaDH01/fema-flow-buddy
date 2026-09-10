@@ -350,6 +350,26 @@ function Page() {
       if (error) { toast.error(error.message); return; }
       facturaId = (ins as any)?.id ?? null;
     }
+    if (facturaId) {
+      if (edit) await supabase.from("fema_venta_items").delete().eq("factura_venta_id", facturaId);
+      if (itemsList.length > 0) {
+        const { error: errIt } = await supabase.from("fema_venta_items").insert(
+          itemsList.map((it, i) => ({
+            user_id: user!.id,
+            factura_venta_id: facturaId!,
+            producto_id: it.producto_id || null,
+            descripcion: it.descripcion || "Ítem",
+            unidad: it.unidad || null,
+            cantidad: Number(it.cantidad || 0),
+            precio_unitario: Number(it.precio_unitario || 0),
+            importe: Number(it.cantidad || 0) * Number(it.precio_unitario || 0),
+            orden: i + 1,
+          })),
+        );
+        if (errIt) toast.error(`Ítems: ${errIt.message}`);
+      }
+      qc.invalidateQueries({ queryKey: ["fema_venta_items"] });
+    }
     if (facturaId && v.plan_cuotas && v.plan_cuotas.length > 0) {
       const movs = v.plan_cuotas.map((c, i) => ({
         user_id: user!.id,
