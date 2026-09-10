@@ -58,7 +58,7 @@ const schema = z.object({
   precio_metro: z.coerce.number().min(0),
   items: z.array(z.object({
     producto_id: z.string().optional().or(z.literal("")),
-    descripcion: z.string().default(""),
+    descripcion: z.string(),
     unidad: z.string().optional().or(z.literal("")),
     cantidad: z.coerce.number().min(0),
     precio_unitario: z.coerce.number().min(0),
