@@ -238,7 +238,7 @@ function MovDialog({ producto, onDone }: { producto: Row; onDone: () => void }) 
       toast.error(movErr.message);
       return;
     }
-    const patch: Record<string, unknown> = { stock: nuevo };
+    const patch: { stock: number; precio_compra?: number } = { stock: nuevo };
     if (tipo === "entrada" && costo) patch.precio_compra = Number(costo);
     const { error } = await supabase.from("fema_productos").update(patch).eq("id", producto.id);
     setSaving(false);
