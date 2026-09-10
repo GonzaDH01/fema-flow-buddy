@@ -287,7 +287,9 @@ function Page() {
     // calc
     const importePicado = (v.hectareas || 0) * (v.precio_ha || 0);
     const importeBolsa = (v.metros_bolsa || 0) * (v.precio_metro || 0);
-    const neto = importePicado + importeBolsa;
+    const itemsList = (v.items ?? []).filter((it) => (it.descripcion ?? "").trim() !== "" || Number(it.cantidad) > 0);
+    const importeItems = itemsList.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+    const neto = importePicado + importeBolsa + importeItems;
     const ivaPct = v.iva_pct === "21%" ? 0.21 : v.iva_pct === "10.5%" ? 0.105 : v.iva_pct === "27%" ? 0.27 : 0;
     const iva21 = v.iva_pct === "21%" ? neto * 0.21 : 0;
     const iva105 = v.iva_pct === "10.5%" ? neto * 0.105 : 0;
