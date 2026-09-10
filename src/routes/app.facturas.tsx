@@ -867,7 +867,8 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
 
   const importePicado = has * pHa;
   const importeBolsa = mts * pMt;
-  const neto = importePicado + importeBolsa;
+  const importeItems = items.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+  const neto = importePicado + importeBolsa + importeItems;
   const ivaPct = ivaPctStr === "21%" ? 0.21 : ivaPctStr === "10.5%" ? 0.105 : ivaPctStr === "27%" ? 0.27 : 0;
   const ivaMonto = tipo === "A" ? neto * ivaPct : 0;
   const total = neto + ivaMonto;
