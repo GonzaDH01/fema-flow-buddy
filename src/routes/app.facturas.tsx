@@ -983,7 +983,23 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de picado
           </legend>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <FormField label="Producto del catálogo (precio por hectárea)">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const p = (productos ?? []).find((x) => x.id === id);
+                if (p) f.setValue("precio_ha", precioDe(p), { shouldDirty: true });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Traer precio desde Productos…" /></SelectTrigger>
+              <SelectContent>
+                {porUnidad("Hectarea").map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre} — {formatPesos(precioDe(p))}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
             <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
             <FormField label="Importe">
@@ -996,7 +1012,23 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
           <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Servicio de embolsado
           </legend>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <FormField label="Producto del catálogo (precio por metro)">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const p = (productos ?? []).find((x) => x.id === id);
+                if (p) f.setValue("precio_metro", precioDe(p), { shouldDirty: true });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Traer precio desde Productos…" /></SelectTrigger>
+              <SelectContent>
+                {porUnidad("Metro").map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nombre} — {formatPesos(precioDe(p))}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
             <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
             <FormField label="Importe">
@@ -1004,6 +1036,59 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
             </FormField>
           </div>
         </fieldset>
+
+        <fieldset className="rounded-md border border-border p-3">
+          <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Otros productos y servicios
+          </legend>
+          {items.length === 0 && (
+            <p className="text-xs text-muted-foreground">Podés agregar productos del catálogo con su cantidad y precio.</p>
+          )}
+          <div className="space-y-2">
+            {items.map((it, i) => (
+              <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+                <Select value={it.producto_id || ""} onValueChange={(v) => elegirProducto(i, v)}>
+                  <SelectTrigger className="col-span-4 h-8 text-xs"><SelectValue placeholder="Producto…" /></SelectTrigger>
+                  <SelectContent>
+                    {(productos ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.nombre} ({p.unidad_medida})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="col-span-3 h-8 text-xs"
+                  placeholder="Descripción"
+                  value={it.descripcion}
+                  onChange={(e) => updateItem(i, { descripcion: e.target.value })}
+                />
+                <Input
+                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Cant."
+                  value={it.cantidad}
+                  onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })}
+                />
+                <Input
+                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Precio"
+                  value={it.precio_unitario}
+                  onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })}
+                />
+                <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeItem(i)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <Button type="button" size="sm" variant="outline" onClick={addItem}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar producto
+            </Button>
+            {items.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Subtotal ítems: <span className="font-semibold text-foreground">{formatPesos(importeItems)}</span>
+              </span>
+            )}
+          </div>
+        </fieldset>
+
 
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
           <div className="flex justify-between py-1"><span className="text-muted-foreground">Subtotal (neto)</span><span>{formatPesos(neto)}</span></div>
