@@ -238,6 +238,107 @@ export type Database = {
           },
         ]
       }
+      fema_activo_imagenes: {
+        Row: {
+          activo_id: string
+          created_at: string
+          es_principal: boolean
+          id: string
+          orden: number
+          path: string
+          user_id: string
+        }
+        Insert: {
+          activo_id: string
+          created_at?: string
+          es_principal?: boolean
+          id?: string
+          orden?: number
+          path: string
+          user_id: string
+        }
+        Update: {
+          activo_id?: string
+          created_at?: string
+          es_principal?: boolean
+          id?: string
+          orden?: number
+          path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_activo_imagenes_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_activos: {
+        Row: {
+          anio: number | null
+          created_at: string
+          estado: string
+          fecha_compra: string | null
+          id: string
+          mantenimiento: string | null
+          marca: string | null
+          modelo: string | null
+          nombre: string
+          numero_serie: string | null
+          observaciones: string | null
+          proximo_service: string | null
+          responsable: string | null
+          tipo: string
+          ubicacion: string | null
+          updated_at: string
+          user_id: string
+          valor_compra: number | null
+        }
+        Insert: {
+          anio?: number | null
+          created_at?: string
+          estado?: string
+          fecha_compra?: string | null
+          id?: string
+          mantenimiento?: string | null
+          marca?: string | null
+          modelo?: string | null
+          nombre: string
+          numero_serie?: string | null
+          observaciones?: string | null
+          proximo_service?: string | null
+          responsable?: string | null
+          tipo?: string
+          ubicacion?: string | null
+          updated_at?: string
+          user_id: string
+          valor_compra?: number | null
+        }
+        Update: {
+          anio?: number | null
+          created_at?: string
+          estado?: string
+          fecha_compra?: string | null
+          id?: string
+          mantenimiento?: string | null
+          marca?: string | null
+          modelo?: string | null
+          nombre?: string
+          numero_serie?: string | null
+          observaciones?: string | null
+          proximo_service?: string | null
+          responsable?: string | null
+          tipo?: string
+          ubicacion?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_compra?: number | null
+        }
+        Relationships: []
+      }
       fema_auditoria: {
         Row: {
           created_at: string

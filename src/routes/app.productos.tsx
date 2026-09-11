@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Inventario } from "@/components/inventario";
 
 export const Route = createFileRoute("/app/productos")({ component: Page });
 
@@ -130,7 +132,13 @@ function Page() {
   };
 
   return (
-    <>
+    <Tabs defaultValue="catalogo" className="p-4 md:p-6">
+      <TabsList>
+        <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
+        <TabsTrigger value="inventario">Inventario</TabsTrigger>
+      </TabsList>
+      <TabsContent value="catalogo" className="mt-4">
+      <div className="-m-4 md:-m-6">
       <CrudTable<Row>
         title="Productos"
         description="Catálogo con precios de compra, venta y stock"
@@ -203,7 +211,12 @@ function Page() {
           />
         )}
       </Dialog>
-    </>
+      </div>
+      </TabsContent>
+      <TabsContent value="inventario" className="mt-4">
+        <Inventario />
+      </TabsContent>
+    </Tabs>
   );
 }
 
