@@ -130,7 +130,13 @@ function Page() {
   };
 
   return (
-    <>
+    <Tabs defaultValue="catalogo" className="p-4 md:p-6">
+      <TabsList>
+        <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
+        <TabsTrigger value="inventario">Inventario</TabsTrigger>
+      </TabsList>
+      <TabsContent value="catalogo" className="mt-4">
+      <div className="-m-4 md:-m-6">
       <CrudTable<Row>
         title="Productos"
         description="Catálogo con precios de compra, venta y stock"
