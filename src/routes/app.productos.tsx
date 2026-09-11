@@ -209,7 +209,12 @@ function Page() {
           />
         )}
       </Dialog>
-    </>
+      </div>
+      </TabsContent>
+      <TabsContent value="inventario" className="mt-4">
+        <Inventario />
+      </TabsContent>
+    </Tabs>
   );
 }
 
