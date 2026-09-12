@@ -291,6 +291,7 @@ function Dashboard() {
               />
               <Legend />
               <Bar dataKey="Ingresos cobrados" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="A cobrar (en cartera)" fill="var(--accent)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Egresos pagados" fill="var(--destructive)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
