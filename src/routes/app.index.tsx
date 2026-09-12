@@ -185,9 +185,21 @@ async function loadKPIs(_userId: string, anio: number) {
       egresosMes[idx] += Number(m.monto);
     }
   }
+  // Documentos a cobrar todavía en cartera: se muestran en el mes de su fecha de
+  // pago para que los meses futuros (nov/dic) no aparezcan vacíos.
+  const aCobrarMes = new Array(12).fill(0) as number[];
+  for (const m of mv) {
+    if (m.direccion !== "cobro" || m.estado !== "en_cartera") continue;
+    const s = m.vencimiento ?? m.fecha_emision;
+    if (!s || Number(String(s).slice(0, 4)) !== anio) continue;
+    const idx = Number(String(s).slice(5, 7)) - 1;
+    if (idx < 0 || idx > 11) continue;
+    aCobrarMes[idx] += Number(m.monto);
+  }
   const mensual = Array.from({ length: 12 }, (_, i) => ({
     mes: MESES[i],
     "Ingresos cobrados": ingresosMes[i],
+    "A cobrar (en cartera)": aCobrarMes[i],
     "Egresos pagados": egresosMes[i],
   }));
 
