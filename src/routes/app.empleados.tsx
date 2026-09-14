@@ -25,7 +25,7 @@ import { FichaEmpleadoDialog, FotoEmpleado } from "@/components/empleado-ficha";
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
 
-const FUNCIONES = ["Operador de máquina", "Transportista", "Mecánico", "Administrativo", "Capataz", "Peón", "Otro"];
+const FUNCIONES = FUNCIONES_EMPLEADO;
 const CONTRATACIONES = ["Mensualizado", "Jornal", "Por hora", "Contratado"];
 
 type Empleado = {
