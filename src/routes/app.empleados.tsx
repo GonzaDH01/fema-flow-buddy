@@ -420,23 +420,26 @@ function CampoImagenAlta({
     return () => URL.revokeObjectURL(u);
   }, [file]);
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <div className="rounded-md border bg-muted/30 p-2 space-y-2">
+    <div className="space-y-2">
+      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <div className="rounded-lg border bg-card p-3 space-y-3">
         {url ? (
-          <img src={url} alt={label} className="w-full h-28 object-contain rounded" />
+          <img src={url} alt={label} className="w-full h-40 object-contain rounded-md bg-muted/30" />
         ) : (
-          <div className="h-28 flex items-center justify-center text-xs text-muted-foreground">Sin imagen</div>
+          <div className="h-40 flex flex-col items-center justify-center gap-2 rounded-md bg-muted/30 text-xs text-muted-foreground">
+            <Upload className="size-6 opacity-40" />
+            <span>Sin imagen</span>
+          </div>
         )}
-        <div className="flex gap-1">
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => inputRef.current?.click()}>
-            <Upload className="size-3 mr-1" /> Subir
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant="outline" className="flex-1 h-9" onClick={() => inputRef.current?.click()}>
+            <Upload className="size-3.5 mr-1.5" /> Subir
           </Button>
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => camRef.current?.click()}>
-            <Camera className="size-3 mr-1" /> Cámara
+          <Button type="button" size="sm" variant="outline" className="flex-1 h-9" onClick={() => camRef.current?.click()}>
+            <Camera className="size-3.5 mr-1.5" /> Cámara
           </Button>
           {file && (
-            <Button type="button" size="sm" variant="ghost" onClick={onQuitar}><Trash2 className="size-3" /></Button>
+            <Button type="button" size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={onQuitar}><Trash2 className="size-3.5" /></Button>
           )}
         </div>
         <input ref={inputRef} type="file" accept="image/*" className="hidden"
