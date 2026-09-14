@@ -177,7 +177,7 @@ function LiquidacionesTab() {
             <TableHead className="text-right">Básico</TableHead>
             <TableHead className="text-right">Adicional</TableHead>
             <TableHead className="text-right">Total</TableHead>
-            <TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
+            <TableHead>Forma de pago</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -351,9 +351,9 @@ function PersonalTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>}
+          {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>}
           {!isLoading && (data ?? []).length === 0 && (
-            <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Sin empleados cargados</TableCell></TableRow>
+            <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin empleados cargados</TableCell></TableRow>
           )}
           {(data ?? []).map((r) => (
             <TableRow key={r.id} className="cursor-pointer" onClick={() => setFicha(r)}>
