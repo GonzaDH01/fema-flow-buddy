@@ -351,25 +351,39 @@ function PersonalTab() {
             <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Sin empleados cargados</TableCell></TableRow>
           )}
           {(data ?? []).map((r) => (
-            <TableRow key={r.id}>
-              <TableCell className="font-medium">{r.nombre}</TableCell>
+            <TableRow key={r.id} className="cursor-pointer" onClick={() => setFicha(r)}>
+              <TableCell className="font-medium">
+                <span className="flex items-center gap-2">
+                  <FotoEmpleado path={r.foto_path} nombre={r.nombre} />
+                  {r.nombre}
+                </span>
+              </TableCell>
               <TableCell>{r.dni ?? "—"}</TableCell>
               <TableCell>{r.cuil ?? "—"}</TableCell>
               <TableCell>{r.funcion ?? r.cargo ?? "—"}</TableCell>
               <TableCell>{r.tipo_contratacion ?? "—"}</TableCell>
+              <TableCell>{r.forma_pago ?? "—"}</TableCell>
               <TableCell className="text-right">{formatPesos(r.sueldo_bruto)}</TableCell>
               <TableCell>{r.activo
                 ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Activo</Badge>
                 : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
               <TableCell className="text-right">
-                <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
-                  <Trash2 className="size-3" />
-                </Button>
+                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => setFicha(r)}>
+                    <IdCard className="size-3 mr-1" /> Ficha
+                  </Button>
+                  <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <Dialog open={!!ficha} onOpenChange={(v) => !v && setFicha(null)}>
+        {ficha && <FichaEmpleadoDialog key={ficha.id} empleado={ficha} onClose={() => setFicha(null)} />}
+      </Dialog>
     </div>
   );
 }
