@@ -781,6 +781,62 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_empleado_carnets: {
+        Row: {
+          autoridad: string | null
+          categorias: string | null
+          created_at: string
+          empleado_id: string
+          fecha_emision: string | null
+          fecha_vencimiento: string
+          id: string
+          imagen_path: string | null
+          numero: string | null
+          observaciones: string | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          autoridad?: string | null
+          categorias?: string | null
+          created_at?: string
+          empleado_id: string
+          fecha_emision?: string | null
+          fecha_vencimiento: string
+          id?: string
+          imagen_path?: string | null
+          numero?: string | null
+          observaciones?: string | null
+          tipo: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          autoridad?: string | null
+          categorias?: string | null
+          created_at?: string
+          empleado_id?: string
+          fecha_emision?: string | null
+          fecha_vencimiento?: string
+          id?: string
+          imagen_path?: string | null
+          numero?: string | null
+          observaciones?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_empleado_carnets_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_empleados: {
         Row: {
           activo: boolean | null
