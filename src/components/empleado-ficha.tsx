@@ -14,10 +14,24 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 const BUCKET = "empleados-doc";
 export const FORMAS_PAGO = ["Transferencia bancaria", "Efectivo", "Cheque", "Echeq", "Factura / Monotributo", "Otro"];
 export const FRECUENCIAS = ["Semanal", "Quincenal", "Mensual", "Por jornal", "Por trabajo"];
+export const FUNCIONES_EMPLEADO = [
+  "Tractorista",
+  "Camionero",
+  "Operador de bolsera",
+  "Operador de picadora",
+  "Operador de máquina",
+  "Transportista",
+  "Mecánico",
+  "Capataz",
+  "Peón",
+  "Administrativo",
+  "Otro",
+];
 
 export type EmpleadoFicha = {
   id: string;
   nombre: string;
+  funcion?: string | null;
   dni: string | null;
   cuil: string | null;
   fecha_nacimiento?: string | null;
