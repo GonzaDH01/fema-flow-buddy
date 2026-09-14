@@ -92,6 +92,7 @@ export type EmpleadoFicha = {
   cbu?: string | null;
   alias_cbu?: string | null;
   titular_cuenta?: string | null;
+  importe_periodo?: number | null;
   tareas?: string | null;
   maquinaria?: string | null;
   observaciones: string | null;
