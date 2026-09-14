@@ -498,11 +498,11 @@ function NuevoEmpleadoDialog() {
       if (!Object.keys(acumulado).length) return toast.error("No se pudieron leer datos del documento");
       setV((s) => ({
         ...s,
-        nombre: s.nombre || acumulado.nombre || "",
-        dni: s.dni || (acumulado.dni ?? "").replace(/\D/g, ""),
-        cuil: s.cuil || acumulado.cuil || "",
-        fecha_nacimiento: s.fecha_nacimiento || acumulado.fecha_nacimiento || "",
-        domicilio: s.domicilio || acumulado.domicilio || "",
+        nombre: acumulado.nombre || s.nombre,
+        dni: (acumulado.dni ?? "").replace(/\D/g, "") || s.dni,
+        cuil: acumulado.cuil || s.cuil,
+        fecha_nacimiento: acumulado.fecha_nacimiento || s.fecha_nacimiento,
+        domicilio: acumulado.domicilio || s.domicilio,
       }));
       toast.success("Datos del documento cargados. Revisalos y completá el resto.");
     } catch (e) {
