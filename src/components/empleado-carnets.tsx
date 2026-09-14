@@ -225,6 +225,7 @@ function FormCarnet({
       fecha_emision: v.fecha_emision || null,
       fecha_vencimiento: v.fecha_vencimiento,
       observaciones: v.observaciones || null,
+      imagen_path: imagenPath,
     };
     const { error } = carnet
       ? await supabase.from("fema_empleado_carnets").update(payload).eq("id", carnet.id)
