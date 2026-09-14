@@ -121,7 +121,76 @@ function FormCarnet({
       : vacio,
   );
   const [guardando, setGuardando] = useState(false);
+  const [foto, setFoto] = useState<File | null>(null);
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
+
+  useEffect(() => {
+    if (foto) {
+      const u = URL.createObjectURL(foto);
+      setFotoUrl(u);
+      return () => URL.revokeObjectURL(u);
+    }
+    if (carnet?.imagen_path) {
+      let cancelado = false;
+      supabase.storage
+        .from(BUCKET_EMP)
+        .createSignedUrl(carnet.imagen_path, 3600)
+        .then(({ data }) => {
+          if (!cancelado) setFotoUrl(data?.signedUrl ?? null);
+        });
+      return () => {
+        cancelado = true;
+      };
+    }
+    setFotoUrl(null);
+  }, [foto, carnet?.imagen_path]);
+
+  const leerCarnet = async () => {
+    if (!foto) {
+      toast.error("Subí primero la foto del carnet");
+      return;
+    }
+    setLeyendo(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión vencida, volvé a ingresar");
+      const { base64, mimeType } = await comprimirParaOcr(foto);
+      if (!base64) throw new Error("No se pudo procesar la imagen");
+      const res = await fetch("/api/public/ocr-carnet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ image: base64, mimeType }),
+      });
+      const out = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(out?.error ?? "No se pudo leer la imagen");
+      const d = (out?.data ?? {}) as Record<string, string | null>;
+      const limpio = (x: string | null | undefined) => (x != null && String(x).trim() ? String(x).trim() : "");
+      const tipoLeido = limpio(d.tipo);
+      setV((s) => ({
+        ...s,
+        tipo: TIPOS_CARNET.includes(tipoLeido) ? tipoLeido : s.tipo,
+        categorias: limpio(d.categorias) || s.categorias,
+        numero: limpio(d.numero) || s.numero,
+        autoridad: limpio(d.autoridad) || s.autoridad,
+        fecha_emision: limpio(d.fecha_emision) || s.fecha_emision,
+        fecha_vencimiento: limpio(d.fecha_vencimiento) || s.fecha_vencimiento,
+      }));
+      const algo = Object.values(d).some((x) => limpio(x));
+      if (algo) toast.success("Datos del carnet cargados. Revisalos antes de guardar.");
+      else toast.error("No se pudieron leer datos del carnet");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al leer el carnet");
+    } finally {
+      setLeyendo(false);
+    }
+  };
 
   const cats = v.categorias ? v.categorias.split(",").map((c) => c.trim()).filter(Boolean) : [];
   const toggleCat = (c: string) => {
