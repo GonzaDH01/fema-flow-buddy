@@ -700,6 +700,32 @@ function NuevoEmpleadoDialog() {
             </div>
           </div>
 
+          {/* Forma de pago */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold border-b pb-2">Forma de pago</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+              <div className="space-y-1.5">
+                <Label>Forma de pago</Label>
+                <Select value={v.forma_pago} onValueChange={(x) => set("forma_pago", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FORMAS_PAGO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cada cuánto se le abona</Label>
+                <Select value={v.frecuencia_pago} onValueChange={(x) => set("frecuencia_pago", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FRECUENCIAS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{etiquetaImporte(v.frecuencia_pago)}</Label>
+                <Input type="number" value={v.importe_periodo} onChange={(e) => set("importe_periodo", e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+
           <div className="space-y-1.5">
             <Label>Observaciones</Label>
             <Textarea value={v.observaciones} onChange={(e) => set("observaciones", e.target.value)} rows={3} />
