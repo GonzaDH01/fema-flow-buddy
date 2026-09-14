@@ -21,6 +21,7 @@ import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/compon
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { FichaEmpleadoDialog, FotoEmpleado, FUNCIONES_EMPLEADO } from "@/components/empleado-ficha";
+import { CarnetsVencimientosTab } from "@/components/empleado-carnets";
 
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
