@@ -337,6 +337,56 @@ export function FichaEmpleadoDialog({
 
         <TabsContent value="trabajo" className="mt-4 space-y-3">
           <div className="space-y-1.5">
+            <Label>Función que realiza</Label>
+            <Select value={v.funcion} onValueChange={(x) => set("funcion", x)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Elegí la función" />
+              </SelectTrigger>
+              <SelectContent>
+                {FUNCIONES_EMPLEADO.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Equipos que maneja</Label>
+            {!equipos?.length ? (
+              <p className="text-xs text-muted-foreground">
+                Todavía no hay máquinas cargadas en Productos → Inventario.
+              </p>
+            ) : (
+              <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md border border-border p-2 md:grid-cols-2">
+                {equipos.map((eq) => {
+                  const etiqueta = [eq.nombre, eq.marca, eq.modelo].filter(Boolean).join(" ");
+                  const lista = v.maquinaria.split(",").map((s) => s.trim()).filter(Boolean);
+                  const activo = lista.includes(etiqueta);
+                  return (
+                    <label key={eq.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted/60">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[hsl(var(--primary))]"
+                        checked={activo}
+                        onChange={() => {
+                          const next = activo ? lista.filter((x) => x !== etiqueta) : [...lista, etiqueta];
+                          set("maquinaria", next.join(", "));
+                        }}
+                      />
+                      <span className="truncate">
+                        {etiqueta}
+                        <span className="ml-1 text-xs text-muted-foreground">{eq.tipo}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
             <Label>Tareas que realiza</Label>
             <Textarea
               rows={4}
