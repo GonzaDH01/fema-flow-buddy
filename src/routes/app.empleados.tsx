@@ -448,6 +448,14 @@ function CampoImagenAlta({
   );
 }
 
+const EMPLEADO_VACIO = {
+  nombre: "", dni: "", cuil: "", funcion: "Operador de máquina",
+  tipo_contratacion: "Mensualizado", telefono: "", email: "", domicilio: "",
+  fecha_nacimiento: "",
+  fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
+  contacto_emergencia: "", obra_social: "", observaciones: "",
+};
+
 function NuevoEmpleadoDialog() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -457,14 +465,13 @@ function NuevoEmpleadoDialog() {
   const [foto, setFoto] = useState<File | null>(null);
   const [leyendo, setLeyendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [v, setV] = useState({
-    nombre: "", dni: "", cuil: "", funcion: "Operador de máquina",
-    tipo_contratacion: "Mensualizado", telefono: "", email: "", domicilio: "",
-    fecha_nacimiento: "",
-    fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
-    contacto_emergencia: "", obra_social: "", observaciones: "",
-  });
+  const [v, setV] = useState({ ...EMPLEADO_VACIO });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
+
+  const limpiar = () => {
+    setV({ ...EMPLEADO_VACIO });
+    setFrente(null); setDorso(null); setFoto(null);
+  };
 
   const leerDni = async () => {
     const imgs = [frente, dorso].filter(Boolean) as File[];
@@ -490,13 +497,14 @@ function NuevoEmpleadoDialog() {
         }
       }
       if (!Object.keys(acumulado).length) return toast.error("No se pudieron leer datos del documento");
+      const dniLeido = (acumulado.dni ?? "").replace(/\D/g, "");
       setV((s) => ({
         ...s,
-        nombre: s.nombre || acumulado.nombre || "",
-        dni: s.dni || (acumulado.dni ?? "").replace(/\D/g, ""),
-        cuil: s.cuil || acumulado.cuil || "",
-        fecha_nacimiento: s.fecha_nacimiento || acumulado.fecha_nacimiento || "",
-        domicilio: s.domicilio || acumulado.domicilio || "",
+        nombre: acumulado.nombre || s.nombre,
+        dni: dniLeido || s.dni,
+        cuil: acumulado.cuil || s.cuil,
+        fecha_nacimiento: acumulado.fecha_nacimiento || s.fecha_nacimiento,
+        domicilio: acumulado.domicilio || s.domicilio,
       }));
       toast.success("Datos del documento cargados. Revisalos y completá el resto.");
     } catch (e) {
@@ -547,7 +555,7 @@ function NuevoEmpleadoDialog() {
       toast.success("Empleado creado");
       qc.invalidateQueries({ queryKey: ["fema_empleados"] });
       qc.invalidateQueries({ queryKey: ["fema_empleados_min"] });
-      setFrente(null); setDorso(null); setFoto(null);
+      limpiar();
       setOpen(false);
     } finally {
       setGuardando(false);
@@ -556,7 +564,7 @@ function NuevoEmpleadoDialog() {
 
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) limpiar(); }}>
       <DialogTrigger asChild>
         <Button size="sm"><Plus className="size-4 mr-1" /> Nuevo empleado</Button>
       </DialogTrigger>
