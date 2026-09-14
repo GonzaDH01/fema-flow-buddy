@@ -454,14 +454,15 @@ function NuevoEmpleadoDialog() {
   const [foto, setFoto] = useState<File | null>(null);
   const [leyendo, setLeyendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [v, setV] = useState({
-    nombre: "", dni: "", cuil: "", funcion: "Operador de máquina",
-    tipo_contratacion: "Mensualizado", telefono: "", email: "", domicilio: "",
-    fecha_nacimiento: "",
-    fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
-    contacto_emergencia: "", obra_social: "", observaciones: "",
-  });
+  const [v, setV] = useState({ ...EMPLEADO_VACIO });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
+
+  const limpiar = () => {
+    setV({ ...EMPLEADO_VACIO });
+    setFrente(null);
+    setDorso(null);
+    setFoto(null);
+  };
 
   const leerDni = async () => {
     const imgs = [frente, dorso].filter(Boolean) as File[];
