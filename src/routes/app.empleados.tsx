@@ -529,7 +529,7 @@ function NuevoEmpleadoDialog() {
       const { data: creado, error } = await supabase.from("fema_empleados").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
 
-      const paths: Record<string, string> = {};
+      const paths: { dni_frente_path?: string; dni_dorso_path?: string; foto_path?: string } = {};
       try {
         if (frente) paths.dni_frente_path = await subir(creado.id, frente);
         if (dorso) paths.dni_dorso_path = await subir(creado.id, dorso);
