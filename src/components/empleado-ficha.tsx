@@ -239,6 +239,7 @@ export function FichaEmpleadoDialog({
     cbu: empleado.cbu ?? "",
     alias_cbu: empleado.alias_cbu ?? "",
     titular_cuenta: empleado.titular_cuenta ?? "",
+    importe_periodo: String(empleado.importe_periodo ?? 0),
     tareas: empleado.tareas ?? "",
     maquinaria: empleado.maquinaria ?? "",
     observaciones: empleado.observaciones ?? "",
