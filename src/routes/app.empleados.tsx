@@ -393,37 +393,164 @@ function PersonalTab() {
   );
 }
 
+const BUCKET_EMP = "empleados-doc";
+
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function CampoImagenAlta({
+  label, file, onFile, onQuitar,
+}: { label: string; file: File | null; onFile: (f: File) => void; onQuitar: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!file) { setUrl(null); return; }
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="rounded-md border bg-muted/30 p-2 space-y-2">
+        {url ? (
+          <img src={url} alt={label} className="w-full h-28 object-contain rounded" />
+        ) : (
+          <div className="h-28 flex items-center justify-center text-xs text-muted-foreground">Sin imagen</div>
+        )}
+        <div className="flex gap-1">
+          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => inputRef.current?.click()}>
+            <Upload className="size-3 mr-1" /> Subir
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => camRef.current?.click()}>
+            <Camera className="size-3 mr-1" /> Cámara
+          </Button>
+          {file && (
+            <Button type="button" size="sm" variant="ghost" onClick={onQuitar}><Trash2 className="size-3" /></Button>
+          )}
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+        <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+      </div>
+    </div>
+  );
+}
+
 function NuevoEmpleadoDialog() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [frente, setFrente] = useState<File | null>(null);
+  const [dorso, setDorso] = useState<File | null>(null);
+  const [foto, setFoto] = useState<File | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [v, setV] = useState({
     nombre: "", dni: "", cuil: "", funcion: "Operador de máquina",
     tipo_contratacion: "Mensualizado", telefono: "", email: "", domicilio: "",
+    fecha_nacimiento: "",
     fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
     contacto_emergencia: "", obra_social: "", observaciones: "",
   });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
 
+  const leerDni = async () => {
+    const imgs = [frente, dorso].filter(Boolean) as File[];
+    if (!imgs.length) return toast.error("Subí primero la imagen del DNI");
+    setLeyendo(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión vencida, volvé a ingresar");
+      const acumulado: Record<string, string> = {};
+      for (const img of imgs) {
+        if (img.size > 3_500_000) { toast.error("Imagen demasiado grande (máx. 3MB)"); continue; }
+        const mime = ["image/jpeg", "image/png", "image/webp"].includes(img.type) ? img.type : "image/jpeg";
+        const res = await fetch("/api/public/ocr-dni", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image: await toBase64(img), mimeType: mime }),
+        });
+        const out = await res.json();
+        if (!res.ok) { toast.error(out?.error ?? "No se pudo leer la imagen"); continue; }
+        for (const [k, val] of Object.entries(out.data ?? {})) {
+          if (val != null && String(val).trim() && !acumulado[k]) acumulado[k] = String(val).trim();
+        }
+      }
+      if (!Object.keys(acumulado).length) return toast.error("No se pudieron leer datos del documento");
+      setV((s) => ({
+        ...s,
+        nombre: s.nombre || acumulado.nombre || "",
+        dni: s.dni || (acumulado.dni ?? "").replace(/\D/g, ""),
+        cuil: s.cuil || acumulado.cuil || "",
+        fecha_nacimiento: s.fecha_nacimiento || acumulado.fecha_nacimiento || "",
+        domicilio: s.domicilio || acumulado.domicilio || "",
+      }));
+      toast.success("Datos del documento cargados. Revisalos y completá el resto.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al leer el documento");
+    } finally {
+      setLeyendo(false);
+    }
+  };
+
+  const subir = async (empleadoId: string, file: File) => {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${empleadoId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from(BUCKET_EMP).upload(path, file, { upsert: false });
+    if (error) throw error;
+    return path;
+  };
+
   const onSubmit = async () => {
     if (!v.nombre.trim()) return toast.error("Nombre requerido");
-    const payload = {
-      user_id: user!.id, nombre: v.nombre, dni: v.dni || null, cuil: v.cuil || null,
-      funcion: v.funcion, cargo: v.funcion, tipo_contratacion: v.tipo_contratacion,
-      telefono: v.telefono || null, email: v.email || null, domicilio: v.domicilio || null,
-      fecha_ingreso: v.fecha_ingreso || null,
-      sueldo_bruto: Number(v.sueldo_bruto || 0), valor_hora: Number(v.valor_hora || 0),
-      activo: v.activo === "Activo",
-      contacto_emergencia: v.contacto_emergencia || null, obra_social: v.obra_social || null,
-      observaciones: v.observaciones || null,
-    };
-    const { error } = await supabase.from("fema_empleados").insert(payload);
-    if (error) return toast.error(error.message);
-    toast.success("Empleado creado");
-    qc.invalidateQueries({ queryKey: ["fema_empleados"] });
-    qc.invalidateQueries({ queryKey: ["fema_empleados_min"] });
-    setOpen(false);
+    setGuardando(true);
+    try {
+      const payload = {
+        user_id: user!.id, nombre: v.nombre, dni: v.dni || null, cuil: v.cuil || null,
+        funcion: v.funcion, cargo: v.funcion, tipo_contratacion: v.tipo_contratacion,
+        telefono: v.telefono || null, email: v.email || null, domicilio: v.domicilio || null,
+        fecha_nacimiento: v.fecha_nacimiento || null,
+        fecha_ingreso: v.fecha_ingreso || null,
+        sueldo_bruto: Number(v.sueldo_bruto || 0), valor_hora: Number(v.valor_hora || 0),
+        activo: v.activo === "Activo",
+        contacto_emergencia: v.contacto_emergencia || null, obra_social: v.obra_social || null,
+        observaciones: v.observaciones || null,
+      };
+      const { data: creado, error } = await supabase.from("fema_empleados").insert(payload).select("id").single();
+      if (error) { toast.error(error.message); return; }
+
+      const paths: Record<string, string> = {};
+      try {
+        if (frente) paths.dni_frente_path = await subir(creado.id, frente);
+        if (dorso) paths.dni_dorso_path = await subir(creado.id, dorso);
+        if (foto) paths.foto_path = await subir(creado.id, foto);
+        if (Object.keys(paths).length) {
+          await supabase.from("fema_empleados").update(paths).eq("id", creado.id);
+        }
+      } catch {
+        toast.error("El empleado se creó, pero alguna imagen no se pudo guardar");
+      }
+
+      toast.success("Empleado creado");
+      qc.invalidateQueries({ queryKey: ["fema_empleados"] });
+      qc.invalidateQueries({ queryKey: ["fema_empleados_min"] });
+      setFrente(null); setDorso(null); setFoto(null);
+      setOpen(false);
+    } finally {
+      setGuardando(false);
+    }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
