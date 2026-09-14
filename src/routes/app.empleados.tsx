@@ -517,14 +517,14 @@ function NuevoEmpleadoDialog() {
       if (!token) throw new Error("Sesión vencida, volvé a ingresar");
       const acumulado: Record<string, string> = {};
       for (const img of imgs) {
-        if (img.size > 3_500_000) { toast.error("Imagen demasiado grande (máx. 3MB)"); continue; }
-        const mime = ["image/jpeg", "image/png", "image/webp"].includes(img.type) ? img.type : "image/jpeg";
+        const { base64, mimeType } = await comprimirParaOcr(img);
+        if (!base64) { toast.error("No se pudo procesar la imagen del documento"); continue; }
         const res = await fetch("/api/public/ocr-dni", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ image: await toBase64(img), mimeType: mime }),
+          body: JSON.stringify({ image: base64, mimeType }),
         });
-        const out = await res.json();
+        const out = await res.json().catch(() => null);
         if (!res.ok) { toast.error(out?.error ?? "No se pudo leer la imagen"); continue; }
         for (const [k, val] of Object.entries(out.data ?? {})) {
           if (val != null && String(val).trim() && !acumulado[k]) acumulado[k] = String(val).trim();
