@@ -571,72 +571,88 @@ function NuevoEmpleadoDialog() {
       <DialogTrigger asChild>
         <Button size="sm"><Plus className="size-4 mr-1" /> Nuevo empleado</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nuevo empleado</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
-            <p className="text-sm font-medium">Documento de identidad</p>
-            <p className="text-xs text-muted-foreground">Subí o sacá foto del DNI y leé los datos automáticamente. Después completás el resto.</p>
-            <div className="grid grid-cols-3 gap-2">
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-xl">Nuevo empleado</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6">
+          {/* Documento e imágenes */}
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Documento de identidad</p>
+                <p className="text-xs text-muted-foreground">Subí o sacá foto del DNI y leé los datos automáticamente. Después completá el resto.</p>
+              </div>
+              <Button type="button" size="sm" variant="secondary" className="shrink-0" onClick={leerDni} disabled={leyendo || (!frente && !dorso)}>
+                {leyendo ? <><Loader2 className="size-4 mr-1 animate-spin" /> Leyendo…</> : <><ScanLine className="size-4 mr-1" /> Leer DNI</>}
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <CampoImagenAlta label="DNI frente" file={frente} onFile={setFrente} onQuitar={() => setFrente(null)} />
               <CampoImagenAlta label="DNI dorso" file={dorso} onFile={setDorso} onQuitar={() => setDorso(null)} />
               <CampoImagenAlta label="Foto del empleado" file={foto} onFile={setFoto} onQuitar={() => setFoto(null)} />
             </div>
-            <Button type="button" size="sm" variant="secondary" className="w-full" onClick={leerDni} disabled={leyendo || (!frente && !dorso)}>
-              {leyendo ? <><Loader2 className="size-4 mr-1 animate-spin" /> Leyendo documento…</> : <><ScanLine className="size-4 mr-1" /> Leer datos del DNI</>}
-            </Button>
           </div>
-          <div className="space-y-1.5"><Label>Nombre y apellido</Label><Input value={v.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Nombre completo" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>DNI</Label><Input value={v.dni} onChange={(e) => set("dni", e.target.value)} placeholder="00.000.000" /></div>
-            <div className="space-y-1.5"><Label>CUIL</Label><Input value={v.cuil} onChange={(e) => set("cuil", e.target.value)} placeholder="20-00000000-0" /></div>
-          </div>
-          <div className="space-y-1.5"><Label>Fecha de nacimiento</Label><Input type="date" value={v.fecha_nacimiento} onChange={(e) => set("fecha_nacimiento", e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Función / Rol</Label>
-              <Select value={v.funcion} onValueChange={(x) => set("funcion", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{FUNCIONES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tipo de contratación</Label>
-              <Select value={v.tipo_contratacion} onValueChange={(x) => set("tipo_contratacion", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CONTRATACIONES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Teléfono</Label><Input value={v.telefono} onChange={(e) => set("telefono", e.target.value)} placeholder="+54 9 ..." /></div>
-            <div className="space-y-1.5"><Label>Email</Label><Input value={v.email} onChange={(e) => set("email", e.target.value)} placeholder="email@dominio.com" /></div>
-          </div>
-          <div className="space-y-1.5"><Label>Domicilio</Label><Input value={v.domicilio} onChange={(e) => set("domicilio", e.target.value)} placeholder="Calle, número, localidad" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Fecha de ingreso</Label><Input type="date" value={v.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Sueldo básico ($)</Label><Input type="number" value={v.sueldo_bruto} onChange={(e) => set("sueldo_bruto", e.target.value)} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Valor hora ($)</Label><Input type="number" value={v.valor_hora} onChange={(e) => set("valor_hora", e.target.value)} /></div>
-            <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={v.activo} onValueChange={(x) => set("activo", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Activo">Activo</SelectItem>
-                  <SelectItem value="Inactivo">Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
+
+          {/* Datos personales */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold border-b pb-2">Datos personales</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Nombre y apellido</Label>
+                <Input value={v.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Nombre completo" />
+              </div>
+              <div className="space-y-1.5"><Label>DNI</Label><Input value={v.dni} onChange={(e) => set("dni", e.target.value)} placeholder="00.000.000" /></div>
+              <div className="space-y-1.5"><Label>CUIL</Label><Input value={v.cuil} onChange={(e) => set("cuil", e.target.value)} placeholder="20-00000000-0" /></div>
+              <div className="space-y-1.5"><Label>Fecha de nacimiento</Label><Input type="date" value={v.fecha_nacimiento} onChange={(e) => set("fecha_nacimiento", e.target.value)} /></div>
+              <div className="space-y-1.5">
+                <Label>Función / Rol</Label>
+                <Select value={v.funcion} onValueChange={(x) => set("funcion", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FUNCIONES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo de contratación</Label>
+                <Select value={v.tipo_contratacion} onValueChange={(x) => set("tipo_contratacion", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{CONTRATACIONES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label>Teléfono</Label><Input value={v.telefono} onChange={(e) => set("telefono", e.target.value)} placeholder="+54 9 ..." /></div>
+              <div className="space-y-1.5"><Label>Email</Label><Input value={v.email} onChange={(e) => set("email", e.target.value)} placeholder="email@dominio.com" /></div>
+              <div className="space-y-1.5 md:col-span-2"><Label>Domicilio</Label><Input value={v.domicilio} onChange={(e) => set("domicilio", e.target.value)} placeholder="Calle, número, localidad" /></div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Contacto de emergencia</Label><Input value={v.contacto_emergencia} onChange={(e) => set("contacto_emergencia", e.target.value)} placeholder="Nombre y teléfono" /></div>
-            <div className="space-y-1.5"><Label>Obra social / ART</Label><Input value={v.obra_social} onChange={(e) => set("obra_social", e.target.value)} placeholder="Cobertura" /></div>
+
+          {/* Datos laborales */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold border-b pb-2">Datos laborales</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+              <div className="space-y-1.5"><Label>Fecha de ingreso</Label><Input type="date" value={v.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Sueldo básico ($)</Label><Input type="number" value={v.sueldo_bruto} onChange={(e) => set("sueldo_bruto", e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Valor hora ($)</Label><Input type="number" value={v.valor_hora} onChange={(e) => set("valor_hora", e.target.value)} /></div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={v.activo} onValueChange={(x) => set("activo", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Activo">Activo</SelectItem>
+                    <SelectItem value="Inactivo">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label>Contacto de emergencia</Label><Input value={v.contacto_emergencia} onChange={(e) => set("contacto_emergencia", e.target.value)} placeholder="Nombre y teléfono" /></div>
+              <div className="space-y-1.5"><Label>Obra social / ART</Label><Input value={v.obra_social} onChange={(e) => set("obra_social", e.target.value)} placeholder="Cobertura" /></div>
+            </div>
           </div>
-          <div className="space-y-1.5"><Label>Observaciones</Label><Textarea value={v.observaciones} onChange={(e) => set("observaciones", e.target.value)} rows={3} /></div>
+
+          <div className="space-y-1.5">
+            <Label>Observaciones</Label>
+            <Textarea value={v.observaciones} onChange={(e) => set("observaciones", e.target.value)} rows={3} />
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="pt-4 gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button onClick={onSubmit} disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</Button>
         </DialogFooter>
