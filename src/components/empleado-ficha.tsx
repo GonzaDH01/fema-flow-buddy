@@ -204,6 +204,8 @@ export function FichaEmpleadoDialog({
     const { error } = await supabase
       .from("fema_empleados")
       .update({
+        funcion: v.funcion || null,
+        cargo: v.funcion || null,
         dni: v.dni || null,
         cuil: v.cuil || null,
         fecha_nacimiento: v.fecha_nacimiento || null,
