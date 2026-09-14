@@ -559,6 +559,17 @@ function NuevoEmpleadoDialog() {
   const onSubmit = async () => {
     if (!v.nombre.trim()) return toast.error("Nombre requerido");
     setGuardando(true);
+    if (v.dni.trim()) {
+      const { data: repetido } = await supabase
+        .from("fema_empleados")
+        .select("id,nombre")
+        .eq("dni", v.dni.trim())
+        .maybeSingle();
+      if (repetido) {
+        setGuardando(false);
+        return toast.error(`Ya existe un empleado con ese DNI: ${repetido.nombre}`);
+      }
+    }
     try {
       const payload = {
         user_id: user!.id, nombre: v.nombre, dni: v.dni || null, cuil: v.cuil || null,
