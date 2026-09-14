@@ -560,11 +560,24 @@ function NuevoEmpleadoDialog() {
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Nuevo empleado</DialogTitle></DialogHeader>
         <div className="space-y-3">
+          <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
+            <p className="text-sm font-medium">Documento de identidad</p>
+            <p className="text-xs text-muted-foreground">Subí o sacá foto del DNI y leé los datos automáticamente. Después completás el resto.</p>
+            <div className="grid grid-cols-3 gap-2">
+              <CampoImagenAlta label="DNI frente" file={frente} onFile={setFrente} onQuitar={() => setFrente(null)} />
+              <CampoImagenAlta label="DNI dorso" file={dorso} onFile={setDorso} onQuitar={() => setDorso(null)} />
+              <CampoImagenAlta label="Foto del empleado" file={foto} onFile={setFoto} onQuitar={() => setFoto(null)} />
+            </div>
+            <Button type="button" size="sm" variant="secondary" className="w-full" onClick={leerDni} disabled={leyendo || (!frente && !dorso)}>
+              {leyendo ? <><Loader2 className="size-4 mr-1 animate-spin" /> Leyendo documento…</> : <><ScanLine className="size-4 mr-1" /> Leer datos del DNI</>}
+            </Button>
+          </div>
           <div className="space-y-1.5"><Label>Nombre y apellido</Label><Input value={v.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Nombre completo" /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>DNI</Label><Input value={v.dni} onChange={(e) => set("dni", e.target.value)} placeholder="00.000.000" /></div>
             <div className="space-y-1.5"><Label>CUIL</Label><Input value={v.cuil} onChange={(e) => set("cuil", e.target.value)} placeholder="20-00000000-0" /></div>
           </div>
+          <div className="space-y-1.5"><Label>Fecha de nacimiento</Label><Input type="date" value={v.fecha_nacimiento} onChange={(e) => set("fecha_nacimiento", e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Función / Rol</Label>
