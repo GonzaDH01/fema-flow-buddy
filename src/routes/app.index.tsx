@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
-import { formatPesos, MESES } from "@/lib/format";
+import { formatPesos, MESES_LARGOS } from "@/lib/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/app/")({ component: Dashboard });
@@ -197,7 +197,7 @@ async function loadKPIs(_userId: string, anio: number) {
     aCobrarMes[idx] += Number(m.monto);
   }
   const mensual = Array.from({ length: 12 }, (_, i) => ({
-    mes: MESES[i],
+    mes: MESES_LARGOS[i],
     "Ingresos cobrados": ingresosMes[i],
     "A cobrar (en cartera)": aCobrarMes[i],
     "Egresos pagados": egresosMes[i],
@@ -282,7 +282,16 @@ function Dashboard() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data?.mensual ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="mes" stroke="var(--muted-foreground)" fontSize={12} />
+              <XAxis
+                dataKey="mes"
+                stroke="var(--muted-foreground)"
+                fontSize={11}
+                interval={0}
+                angle={-35}
+                textAnchor="end"
+                height={68}
+                tickLine={false}
+              />
               <YAxis stroke="var(--muted-foreground)" fontSize={12}
                 tickFormatter={(v) => new Intl.NumberFormat("es-AR", { notation: "compact" }).format(v)} />
               <Tooltip
