@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, FileDown, Check } from "lucide-react";
+import { Plus, Trash2, FileDown, Check, IdCard } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
+import { FichaEmpleadoDialog, FotoEmpleado } from "@/components/empleado-ficha";
 
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
@@ -34,6 +35,10 @@ type Empleado = {
   fecha_ingreso: string | null; sueldo_bruto: number; valor_hora: number;
   activo: boolean; contacto_emergencia: string | null; obra_social: string | null;
   observaciones: string | null; cargo: string | null;
+  foto_path: string | null; dni_frente_path: string | null; dni_dorso_path: string | null;
+  fecha_nacimiento: string | null; forma_pago: string | null; frecuencia_pago: string | null;
+  banco: string | null; cbu: string | null; alias_cbu: string | null; titular_cuenta: string | null;
+  tareas: string | null; maquinaria: string | null;
 };
 type Sueldo = {
   id: string; empleado_id: string | null; periodo: string; rol: string | null;
@@ -172,7 +177,7 @@ function LiquidacionesTab() {
             <TableHead className="text-right">Básico</TableHead>
             <TableHead className="text-right">Adicional</TableHead>
             <TableHead className="text-right">Total</TableHead>
-            <TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
+            <TableHead>Forma de pago</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -319,6 +324,7 @@ function NuevaLiquidacionDialog() {
 // ============ PERSONAL ============
 function PersonalTab() {
   const qc = useQueryClient();
+  const [ficha, setFicha] = useState<Empleado | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["fema_empleados"],
     queryFn: async () => {
@@ -345,30 +351,44 @@ function PersonalTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>}
+          {isLoading && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>}
           {!isLoading && (data ?? []).length === 0 && (
-            <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Sin empleados cargados</TableCell></TableRow>
+            <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Sin empleados cargados</TableCell></TableRow>
           )}
           {(data ?? []).map((r) => (
-            <TableRow key={r.id}>
-              <TableCell className="font-medium">{r.nombre}</TableCell>
+            <TableRow key={r.id} className="cursor-pointer" onClick={() => setFicha(r)}>
+              <TableCell className="font-medium">
+                <span className="flex items-center gap-2">
+                  <FotoEmpleado path={r.foto_path} nombre={r.nombre} />
+                  {r.nombre}
+                </span>
+              </TableCell>
               <TableCell>{r.dni ?? "—"}</TableCell>
               <TableCell>{r.cuil ?? "—"}</TableCell>
               <TableCell>{r.funcion ?? r.cargo ?? "—"}</TableCell>
               <TableCell>{r.tipo_contratacion ?? "—"}</TableCell>
+              <TableCell>{r.forma_pago ?? "—"}</TableCell>
               <TableCell className="text-right">{formatPesos(r.sueldo_bruto)}</TableCell>
               <TableCell>{r.activo
                 ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Activo</Badge>
                 : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
               <TableCell className="text-right">
-                <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
-                  <Trash2 className="size-3" />
-                </Button>
+                <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => setFicha(r)}>
+                    <IdCard className="size-3 mr-1" /> Ficha
+                  </Button>
+                  <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <Dialog open={!!ficha} onOpenChange={(v) => !v && setFicha(null)}>
+        {ficha && <FichaEmpleadoDialog key={ficha.id} empleado={ficha} onClose={() => setFicha(null)} />}
+      </Dialog>
     </div>
   );
 }
