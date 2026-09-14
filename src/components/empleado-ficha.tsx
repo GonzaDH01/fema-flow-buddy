@@ -30,10 +30,22 @@ export const FUNCIONES_EMPLEADO = [
   "Otro",
 ];
 
+export const TIPOS_CONTRATACION = ["Mensualizado", "Jornalizado", "Por hora", "Monotributista", "Temporario"];
+
 export type EmpleadoFicha = {
   id: string;
   nombre: string;
   funcion?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  domicilio?: string | null;
+  fecha_ingreso?: string | null;
+  tipo_contratacion?: string | null;
+  sueldo_bruto?: number | null;
+  valor_hora?: number | null;
+  contacto_emergencia?: string | null;
+  obra_social?: string | null;
+  activo?: boolean | null;
   dni: string | null;
   cuil: string | null;
   fecha_nacimiento?: string | null;
@@ -171,6 +183,17 @@ export function FichaEmpleadoDialog({
     },
   });
   const [v, setV] = useState({
+    nombre: empleado.nombre ?? "",
+    telefono: empleado.telefono ?? "",
+    email: empleado.email ?? "",
+    domicilio: empleado.domicilio ?? "",
+    fecha_ingreso: empleado.fecha_ingreso ?? "",
+    tipo_contratacion: empleado.tipo_contratacion ?? "Mensualizado",
+    sueldo_bruto: String(empleado.sueldo_bruto ?? 0),
+    valor_hora: String(empleado.valor_hora ?? 0),
+    contacto_emergencia: empleado.contacto_emergencia ?? "",
+    obra_social: empleado.obra_social ?? "",
+    activo: empleado.activo === false ? "Inactivo" : "Activo",
     funcion: empleado.funcion ?? "Tractorista",
     dni: empleado.dni ?? "",
     cuil: empleado.cuil ?? "",
@@ -206,6 +229,17 @@ export function FichaEmpleadoDialog({
     const { error } = await supabase
       .from("fema_empleados")
       .update({
+        nombre: v.nombre.trim() || empleado.nombre,
+        telefono: v.telefono || null,
+        email: v.email || null,
+        domicilio: v.domicilio || null,
+        fecha_ingreso: v.fecha_ingreso || null,
+        tipo_contratacion: v.tipo_contratacion || null,
+        sueldo_bruto: Number(v.sueldo_bruto || 0),
+        valor_hora: Number(v.valor_hora || 0),
+        contacto_emergencia: v.contacto_emergencia || null,
+        obra_social: v.obra_social || null,
+        activo: v.activo === "Activo",
         funcion: v.funcion || null,
         cargo: v.funcion || null,
         dni: v.dni || null,
@@ -238,13 +272,95 @@ export function FichaEmpleadoDialog({
       <DialogHeader>
         <DialogTitle>Ficha de {empleado.nombre}</DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="documentos">
+      <Tabs defaultValue="datos">
         <TabsList>
+          <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="documentos">Documentación</TabsTrigger>
           <TabsTrigger value="pago">Forma de pago</TabsTrigger>
           <TabsTrigger value="trabajo">Tareas y maquinaria</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="datos" className="mt-4 space-y-4">
+          <div className="space-y-3">
+            <h4 className="border-b pb-2 text-sm font-semibold">Datos personales</h4>
+            <div className="space-y-1.5">
+              <Label>Nombre y apellido</Label>
+              <Input value={v.nombre} onChange={(e) => set("nombre", e.target.value)} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Teléfono</Label>
+                <Input value={v.telefono} onChange={(e) => set("telefono", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input value={v.email} onChange={(e) => set("email", e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Domicilio</Label>
+              <Input value={v.domicilio} onChange={(e) => set("domicilio", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="border-b pb-2 text-sm font-semibold">Datos laborales</h4>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Fecha de ingreso</Label>
+                <Input type="date" value={v.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo de contratación</Label>
+                <Select value={v.tipo_contratacion} onValueChange={(x) => set("tipo_contratacion", x)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_CONTRATACION.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Sueldo básico</Label>
+                <Input type="number" value={v.sueldo_bruto} onChange={(e) => set("sueldo_bruto", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Valor hora</Label>
+                <Input type="number" value={v.valor_hora} onChange={(e) => set("valor_hora", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Contacto de emergencia</Label>
+                <Input
+                  value={v.contacto_emergencia}
+                  onChange={(e) => set("contacto_emergencia", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Obra social</Label>
+                <Input value={v.obra_social} onChange={(e) => set("obra_social", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={v.activo} onValueChange={(x) => set("activo", x)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Activo">Activo</SelectItem>
+                    <SelectItem value="Inactivo">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
 
         <TabsContent value="carnets" className="mt-4">
           <CarnetsEmpleado empleadoId={empleado.id} />
