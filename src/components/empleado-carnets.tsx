@@ -204,6 +204,18 @@ function FormCarnet({
       return;
     }
     setGuardando(true);
+    let imagenPath = carnet?.imagen_path ?? null;
+    if (foto) {
+      const ext = (foto.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${empleadoId}/carnets/${crypto.randomUUID()}.${ext}`;
+      const { error: errUp } = await supabase.storage.from(BUCKET_EMP).upload(path, foto, { upsert: false });
+      if (errUp) {
+        setGuardando(false);
+        toast.error(errUp.message);
+        return;
+      }
+      imagenPath = path;
+    }
     const payload = {
       empleado_id: empleadoId,
       tipo: v.tipo,
