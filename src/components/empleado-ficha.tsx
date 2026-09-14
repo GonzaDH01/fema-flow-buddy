@@ -167,7 +167,9 @@ export function FichaEmpleadoDialog({
 
   const guardarPath = async (k: keyof typeof paths, p: string | null) => {
     setPaths((s) => ({ ...s, [k]: p }));
-    await supabase.from("fema_empleados").update({ [k]: p }).eq("id", empleado.id);
+    const patch =
+      k === "dni_frente_path" ? { dni_frente_path: p } : k === "dni_dorso_path" ? { dni_dorso_path: p } : { foto_path: p };
+    await supabase.from("fema_empleados").update(patch).eq("id", empleado.id);
     qc.invalidateQueries({ queryKey: ["fema_empleados"] });
   };
 
