@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Pencil, AlertTriangle, Upload, Camera, ScanLine, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,41 @@ export type Carnet = {
   fecha_emision: string | null;
   fecha_vencimiento: string;
   observaciones: string | null;
+  imagen_path?: string | null;
 };
+
+const BUCKET_EMP = "empleados-doc";
+
+// Reduce la foto del carnet a un tamaño que el lector pueda procesar (máx ~2200px, JPEG)
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+    el.src = dataUrl;
+  });
+  const MAX = 2200;
+  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let calidad = 0.85;
+  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  while (base64.length > 3_800_000 && calidad > 0.35) {
+    calidad -= 0.15;
+    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  }
+  return { base64, mimeType: "image/jpeg" };
+}
 
 const hoy = () => new Date(new Date().toDateString());
 
@@ -87,7 +121,76 @@ function FormCarnet({
       : vacio,
   );
   const [guardando, setGuardando] = useState(false);
+  const [foto, setFoto] = useState<File | null>(null);
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
+
+  useEffect(() => {
+    if (foto) {
+      const u = URL.createObjectURL(foto);
+      setFotoUrl(u);
+      return () => URL.revokeObjectURL(u);
+    }
+    if (carnet?.imagen_path) {
+      let cancelado = false;
+      supabase.storage
+        .from(BUCKET_EMP)
+        .createSignedUrl(carnet.imagen_path, 3600)
+        .then(({ data }) => {
+          if (!cancelado) setFotoUrl(data?.signedUrl ?? null);
+        });
+      return () => {
+        cancelado = true;
+      };
+    }
+    setFotoUrl(null);
+  }, [foto, carnet?.imagen_path]);
+
+  const leerCarnet = async () => {
+    if (!foto) {
+      toast.error("Subí primero la foto del carnet");
+      return;
+    }
+    setLeyendo(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión vencida, volvé a ingresar");
+      const { base64, mimeType } = await comprimirParaOcr(foto);
+      if (!base64) throw new Error("No se pudo procesar la imagen");
+      const res = await fetch("/api/public/ocr-carnet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ image: base64, mimeType }),
+      });
+      const out = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(out?.error ?? "No se pudo leer la imagen");
+      const d = (out?.data ?? {}) as Record<string, string | null>;
+      const limpio = (x: string | null | undefined) => (x != null && String(x).trim() ? String(x).trim() : "");
+      const tipoLeido = limpio(d.tipo);
+      setV((s) => ({
+        ...s,
+        tipo: TIPOS_CARNET.includes(tipoLeido) ? tipoLeido : s.tipo,
+        categorias: limpio(d.categorias) || s.categorias,
+        numero: limpio(d.numero) || s.numero,
+        autoridad: limpio(d.autoridad) || s.autoridad,
+        fecha_emision: limpio(d.fecha_emision) || s.fecha_emision,
+        fecha_vencimiento: limpio(d.fecha_vencimiento) || s.fecha_vencimiento,
+      }));
+      const algo = Object.values(d).some((x) => limpio(x));
+      if (algo) toast.success("Datos del carnet cargados. Revisalos antes de guardar.");
+      else toast.error("No se pudieron leer datos del carnet");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al leer el carnet");
+    } finally {
+      setLeyendo(false);
+    }
+  };
 
   const cats = v.categorias ? v.categorias.split(",").map((c) => c.trim()).filter(Boolean) : [];
   const toggleCat = (c: string) => {
@@ -101,6 +204,18 @@ function FormCarnet({
       return;
     }
     setGuardando(true);
+    let imagenPath = carnet?.imagen_path ?? null;
+    if (foto) {
+      const ext = (foto.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${empleadoId}/carnets/${crypto.randomUUID()}.${ext}`;
+      const { error: errUp } = await supabase.storage.from(BUCKET_EMP).upload(path, foto, { upsert: false });
+      if (errUp) {
+        setGuardando(false);
+        toast.error(errUp.message);
+        return;
+      }
+      imagenPath = path;
+    }
     const payload = {
       empleado_id: empleadoId,
       tipo: v.tipo,
@@ -110,6 +225,7 @@ function FormCarnet({
       fecha_emision: v.fecha_emision || null,
       fecha_vencimiento: v.fecha_vencimiento,
       observaciones: v.observaciones || null,
+      imagen_path: imagenPath,
     };
     const { error } = carnet
       ? await supabase.from("fema_empleado_carnets").update(payload).eq("id", carnet.id)
@@ -130,6 +246,62 @@ function FormCarnet({
         <DialogTitle>{carnet ? "Editar carnet" : "Nuevo carnet"}</DialogTitle>
       </DialogHeader>
       <div className="space-y-3">
+        <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Foto del carnet</p>
+              <p className="text-xs text-muted-foreground">Subí la foto y leé los datos automáticamente</p>
+            </div>
+            <Button type="button" size="sm" onClick={leerCarnet} disabled={!foto || leyendo}>
+              {leyendo ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <ScanLine className="mr-1.5 size-3.5" />}
+              Leer carnet
+            </Button>
+          </div>
+          {fotoUrl ? (
+            <img src={fotoUrl} alt="Carnet" className="h-40 w-full rounded-md bg-muted/30 object-contain" />
+          ) : (
+            <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-md bg-muted/30 text-xs text-muted-foreground">
+              <Upload className="size-6 opacity-40" />
+              <span>Sin imagen</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="outline" className="h-9 flex-1" onClick={() => inputRef.current?.click()}>
+              <Upload className="mr-1.5 size-3.5" /> Subir
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-9 flex-1" onClick={() => camRef.current?.click()}>
+              <Camera className="mr-1.5 size-3.5" /> Cámara
+            </Button>
+            {foto && (
+              <Button type="button" size="icon" variant="ghost" className="size-9 shrink-0" onClick={() => setFoto(null)}>
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setFoto(f);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={camRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setFoto(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
         <div className="space-y-1.5">
           <Label>Tipo de carnet</Label>
           <Select value={v.tipo} onValueChange={(val) => set("tipo", val)}>
