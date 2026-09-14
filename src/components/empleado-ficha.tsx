@@ -287,6 +287,7 @@ export function FichaEmpleadoDialog({
         cbu: v.cbu || null,
         alias_cbu: v.alias_cbu || null,
         titular_cuenta: v.titular_cuenta || null,
+        importe_periodo: Number(v.importe_periodo || 0),
         tareas: v.tareas || null,
         maquinaria: v.maquinaria || null,
         observaciones: v.observaciones || null,
