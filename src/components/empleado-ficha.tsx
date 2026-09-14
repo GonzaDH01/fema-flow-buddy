@@ -30,10 +30,22 @@ export const FUNCIONES_EMPLEADO = [
   "Otro",
 ];
 
+export const TIPOS_CONTRATACION = ["Mensualizado", "Jornalizado", "Por hora", "Monotributista", "Temporario"];
+
 export type EmpleadoFicha = {
   id: string;
   nombre: string;
   funcion?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  domicilio?: string | null;
+  fecha_ingreso?: string | null;
+  tipo_contratacion?: string | null;
+  sueldo_bruto?: number | null;
+  valor_hora?: number | null;
+  contacto_emergencia?: string | null;
+  obra_social?: string | null;
+  activo?: boolean | null;
   dni: string | null;
   cuil: string | null;
   fecha_nacimiento?: string | null;
