@@ -20,7 +20,14 @@ import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
-import { FichaEmpleadoDialog, FotoEmpleado, FUNCIONES_EMPLEADO } from "@/components/empleado-ficha";
+import {
+  FichaEmpleadoDialog,
+  FotoEmpleado,
+  FUNCIONES_EMPLEADO,
+  FORMAS_PAGO,
+  FRECUENCIAS,
+  etiquetaImporte,
+} from "@/components/empleado-ficha";
 import { CarnetsVencimientosTab } from "@/components/empleado-carnets";
 
 
