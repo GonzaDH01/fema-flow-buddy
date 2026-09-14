@@ -407,6 +407,37 @@ function toBase64(file: File): Promise<string> {
   });
 }
 
+// Reduce la foto del DNI a un tamaño que el lector pueda procesar (máx ~2200px, JPEG)
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+    el.src = dataUrl;
+  });
+  const MAX = 2200;
+  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let calidad = 0.85;
+  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  while (base64.length > 3_800_000 && calidad > 0.35) {
+    calidad -= 0.15;
+    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  }
+  return { base64, mimeType: "image/jpeg" };
+}
+
 function CampoImagenAlta({
   label, file, onFile, onQuitar,
 }: { label: string; file: File | null; onFile: (f: File) => void; onQuitar: () => void }) {
@@ -486,14 +517,14 @@ function NuevoEmpleadoDialog() {
       if (!token) throw new Error("Sesión vencida, volvé a ingresar");
       const acumulado: Record<string, string> = {};
       for (const img of imgs) {
-        if (img.size > 3_500_000) { toast.error("Imagen demasiado grande (máx. 3MB)"); continue; }
-        const mime = ["image/jpeg", "image/png", "image/webp"].includes(img.type) ? img.type : "image/jpeg";
+        const { base64, mimeType } = await comprimirParaOcr(img);
+        if (!base64) { toast.error("No se pudo procesar la imagen del documento"); continue; }
         const res = await fetch("/api/public/ocr-dni", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ image: await toBase64(img), mimeType: mime }),
+          body: JSON.stringify({ image: base64, mimeType }),
         });
-        const out = await res.json();
+        const out = await res.json().catch(() => null);
         if (!res.ok) { toast.error(out?.error ?? "No se pudo leer la imagen"); continue; }
         for (const [k, val] of Object.entries(out.data ?? {})) {
           if (val != null && String(val).trim() && !acumulado[k]) acumulado[k] = String(val).trim();
