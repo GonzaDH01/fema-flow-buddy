@@ -20,7 +20,14 @@ import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
-import { FichaEmpleadoDialog, FotoEmpleado, FUNCIONES_EMPLEADO } from "@/components/empleado-ficha";
+import {
+  FichaEmpleadoDialog,
+  FotoEmpleado,
+  FUNCIONES_EMPLEADO,
+  FORMAS_PAGO,
+  FRECUENCIAS,
+  etiquetaImporte,
+} from "@/components/empleado-ficha";
 import { CarnetsVencimientosTab } from "@/components/empleado-carnets";
 
 
@@ -488,6 +495,7 @@ const EMPLEADO_VACIO = {
   fecha_nacimiento: "",
   fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
   contacto_emergencia: "", obra_social: "", observaciones: "",
+  forma_pago: "Transferencia bancaria", frecuencia_pago: "Mensual", importe_periodo: "0",
 };
 
 function NuevoEmpleadoDialog() {
@@ -581,6 +589,9 @@ function NuevoEmpleadoDialog() {
         activo: v.activo === "Activo",
         contacto_emergencia: v.contacto_emergencia || null, obra_social: v.obra_social || null,
         observaciones: v.observaciones || null,
+        forma_pago: v.forma_pago || null,
+        frecuencia_pago: v.frecuencia_pago || null,
+        importe_periodo: Number(v.importe_periodo || 0),
       };
       const { data: creado, error } = await supabase.from("fema_empleados").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
@@ -688,6 +699,32 @@ function NuevoEmpleadoDialog() {
               <div className="space-y-1.5"><Label>Obra social / ART</Label><Input value={v.obra_social} onChange={(e) => set("obra_social", e.target.value)} placeholder="Cobertura" /></div>
             </div>
           </div>
+
+          {/* Forma de pago */}
+          <div className="space-y-4">
+            <p className="text-sm font-semibold border-b pb-2">Forma de pago</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+              <div className="space-y-1.5">
+                <Label>Forma de pago</Label>
+                <Select value={v.forma_pago} onValueChange={(x) => set("forma_pago", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FORMAS_PAGO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cada cuánto se le abona</Label>
+                <Select value={v.frecuencia_pago} onValueChange={(x) => set("frecuencia_pago", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FRECUENCIAS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{etiquetaImporte(v.frecuencia_pago)}</Label>
+                <Input type="number" value={v.importe_periodo} onChange={(e) => set("importe_periodo", e.target.value)} />
+              </div>
+            </div>
+          </div>
+
 
           <div className="space-y-1.5">
             <Label>Observaciones</Label>

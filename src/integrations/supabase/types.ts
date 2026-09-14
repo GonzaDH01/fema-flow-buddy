@@ -859,6 +859,7 @@ export type Database = {
           frecuencia_pago: string | null
           funcion: string | null
           id: string
+          importe_periodo: number
           maquinaria: string | null
           nombre: string
           obra_social: string | null
@@ -893,6 +894,7 @@ export type Database = {
           frecuencia_pago?: string | null
           funcion?: string | null
           id?: string
+          importe_periodo?: number
           maquinaria?: string | null
           nombre: string
           obra_social?: string | null
@@ -927,6 +929,7 @@ export type Database = {
           frecuencia_pago?: string | null
           funcion?: string | null
           id?: string
+          importe_periodo?: number
           maquinaria?: string | null
           nombre?: string
           obra_social?: string | null

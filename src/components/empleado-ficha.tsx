@@ -13,8 +13,42 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { CarnetsEmpleado } from "@/components/empleado-carnets";
 
 const BUCKET = "empleados-doc";
-export const FORMAS_PAGO = ["Transferencia bancaria", "Efectivo", "Cheque", "Echeq", "Factura / Monotributo", "Otro"];
-export const FRECUENCIAS = ["Semanal", "Quincenal", "Mensual", "Por jornal", "Por trabajo"];
+export const FORMAS_PAGO = [
+  "Transferencia bancaria",
+  "Efectivo",
+  "Cheque",
+  "Echeq",
+  "Mercado Pago",
+  "Factura / Monotributo",
+  "Otro",
+];
+export const FRECUENCIAS = [
+  "Semanal",
+  "Quincenal",
+  "Mensual",
+  "Por jornal",
+  "Por hora",
+  "Por trabajo",
+  "Otra",
+];
+export const etiquetaImporte = (frecuencia: string) => {
+  switch (frecuencia) {
+    case "Semanal":
+      return "Importe por semana ($)";
+    case "Quincenal":
+      return "Importe por quincena ($)";
+    case "Mensual":
+      return "Importe por mes ($)";
+    case "Por jornal":
+      return "Importe por jornal ($)";
+    case "Por hora":
+      return "Importe por hora ($)";
+    case "Por trabajo":
+      return "Importe por trabajo ($)";
+    default:
+      return "Importe acordado ($)";
+  }
+};
 export const FUNCIONES_EMPLEADO = [
   "Socio Gerente",
   "Tractorista",
@@ -58,6 +92,7 @@ export type EmpleadoFicha = {
   cbu?: string | null;
   alias_cbu?: string | null;
   titular_cuenta?: string | null;
+  importe_periodo?: number | null;
   tareas?: string | null;
   maquinaria?: string | null;
   observaciones: string | null;
@@ -204,6 +239,7 @@ export function FichaEmpleadoDialog({
     cbu: empleado.cbu ?? "",
     alias_cbu: empleado.alias_cbu ?? "",
     titular_cuenta: empleado.titular_cuenta ?? "",
+    importe_periodo: String(empleado.importe_periodo ?? 0),
     tareas: empleado.tareas ?? "",
     maquinaria: empleado.maquinaria ?? "",
     observaciones: empleado.observaciones ?? "",
@@ -251,6 +287,7 @@ export function FichaEmpleadoDialog({
         cbu: v.cbu || null,
         alias_cbu: v.alias_cbu || null,
         titular_cuenta: v.titular_cuenta || null,
+        importe_periodo: Number(v.importe_periodo || 0),
         tareas: v.tareas || null,
         maquinaria: v.maquinaria || null,
         observaciones: v.observaciones || null,
@@ -434,6 +471,15 @@ export function FichaEmpleadoDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{etiquetaImporte(v.frecuencia_pago)}</Label>
+              <Input
+                type="number"
+                value={v.importe_periodo}
+                onChange={(e) => set("importe_periodo", e.target.value)}
+                placeholder="0"
+              />
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
