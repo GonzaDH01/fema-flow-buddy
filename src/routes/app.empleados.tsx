@@ -495,6 +495,7 @@ const EMPLEADO_VACIO = {
   fecha_nacimiento: "",
   fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
   contacto_emergencia: "", obra_social: "", observaciones: "",
+  forma_pago: "Transferencia bancaria", frecuencia_pago: "Mensual", importe_periodo: "0",
 };
 
 function NuevoEmpleadoDialog() {
