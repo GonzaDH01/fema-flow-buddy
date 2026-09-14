@@ -157,7 +157,19 @@ export function FichaEmpleadoDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const { data: equipos } = useQuery({
+    queryKey: ["fema_activos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_activos")
+        .select("id,nombre,tipo,marca,modelo")
+        .order("nombre");
+      if (error) throw error;
+      return data as { id: string; nombre: string; tipo: string; marca: string | null; modelo: string | null }[];
+    },
+  });
   const [v, setV] = useState({
+    funcion: empleado.funcion ?? "Tractorista",
     dni: empleado.dni ?? "",
     cuil: empleado.cuil ?? "",
     fecha_nacimiento: empleado.fecha_nacimiento ?? "",
