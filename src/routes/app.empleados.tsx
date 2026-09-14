@@ -319,6 +319,7 @@ function NuevaLiquidacionDialog() {
 // ============ PERSONAL ============
 function PersonalTab() {
   const qc = useQueryClient();
+  const [ficha, setFicha] = useState<Empleado | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["fema_empleados"],
     queryFn: async () => {
