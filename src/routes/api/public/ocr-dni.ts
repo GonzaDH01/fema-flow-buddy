@@ -1,0 +1,98 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+
+const HEADERS = { "Content-Type": "application/json" };
+
+const InputSchema = z.object({
+  image: z.string().min(100).max(7_000_000),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+});
+
+const SYSTEM_PROMPT = `Sos un sistema de lectura de documentos de identidad argentinos (DNI tarjeta, frente o dorso).
+Devolvé SOLO un JSON con estos campos exactos, sin texto adicional:
+{
+  "nombre": "string|null",        // Nombre y apellido completos, en formato "Nombre Apellido"
+  "dni": "string|null",           // Solo dígitos, sin puntos
+  "cuil": "string|null",          // Si figura (dorso), formato 00-00000000-0
+  "fecha_nacimiento": "YYYY-MM-DD|null",
+  "sexo": "M|F|null",
+  "domicilio": "string|null",     // Calle, número y localidad si figuran (dorso)
+  "fecha_emision": "YYYY-MM-DD|null",
+  "tramite": "string|null"
+}
+Reglas:
+- El campo "Apellido" y "Nombre" están separados en el DNI: combiná como "Nombre Apellido".
+- Las fechas en el DNI suelen estar en formato DD/MM/AAAA o DD MMM AAAA: convertilas a YYYY-MM-DD.
+- Si el dorso tiene código MRZ, usalo para validar número de documento y fecha de nacimiento.
+- Si no podés leer un campo, devolvé null. Nunca inventes datos.`;
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: HEADERS });
+
+export const Route = createFileRoute("/api/public/ocr-dni")({
+  server: {
+    handlers: {
+      OPTIONS: async () => new Response(null, { status: 204, headers: HEADERS }),
+      POST: async ({ request }) => {
+        try {
+          const authHeader = request.headers.get("authorization") ?? request.headers.get("Authorization");
+          const token = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : null;
+          if (!token) return json(401, { error: "No autenticado" });
+
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseAnon = process.env.SUPABASE_PUBLISHABLE_KEY;
+          if (!supabaseUrl || !supabaseAnon) return json(500, { error: "Servicio no configurado." });
+          const sb = createClient(supabaseUrl, supabaseAnon, {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+          const { data: userRes, error: userErr } = await sb.auth.getUser();
+          if (userErr || !userRes?.user) return json(401, { error: "Sesión inválida" });
+
+          const raw = await request.json().catch(() => null);
+          const parsed = InputSchema.safeParse(raw);
+          if (!parsed.success) return json(400, { error: "Datos inválidos" });
+          const { image, mimeType } = parsed.data;
+          if (image.length > 5_000_000) return json(413, { error: "Imagen demasiado grande. Máximo 3MB." });
+
+          const apiKey = process.env.LOVABLE_API_KEY;
+          if (!apiKey) return json(500, { error: "Servicio de IA no configurado." });
+
+          const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              max_tokens: 600,
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                {
+                  role: "user",
+                  content: [
+                    { type: "image_url", image_url: { url: `data:${mimeType};base64,${image}` } },
+                    { type: "text", text: "Extraé los datos de este documento de identidad." },
+                  ],
+                },
+              ],
+            }),
+          });
+
+          if (ai.status === 429) return json(429, { error: "Límite de requests alcanzado. Esperá unos segundos." });
+          if (ai.status === 402) return json(402, { error: "Sin créditos de IA. Contactá al administrador." });
+          if (!ai.ok) return json(500, { error: "Error al procesar la imagen." });
+
+          const payload = await ai.json();
+          const content = payload?.choices?.[0]?.message?.content;
+          if (!content) return json(500, { error: "Respuesta vacía del modelo." });
+          let data: unknown;
+          try { data = JSON.parse(content); } catch { return json(500, { error: "Respuesta no es JSON válido." }); }
+          return json(200, { data });
+        } catch (e) {
+          return json(500, { error: e instanceof Error ? e.message : "Error interno" });
+        }
+      },
+    },
+  },
+});
