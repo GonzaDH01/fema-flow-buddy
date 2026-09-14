@@ -200,9 +200,9 @@ export function SemanasTrabajadasTab() {
               <TableRow>
                 <TableHead className="min-w-44">Empleado</TableHead>
                 {dias.map((f, i) => (
-                  <TableHead key={f} className="text-center">
-                    <div>{DIAS[i]}</div>
-                    <div className="text-[10px] font-normal text-muted-foreground">{formatFecha(f).slice(0, 5)}</div>
+                  <TableHead key={f} className="w-14 min-w-14 text-center align-middle">
+                    <div className="leading-tight">{DIAS[i]}</div>
+                    <div className="text-[10px] font-normal leading-tight text-muted-foreground">{formatFecha(f).slice(0, 5)}</div>
                   </TableHead>
                 ))}
                 <TableHead className="text-center">Todos</TableHead>
@@ -228,8 +228,10 @@ export function SemanasTrabajadasTab() {
                       </div>
                     </TableCell>
                     {dias.map((f) => (
-                      <TableCell key={f} className="text-center">
-                        <Checkbox checked={marcado(e.id, f)} onCheckedChange={(v) => toggle(e.id, f, Boolean(v))} />
+                      <TableCell key={f} className="w-14 min-w-14 text-center align-middle">
+                        <div className="flex justify-center">
+                          <Checkbox checked={marcado(e.id, f)} onCheckedChange={(v) => toggle(e.id, f, Boolean(v))} />
+                        </div>
                       </TableCell>
                     ))}
                     <TableCell className="text-center">
