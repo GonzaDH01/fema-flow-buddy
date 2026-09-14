@@ -13,8 +13,42 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { CarnetsEmpleado } from "@/components/empleado-carnets";
 
 const BUCKET = "empleados-doc";
-export const FORMAS_PAGO = ["Transferencia bancaria", "Efectivo", "Cheque", "Echeq", "Factura / Monotributo", "Otro"];
-export const FRECUENCIAS = ["Semanal", "Quincenal", "Mensual", "Por jornal", "Por trabajo"];
+export const FORMAS_PAGO = [
+  "Transferencia bancaria",
+  "Efectivo",
+  "Cheque",
+  "Echeq",
+  "Mercado Pago",
+  "Factura / Monotributo",
+  "Otro",
+];
+export const FRECUENCIAS = [
+  "Semanal",
+  "Quincenal",
+  "Mensual",
+  "Por jornal",
+  "Por hora",
+  "Por trabajo",
+  "Otra",
+];
+export const etiquetaImporte = (frecuencia: string) => {
+  switch (frecuencia) {
+    case "Semanal":
+      return "Importe por semana ($)";
+    case "Quincenal":
+      return "Importe por quincena ($)";
+    case "Mensual":
+      return "Importe por mes ($)";
+    case "Por jornal":
+      return "Importe por jornal ($)";
+    case "Por hora":
+      return "Importe por hora ($)";
+    case "Por trabajo":
+      return "Importe por trabajo ($)";
+    default:
+      return "Importe acordado ($)";
+  }
+};
 export const FUNCIONES_EMPLEADO = [
   "Socio Gerente",
   "Tractorista",
