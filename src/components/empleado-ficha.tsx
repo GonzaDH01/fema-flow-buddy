@@ -183,6 +183,17 @@ export function FichaEmpleadoDialog({
     },
   });
   const [v, setV] = useState({
+    nombre: empleado.nombre ?? "",
+    telefono: empleado.telefono ?? "",
+    email: empleado.email ?? "",
+    domicilio: empleado.domicilio ?? "",
+    fecha_ingreso: empleado.fecha_ingreso ?? "",
+    tipo_contratacion: empleado.tipo_contratacion ?? "Mensualizado",
+    sueldo_bruto: String(empleado.sueldo_bruto ?? 0),
+    valor_hora: String(empleado.valor_hora ?? 0),
+    contacto_emergencia: empleado.contacto_emergencia ?? "",
+    obra_social: empleado.obra_social ?? "",
+    activo: empleado.activo === false ? "Inactivo" : "Activo",
     funcion: empleado.funcion ?? "Tractorista",
     dni: empleado.dni ?? "",
     cuil: empleado.cuil ?? "",
