@@ -16,6 +16,7 @@ const BUCKET = "empleados-doc";
 export const FORMAS_PAGO = ["Transferencia bancaria", "Efectivo", "Cheque", "Echeq", "Factura / Monotributo", "Otro"];
 export const FRECUENCIAS = ["Semanal", "Quincenal", "Mensual", "Por jornal", "Por trabajo"];
 export const FUNCIONES_EMPLEADO = [
+  "Socio Gerente",
   "Tractorista",
   "Camionero",
   "Operador de bolsera",
