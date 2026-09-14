@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Upload, Trash2, Camera, IdCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,10 +14,24 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 const BUCKET = "empleados-doc";
 export const FORMAS_PAGO = ["Transferencia bancaria", "Efectivo", "Cheque", "Echeq", "Factura / Monotributo", "Otro"];
 export const FRECUENCIAS = ["Semanal", "Quincenal", "Mensual", "Por jornal", "Por trabajo"];
+export const FUNCIONES_EMPLEADO = [
+  "Tractorista",
+  "Camionero",
+  "Operador de bolsera",
+  "Operador de picadora",
+  "Operador de máquina",
+  "Transportista",
+  "Mecánico",
+  "Capataz",
+  "Peón",
+  "Administrativo",
+  "Otro",
+];
 
 export type EmpleadoFicha = {
   id: string;
   nombre: string;
+  funcion?: string | null;
   dni: string | null;
   cuil: string | null;
   fecha_nacimiento?: string | null;
@@ -143,7 +157,19 @@ export function FichaEmpleadoDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const { data: equipos } = useQuery({
+    queryKey: ["fema_activos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_activos")
+        .select("id,nombre,tipo,marca,modelo")
+        .order("nombre");
+      if (error) throw error;
+      return data as { id: string; nombre: string; tipo: string; marca: string | null; modelo: string | null }[];
+    },
+  });
   const [v, setV] = useState({
+    funcion: empleado.funcion ?? "Tractorista",
     dni: empleado.dni ?? "",
     cuil: empleado.cuil ?? "",
     fecha_nacimiento: empleado.fecha_nacimiento ?? "",
@@ -178,6 +204,8 @@ export function FichaEmpleadoDialog({
     const { error } = await supabase
       .from("fema_empleados")
       .update({
+        funcion: v.funcion || null,
+        cargo: v.funcion || null,
         dni: v.dni || null,
         cuil: v.cuil || null,
         fecha_nacimiento: v.fecha_nacimiento || null,
@@ -308,6 +336,56 @@ export function FichaEmpleadoDialog({
         </TabsContent>
 
         <TabsContent value="trabajo" className="mt-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label>Función que realiza</Label>
+            <Select value={v.funcion} onValueChange={(x) => set("funcion", x)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Elegí la función" />
+              </SelectTrigger>
+              <SelectContent>
+                {FUNCIONES_EMPLEADO.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Equipos que maneja</Label>
+            {!equipos?.length ? (
+              <p className="text-xs text-muted-foreground">
+                Todavía no hay máquinas cargadas en Productos → Inventario.
+              </p>
+            ) : (
+              <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md border border-border p-2 md:grid-cols-2">
+                {equipos.map((eq) => {
+                  const etiqueta = [eq.nombre, eq.marca, eq.modelo].filter(Boolean).join(" ");
+                  const lista = v.maquinaria.split(",").map((s) => s.trim()).filter(Boolean);
+                  const activo = lista.includes(etiqueta);
+                  return (
+                    <label key={eq.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted/60">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[hsl(var(--primary))]"
+                        checked={activo}
+                        onChange={() => {
+                          const next = activo ? lista.filter((x) => x !== etiqueta) : [...lista, etiqueta];
+                          set("maquinaria", next.join(", "));
+                        }}
+                      />
+                      <span className="truncate">
+                        {etiqueta}
+                        <span className="ml-1 text-xs text-muted-foreground">{eq.tipo}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label>Tareas que realiza</Label>
             <Textarea
