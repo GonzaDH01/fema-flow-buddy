@@ -784,66 +784,102 @@ export type Database = {
       fema_empleados: {
         Row: {
           activo: boolean | null
+          alias_cbu: string | null
+          banco: string | null
           cargo: string | null
+          cbu: string | null
           contacto_emergencia: string | null
           created_at: string
           cuil: string | null
           dni: string | null
+          dni_dorso_path: string | null
+          dni_frente_path: string | null
           domicilio: string | null
           email: string | null
           fecha_ingreso: string | null
+          fecha_nacimiento: string | null
+          forma_pago: string | null
+          foto_path: string | null
+          frecuencia_pago: string | null
           funcion: string | null
           id: string
+          maquinaria: string | null
           nombre: string
           obra_social: string | null
           observaciones: string | null
           sueldo_bruto: number | null
+          tareas: string | null
           telefono: string | null
           tipo_contratacion: string | null
+          titular_cuenta: string | null
           updated_at: string
           user_id: string
           valor_hora: number | null
         }
         Insert: {
           activo?: boolean | null
+          alias_cbu?: string | null
+          banco?: string | null
           cargo?: string | null
+          cbu?: string | null
           contacto_emergencia?: string | null
           created_at?: string
           cuil?: string | null
           dni?: string | null
+          dni_dorso_path?: string | null
+          dni_frente_path?: string | null
           domicilio?: string | null
           email?: string | null
           fecha_ingreso?: string | null
+          fecha_nacimiento?: string | null
+          forma_pago?: string | null
+          foto_path?: string | null
+          frecuencia_pago?: string | null
           funcion?: string | null
           id?: string
+          maquinaria?: string | null
           nombre: string
           obra_social?: string | null
           observaciones?: string | null
           sueldo_bruto?: number | null
+          tareas?: string | null
           telefono?: string | null
           tipo_contratacion?: string | null
+          titular_cuenta?: string | null
           updated_at?: string
           user_id: string
           valor_hora?: number | null
         }
         Update: {
           activo?: boolean | null
+          alias_cbu?: string | null
+          banco?: string | null
           cargo?: string | null
+          cbu?: string | null
           contacto_emergencia?: string | null
           created_at?: string
           cuil?: string | null
           dni?: string | null
+          dni_dorso_path?: string | null
+          dni_frente_path?: string | null
           domicilio?: string | null
           email?: string | null
           fecha_ingreso?: string | null
+          fecha_nacimiento?: string | null
+          forma_pago?: string | null
+          foto_path?: string | null
+          frecuencia_pago?: string | null
           funcion?: string | null
           id?: string
+          maquinaria?: string | null
           nombre?: string
           obra_social?: string | null
           observaciones?: string | null
           sueldo_bruto?: number | null
+          tareas?: string | null
           telefono?: string | null
           tipo_contratacion?: string | null
+          titular_cuenta?: string | null
           updated_at?: string
           user_id?: string
           valor_hora?: number | null
