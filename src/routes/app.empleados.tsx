@@ -445,6 +445,14 @@ function CampoImagenAlta({
   );
 }
 
+const EMPLEADO_VACIO = {
+  nombre: "", dni: "", cuil: "", funcion: "Operador de máquina",
+  tipo_contratacion: "Mensualizado", telefono: "", email: "", domicilio: "",
+  fecha_nacimiento: "",
+  fecha_ingreso: "", sueldo_bruto: "0", valor_hora: "0", activo: "Activo",
+  contacto_emergencia: "", obra_social: "", observaciones: "",
+};
+
 function NuevoEmpleadoDialog() {
   const { user } = useAuth();
   const qc = useQueryClient();
