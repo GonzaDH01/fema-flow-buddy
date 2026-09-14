@@ -553,7 +553,7 @@ function NuevoEmpleadoDialog() {
       toast.success("Empleado creado");
       qc.invalidateQueries({ queryKey: ["fema_empleados"] });
       qc.invalidateQueries({ queryKey: ["fema_empleados_min"] });
-      setFrente(null); setDorso(null); setFoto(null);
+      limpiar();
       setOpen(false);
     } finally {
       setGuardando(false);
@@ -562,7 +562,7 @@ function NuevoEmpleadoDialog() {
 
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { if (o) limpiar(); setOpen(o); }}>
       <DialogTrigger asChild>
         <Button size="sm"><Plus className="size-4 mr-1" /> Nuevo empleado</Button>
       </DialogTrigger>
