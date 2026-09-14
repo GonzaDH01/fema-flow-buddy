@@ -472,6 +472,15 @@ export function FichaEmpleadoDialog({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>{etiquetaImporte(v.frecuencia_pago)}</Label>
+              <Input
+                type="number"
+                value={v.importe_periodo}
+                onChange={(e) => set("importe_periodo", e.target.value)}
+                placeholder="0"
+              />
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
