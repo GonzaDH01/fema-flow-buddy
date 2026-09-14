@@ -229,6 +229,17 @@ export function FichaEmpleadoDialog({
     const { error } = await supabase
       .from("fema_empleados")
       .update({
+        nombre: v.nombre.trim() || empleado.nombre,
+        telefono: v.telefono || null,
+        email: v.email || null,
+        domicilio: v.domicilio || null,
+        fecha_ingreso: v.fecha_ingreso || null,
+        tipo_contratacion: v.tipo_contratacion || null,
+        sueldo_bruto: Number(v.sueldo_bruto || 0),
+        valor_hora: Number(v.valor_hora || 0),
+        contacto_emergencia: v.contacto_emergencia || null,
+        obra_social: v.obra_social || null,
+        activo: v.activo === "Activo",
         funcion: v.funcion || null,
         cargo: v.funcion || null,
         dni: v.dni || null,
