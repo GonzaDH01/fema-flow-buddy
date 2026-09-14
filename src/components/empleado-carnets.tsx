@@ -246,6 +246,62 @@ function FormCarnet({
         <DialogTitle>{carnet ? "Editar carnet" : "Nuevo carnet"}</DialogTitle>
       </DialogHeader>
       <div className="space-y-3">
+        <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Foto del carnet</p>
+              <p className="text-xs text-muted-foreground">Subí la foto y leé los datos automáticamente</p>
+            </div>
+            <Button type="button" size="sm" onClick={leerCarnet} disabled={!foto || leyendo}>
+              {leyendo ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <ScanLine className="mr-1.5 size-3.5" />}
+              Leer carnet
+            </Button>
+          </div>
+          {fotoUrl ? (
+            <img src={fotoUrl} alt="Carnet" className="h-40 w-full rounded-md bg-muted/30 object-contain" />
+          ) : (
+            <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-md bg-muted/30 text-xs text-muted-foreground">
+              <Upload className="size-6 opacity-40" />
+              <span>Sin imagen</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="outline" className="h-9 flex-1" onClick={() => inputRef.current?.click()}>
+              <Upload className="mr-1.5 size-3.5" /> Subir
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-9 flex-1" onClick={() => camRef.current?.click()}>
+              <Camera className="mr-1.5 size-3.5" /> Cámara
+            </Button>
+            {foto && (
+              <Button type="button" size="icon" variant="ghost" className="size-9 shrink-0" onClick={() => setFoto(null)}>
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setFoto(f);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={camRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setFoto(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
         <div className="space-y-1.5">
           <Label>Tipo de carnet</Label>
           <Select value={v.tipo} onValueChange={(val) => set("tipo", val)}>
