@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
-import { FichaEmpleadoDialog, FotoEmpleado } from "@/components/empleado-ficha";
+import { FichaEmpleadoDialog, FotoEmpleado, FUNCIONES_EMPLEADO } from "@/components/empleado-ficha";
 
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
