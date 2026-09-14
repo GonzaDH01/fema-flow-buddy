@@ -314,7 +314,7 @@ function NuevaLiquidacionDialog() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={onSubmit} disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</Button>
+          <Button onClick={onSubmit}>Guardar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -788,7 +788,7 @@ function NuevaHoraDialog() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={onSubmit} disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</Button>
+          <Button onClick={onSubmit}>Guardar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
