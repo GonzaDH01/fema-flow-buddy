@@ -272,13 +272,95 @@ export function FichaEmpleadoDialog({
       <DialogHeader>
         <DialogTitle>Ficha de {empleado.nombre}</DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="documentos">
+      <Tabs defaultValue="datos">
         <TabsList>
+          <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="documentos">Documentación</TabsTrigger>
           <TabsTrigger value="pago">Forma de pago</TabsTrigger>
           <TabsTrigger value="trabajo">Tareas y maquinaria</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="datos" className="mt-4 space-y-4">
+          <div className="space-y-3">
+            <h4 className="border-b pb-2 text-sm font-semibold">Datos personales</h4>
+            <div className="space-y-1.5">
+              <Label>Nombre y apellido</Label>
+              <Input value={v.nombre} onChange={(e) => set("nombre", e.target.value)} />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Teléfono</Label>
+                <Input value={v.telefono} onChange={(e) => set("telefono", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input value={v.email} onChange={(e) => set("email", e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Domicilio</Label>
+              <Input value={v.domicilio} onChange={(e) => set("domicilio", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="border-b pb-2 text-sm font-semibold">Datos laborales</h4>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Fecha de ingreso</Label>
+                <Input type="date" value={v.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo de contratación</Label>
+                <Select value={v.tipo_contratacion} onValueChange={(x) => set("tipo_contratacion", x)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_CONTRATACION.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Sueldo básico</Label>
+                <Input type="number" value={v.sueldo_bruto} onChange={(e) => set("sueldo_bruto", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Valor hora</Label>
+                <Input type="number" value={v.valor_hora} onChange={(e) => set("valor_hora", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Contacto de emergencia</Label>
+                <Input
+                  value={v.contacto_emergencia}
+                  onChange={(e) => set("contacto_emergencia", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Obra social</Label>
+                <Input value={v.obra_social} onChange={(e) => set("obra_social", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={v.activo} onValueChange={(x) => set("activo", x)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Activo">Activo</SelectItem>
+                    <SelectItem value="Inactivo">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
 
         <TabsContent value="carnets" className="mt-4">
           <CarnetsEmpleado empleadoId={empleado.id} />
