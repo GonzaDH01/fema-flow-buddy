@@ -36,6 +36,7 @@ import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
 import { Route as AppRentabilidadRouteImport } from './routes/app.rentabilidad'
 import { Route as AppTesoreriaRouteImport } from './routes/app.tesoreria'
 import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
+import { Route as ApiPublicOcrCarnetRouteImport } from './routes/api/public/ocr-carnet'
 import { Route as ApiPublicOcrDniRouteImport } from './routes/api/public/ocr-dni'
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
 
@@ -174,6 +175,11 @@ const AppUsuariosRoute = AppUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicOcrCarnetRoute = ApiPublicOcrCarnetRouteImport.update({
+  id: '/api/public/ocr-carnet',
+  path: '/api/public/ocr-carnet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicOcrDniRoute = ApiPublicOcrDniRouteImport.update({
   id: '/api/public/ocr-dni',
   path: '/api/public/ocr-dni',
@@ -213,6 +219,7 @@ export interface FileRoutesByFullPath {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -243,6 +250,7 @@ export interface FileRoutesByTo {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app': typeof AppIndexRoute
+  '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
 }
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
+    | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
   fileRoutesByTo: FileRoutesByTo
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app'
+    | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
   id:
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
+    | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
   fileRoutesById: FileRoutesById
@@ -378,6 +390,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicOcrCarnetRoute: typeof ApiPublicOcrCarnetRoute
   ApiPublicOcrDniRoute: typeof ApiPublicOcrDniRoute
   ApiPublicOcrFacturaRoute: typeof ApiPublicOcrFacturaRoute
 }
@@ -573,6 +586,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsuariosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/ocr-carnet': {
+      id: '/api/public/ocr-carnet'
+      path: '/api/public/ocr-carnet'
+      fullPath: '/api/public/ocr-carnet'
+      preLoaderRoute: typeof ApiPublicOcrCarnetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ocr-dni': {
       id: '/api/public/ocr-dni'
       path: '/api/public/ocr-dni'
@@ -649,6 +669,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicOcrCarnetRoute: ApiPublicOcrCarnetRoute,
   ApiPublicOcrDniRoute: ApiPublicOcrDniRoute,
   ApiPublicOcrFacturaRoute: ApiPublicOcrFacturaRoute,
 }
