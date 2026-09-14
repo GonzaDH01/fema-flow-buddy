@@ -589,6 +589,9 @@ function NuevoEmpleadoDialog() {
         activo: v.activo === "Activo",
         contacto_emergencia: v.contacto_emergencia || null, obra_social: v.obra_social || null,
         observaciones: v.observaciones || null,
+        forma_pago: v.forma_pago || null,
+        frecuencia_pago: v.frecuencia_pago || null,
+        importe_periodo: Number(v.importe_periodo || 0),
       };
       const { data: creado, error } = await supabase.from("fema_empleados").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
