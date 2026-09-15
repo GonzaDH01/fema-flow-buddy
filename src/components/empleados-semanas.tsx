@@ -248,9 +248,10 @@ export function SemanasTrabajadasTab() {
                     <TableCell className="font-medium">
                       {e.nombre}
                       <div className="text-xs text-muted-foreground">
-                        {c.esMensual
-                          ? `Mensualizado · ${formatPesos(Number(e.sueldo_bruto ?? 0))}`
-                          : `Por hora · ${formatPesos(Number(e.valor_hora ?? 0))}/h`}
+                        {(e.frecuencia_pago ?? "Mensual")} ·{" "}
+                        {(e.frecuencia_pago ?? "").toLowerCase().startsWith("por hora")
+                          ? `${formatPesos(Number(e.valor_hora ?? 0))}/h`
+                          : `${formatPesos(Number(e.importe_periodo ?? 0) || Number(e.sueldo_bruto ?? 0))} · base ${DIAS_BASE(e.frecuencia_pago)} día(s)`}
                       </div>
                     </TableCell>
                     {dias.map((f) => (
