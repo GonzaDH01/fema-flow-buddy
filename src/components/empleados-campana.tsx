@@ -65,8 +65,9 @@ export function CampanaTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_facturas_venta")
-        .select("id,fecha,cultivo,trabajo,hectareas,metros_bolsa,neto,total")
-        .gte("fecha", desde).lte("fecha", hasta);
+        .select("id,fecha,cultivo,trabajo,hectareas,metros_bolsa,neto,total,tipo_comprobante")
+        .gte("fecha", desde).lte("fecha", hasta)
+        .or("tipo_comprobante.is.null,tipo_comprobante.neq.Estimado");
       if (error) throw error;
       return data as { fecha: string; cultivo: string | null; trabajo: string | null; hectareas: number | null; metros_bolsa: number | null; neto: number | null; total: number | null }[];
     },
