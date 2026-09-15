@@ -83,7 +83,7 @@ export function SemanasTrabajadasTab() {
     queryFn: async () => {
       const { data } = await supabase
         .from("fema_empleados")
-        .select("id,nombre,tipo_contratacion,valor_hora,sueldo_bruto,activo")
+        .select("id,nombre,tipo_contratacion,frecuencia_pago,importe_periodo,forma_pago,valor_hora,sueldo_bruto,activo")
         .order("nombre");
       return (data ?? []) as EmpleadoMin[];
     },
@@ -136,11 +136,8 @@ export function SemanasTrabajadasTab() {
       const h = draft[e.id]?.[f] !== undefined ? horasJornada : (guardado[e.id]?.[f] || horasJornada);
       return a + h;
     }, 0);
-    const esMensual = (e.tipo_contratacion ?? "").toLowerCase().startsWith("mensual");
-    const importe = esMensual
-      ? (Number(e.sueldo_bruto ?? 0) / 4.33) * (diasTrabajados / 6)
-      : horas * Number(e.valor_hora ?? 0);
-    return { diasTrabajados, horas, importe, esMensual };
+    const importe = importePorDias(e, diasTrabajados, horas);
+    return { diasTrabajados, horas, importe };
   };
 
   const totales = activos.reduce(
