@@ -415,6 +415,7 @@ function ActivoForm({
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [imagenEnProceso, setImagenEnProceso] = useState<string | null>(null);
   const { data: empleados } = useEmpleados();
 
   const { data: existentes, refetch } = useQuery({
@@ -435,44 +436,95 @@ function ActivoForm({
   const qcForm = useQueryClient();
 
   const refrescarImagenes = async () => {
-    await refetch();
-    await qcForm.invalidateQueries({ queryKey: ["fema_activo_imagenes"] });
-    await qcForm.invalidateQueries({ queryKey: ["inventario-urls"] });
+    await Promise.all([
+      refetch(),
+      qcForm.invalidateQueries({ queryKey: ["fema_activo_imagenes"] }),
+      qcForm.invalidateQueries({ queryKey: ["inventario-urls"] }),
+    ]);
   };
 
   const borrarImagen = async (im: Imagen) => {
-    await supabase.storage.from(BUCKET).remove([im.path]);
-    const { error } = await supabase.from("fema_activo_imagenes").delete().eq("id", im.id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    // Si se borró la portada, promover la siguiente imagen del bien
-    if (im.es_principal) {
-      const { data: resto } = await supabase
-        .from("fema_activo_imagenes")
-        .select("id")
-        .eq("activo_id", im.activo_id)
-        .order("orden")
-        .limit(1);
-      const siguiente = resto?.[0]?.id;
-      if (siguiente) {
-        await supabase.from("fema_activo_imagenes").update({ es_principal: true }).eq("id", siguiente);
+    setImagenEnProceso(im.id);
+    try {
+      const { error: storageError } = await supabase.storage.from(BUCKET).remove([im.path]);
+      if (storageError) {
+        toast.error(`No se pudo eliminar el archivo: ${storageError.message}`);
+        return;
       }
+
+      const { error: deleteError } = await supabase.from("fema_activo_imagenes").delete().eq("id", im.id);
+      if (deleteError) {
+        toast.error(`El archivo se eliminó, pero no se pudo actualizar la lista: ${deleteError.message}`);
+        return;
+      }
+
+      const restantes = (existentes ?? []).filter((item) => item.id !== im.id);
+      let siguienteId: string | undefined;
+      if (im.es_principal && restantes.length > 0) {
+        siguienteId = [...restantes].sort((a, b) => a.orden - b.orden)[0]?.id;
+        if (siguienteId) {
+          const { error: principalError } = await supabase
+            .from("fema_activo_imagenes")
+            .update({ es_principal: true })
+            .eq("id", siguienteId);
+          if (principalError) {
+            toast.error(`La imagen se eliminó, pero no se pudo elegir la nueva portada: ${principalError.message}`);
+          }
+        }
+      }
+
+      const actualizadas = restantes.map((item) => ({
+        ...item,
+        es_principal: item.id === siguienteId ? true : item.es_principal,
+      }));
+      qcForm.setQueryData(["fema_activo_imagenes", initial?.id], actualizadas);
+      qcForm.setQueryData<Imagen[]>(["fema_activo_imagenes"], (anteriores) =>
+        anteriores
+          ?.filter((item) => item.id !== im.id)
+          .map((item) => ({ ...item, es_principal: item.id === siguienteId ? true : item.es_principal })),
+      );
+      toast.success("Imagen eliminada y espacio liberado");
+      await refrescarImagenes();
+    } finally {
+      setImagenEnProceso(null);
     }
-    toast.success("Imagen eliminada");
-    await refrescarImagenes();
   };
 
   const marcarPortada = async (im: Imagen) => {
-    await supabase.from("fema_activo_imagenes").update({ es_principal: false }).eq("activo_id", im.activo_id);
-    const { error } = await supabase.from("fema_activo_imagenes").update({ es_principal: true }).eq("id", im.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    setImagenEnProceso(im.id);
+    try {
+      const { error: clearError } = await supabase
+        .from("fema_activo_imagenes")
+        .update({ es_principal: false })
+        .eq("activo_id", im.activo_id);
+      if (clearError) {
+        toast.error(`No se pudo cambiar la portada: ${clearError.message}`);
+        return;
+      }
+
+      const { error: portadaError } = await supabase
+        .from("fema_activo_imagenes")
+        .update({ es_principal: true })
+        .eq("id", im.id);
+      if (portadaError) {
+        toast.error(`No se pudo cambiar la portada: ${portadaError.message}`);
+        await refetch();
+        return;
+      }
+
+      const actualizarPortada = (items: Imagen[] | undefined) =>
+        items?.map((item) =>
+          item.activo_id === im.activo_id ? { ...item, es_principal: item.id === im.id } : item,
+        );
+      qcForm.setQueryData(["fema_activo_imagenes", initial?.id], (items: Imagen[] | undefined) =>
+        actualizarPortada(items),
+      );
+      qcForm.setQueryData(["fema_activo_imagenes"], (items: Imagen[] | undefined) => actualizarPortada(items));
+      toast.success("Imagen de portada actualizada");
+      await refrescarImagenes();
+    } finally {
+      setImagenEnProceso(null);
     }
-    toast.success("Imagen de portada actualizada");
-    await refrescarImagenes();
   };
 
   const guardar = async () => {
@@ -679,6 +731,7 @@ function ActivoForm({
                       variant={im.es_principal ? "default" : "secondary"}
                       className="absolute left-1 top-1 h-6 w-6"
                       title="Usar como portada"
+                       disabled={imagenEnProceso !== null}
                       onClick={() => marcarPortada(im)}
                     >
                       <Star className={`h-3 w-3 ${im.es_principal ? "fill-current" : ""}`} />
@@ -687,6 +740,7 @@ function ActivoForm({
                       size="icon"
                       variant="destructive"
                       className="absolute right-1 top-1 h-6 w-6"
+                       disabled={imagenEnProceso !== null}
                       onClick={() => borrarImagen(im)}
                     >
                       <X className="h-3 w-3" />
