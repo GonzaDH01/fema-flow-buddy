@@ -432,6 +432,14 @@ function ActivoForm({
   });
   const { data: urls } = useSignedUrls((existentes ?? []).map((i) => i.path));
 
+  const qcForm = useQueryClient();
+
+  const refrescarImagenes = async () => {
+    await refetch();
+    await qcForm.invalidateQueries({ queryKey: ["fema_activo_imagenes"] });
+    await qcForm.invalidateQueries({ queryKey: ["inventario-urls"] });
+  };
+
   const borrarImagen = async (im: Imagen) => {
     await supabase.storage.from(BUCKET).remove([im.path]);
     const { error } = await supabase.from("fema_activo_imagenes").delete().eq("id", im.id);
@@ -439,8 +447,21 @@ function ActivoForm({
       toast.error(error.message);
       return;
     }
+    // Si se borró la portada, promover la siguiente imagen del bien
+    if (im.es_principal) {
+      const { data: resto } = await supabase
+        .from("fema_activo_imagenes")
+        .select("id")
+        .eq("activo_id", im.activo_id)
+        .order("orden")
+        .limit(1);
+      const siguiente = resto?.[0]?.id;
+      if (siguiente) {
+        await supabase.from("fema_activo_imagenes").update({ es_principal: true }).eq("id", siguiente);
+      }
+    }
     toast.success("Imagen eliminada");
-    refetch();
+    await refrescarImagenes();
   };
 
   const marcarPortada = async (im: Imagen) => {
@@ -451,7 +472,7 @@ function ActivoForm({
       return;
     }
     toast.success("Imagen de portada actualizada");
-    refetch();
+    await refrescarImagenes();
   };
 
   const guardar = async () => {
