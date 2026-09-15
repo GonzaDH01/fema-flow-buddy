@@ -112,6 +112,7 @@ const titleByPath: Record<string, string> = {
   "/app/facturas": "Facturas de Venta",
   "/app/clientes": "Clientes",
   "/app/productos": "Productos",
+  "/app/planillas": "Planilla Bolsero",
   "/app/compras": "Compras",
   "/app/combustible": "Combustible",
   "/app/proveedores": "Proveedores",
