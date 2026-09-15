@@ -65,8 +65,9 @@ export function CampanaTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_facturas_venta")
-        .select("id,fecha,cultivo,trabajo,hectareas,metros_bolsa,neto,total")
-        .gte("fecha", desde).lte("fecha", hasta);
+        .select("id,fecha,cultivo,trabajo,hectareas,metros_bolsa,neto,total,tipo_comprobante")
+        .gte("fecha", desde).lte("fecha", hasta)
+        .or("tipo_comprobante.is.null,tipo_comprobante.neq.Estimado");
       if (error) throw error;
       return data as { fecha: string; cultivo: string | null; trabajo: string | null; hectareas: number | null; metros_bolsa: number | null; neto: number | null; total: number | null }[];
     },
@@ -161,6 +162,10 @@ export function CampanaTab() {
           />
         </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Los cálculos solo tienen en cuenta facturas de servicio reales; los comprobantes "Estimado" no se suman.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Hectáreas picadas" value={`${formatNumero(tot.ha, 1)} ha`} />
