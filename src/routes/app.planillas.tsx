@@ -129,7 +129,13 @@ function Page() {
           onChange={(e) => setBusqueda(e.target.value)}
           className="max-w-sm"
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { if (!imprimirPlanilla(null)) toast.error("Permití las ventanas emergentes para imprimir"); }}
+          >
+            <Printer className="mr-2 h-4 w-4" /> Imprimir planilla en blanco
+          </Button>
           <Button onClick={() => { setEdit(null); setOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Nueva planilla
           </Button>
