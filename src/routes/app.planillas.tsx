@@ -15,7 +15,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, ImagePlus, X } from "lucide-react";
+import { Plus, Pencil, Trash2, ImagePlus, X, Printer } from "lucide-react";
+import { imprimirPlanilla } from "@/lib/planilla-print";
 
 export const Route = createFileRoute("/app/planillas")({ component: Page });
 
@@ -33,10 +34,13 @@ type PlanillaEquipo = {
   chofer: string | null; dominio: string | null; es_tercero: boolean;
   viajes: number; metros_bolsa: number; observaciones: string | null; orden: number;
 };
-type FilaEquipo = { equipo_nombre: string; chofer: string; dominio: string; viajes: string; es_tercero: boolean };
+type FilaEquipo = {
+  equipo_nombre: string; chofer: string; dominio: string; viajes: string; metros: string; es_tercero: boolean;
+};
 
-const filaVacia = (es_tercero: boolean): FilaEquipo => ({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", es_tercero });
-const EQUIPOS_PROPIOS_SUGERIDOS = ["FORD 700", "CHEVROLET 600", "CARRO FONTANINI"];
+const filaVacia = (es_tercero: boolean): FilaEquipo =>
+  ({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", metros: "", es_tercero });
+const EQUIPOS_PROPIOS_SUGERIDOS = ["FORD 700", "CHEVROLET 660", "CARRO FONTANINI", "MB BATEA"];
 
 function Page() {
   const { user } = useAuth();
@@ -125,7 +129,13 @@ function Page() {
           onChange={(e) => setBusqueda(e.target.value)}
           className="max-w-sm"
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { if (!imprimirPlanilla(null)) toast.error("Permití las ventanas emergentes para imprimir"); }}
+          >
+            <Printer className="mr-2 h-4 w-4" /> Imprimir planilla en blanco
+          </Button>
           <Button onClick={() => { setEdit(null); setOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Nueva planilla
           </Button>
@@ -191,6 +201,9 @@ function Page() {
                 <TableCell className="text-right">{formatNumero(p.total_metros, 0)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" title="Imprimir" onClick={() => imprimirPlanilla(p)}>
+                      <Printer className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -269,7 +282,8 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       setBolsas(b);
       const mapFila = (e: PlanillaEquipo): FilaEquipo => ({
         equipo_nombre: e.equipo_nombre, chofer: e.chofer ?? "", dominio: e.dominio ?? "",
-        viajes: String(e.viajes ?? ""), es_tercero: e.es_tercero,
+        viajes: e.viajes ? String(e.viajes) : "", metros: e.metros_bolsa ? String(e.metros_bolsa) : "",
+        es_tercero: e.es_tercero,
       });
       const p = equiposIniciales.filter((e) => !e.es_tercero).map(mapFila);
       const t = equiposIniciales.filter((e) => e.es_tercero).map(mapFila);
@@ -376,7 +390,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
           dominio: f.dominio.trim() || null,
           es_tercero: f.es_tercero,
           viajes: Number(f.viajes) || 0,
-          metros_bolsa: 0,
+          metros_bolsa: Number(f.metros) || 0,
           orden: i,
         }));
         const { error } = await (supabase as any).from("fema_planilla_equipos").insert(rows);
@@ -407,7 +421,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       <div className="space-y-2">
         {lista.length === 0 && <div className="text-sm text-muted-foreground">Sin equipos cargados.</div>}
         {lista.map((f, i) => (
-          <div key={i} className="grid gap-2 sm:grid-cols-[1.3fr_1.1fr_0.8fr_0.6fr_auto]">
+          <div key={i} className="grid gap-2 sm:grid-cols-[1.3fr_1.1fr_0.8fr_0.6fr_0.7fr_auto]">
             <Input
               list="equipos-planilla"
               value={f.equipo_nombre}
@@ -419,6 +433,10 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
             <Input
               type="number" inputMode="numeric" value={f.viajes}
               onChange={(e) => setFila(lista, set, i, "viajes", e.target.value)} placeholder="Viajes"
+            />
+            <Input
+              type="number" inputMode="decimal" value={f.metros}
+              onChange={(e) => setFila(lista, set, i, "metros", e.target.value)} placeholder="Mts bolsa"
             />
             <Button type="button" variant="ghost" size="icon" onClick={() => set(lista.filter((_, idx) => idx !== i))}>
               <X className="h-4 w-4" />
