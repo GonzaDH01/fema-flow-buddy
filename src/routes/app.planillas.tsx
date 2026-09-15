@@ -33,10 +33,13 @@ type PlanillaEquipo = {
   chofer: string | null; dominio: string | null; es_tercero: boolean;
   viajes: number; metros_bolsa: number; observaciones: string | null; orden: number;
 };
-type FilaEquipo = { equipo_nombre: string; chofer: string; dominio: string; viajes: string; es_tercero: boolean };
+type FilaEquipo = {
+  equipo_nombre: string; chofer: string; dominio: string; viajes: string; metros: string; es_tercero: boolean;
+};
 
-const filaVacia = (es_tercero: boolean): FilaEquipo => ({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", es_tercero });
-const EQUIPOS_PROPIOS_SUGERIDOS = ["FORD 700", "CHEVROLET 600", "CARRO FONTANINI"];
+const filaVacia = (es_tercero: boolean): FilaEquipo =>
+  ({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", metros: "", es_tercero });
+const EQUIPOS_PROPIOS_SUGERIDOS = ["FORD 700", "CHEVROLET 660", "CARRO FONTANINI", "MB BATEA"];
 
 function Page() {
   const { user } = useAuth();
