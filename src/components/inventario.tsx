@@ -636,25 +636,49 @@ function ActivoForm({
         <div className="space-y-2 rounded-md border border-border p-3">
           <p className="text-sm font-medium">Imágenes</p>
           {!!existentes?.length && (
-            <div className="flex flex-wrap gap-2">
-              {existentes.map((im) => (
-                <div key={im.id} className="relative h-20 w-24 overflow-hidden rounded-md border border-border">
-                  {urls?.[im.path] ? (
-                    <img src={urls[im.path]} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-muted" />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="absolute right-1 top-1 h-6 w-6"
-                    onClick={() => borrarImagen(im)}
+            <>
+              <p className="text-xs text-muted-foreground">
+                Tocá la estrella para elegir cuál es la imagen de portada del bien.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {existentes.map((im) => (
+                  <div
+                    key={im.id}
+                    className={`relative h-24 w-28 overflow-hidden rounded-md border bg-muted ${
+                      im.es_principal ? "border-primary ring-2 ring-ring" : "border-border"
+                    }`}
                   >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    {urls?.[im.path] ? (
+                      <img src={urls[im.path]} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="h-full w-full bg-muted" />
+                    )}
+                    <Button
+                      size="icon"
+                      variant={im.es_principal ? "default" : "secondary"}
+                      className="absolute left-1 top-1 h-6 w-6"
+                      title="Usar como portada"
+                      onClick={() => marcarPortada(im)}
+                    >
+                      <Star className={`h-3 w-3 ${im.es_principal ? "fill-current" : ""}`} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute right-1 top-1 h-6 w-6"
+                      onClick={() => borrarImagen(im)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    {im.es_principal && (
+                      <span className="absolute bottom-0 w-full bg-primary/80 py-0.5 text-center text-[10px] text-primary-foreground">
+                        Portada
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           <Input
             type="file"
