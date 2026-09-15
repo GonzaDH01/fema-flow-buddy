@@ -411,7 +411,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       <div className="space-y-2">
         {lista.length === 0 && <div className="text-sm text-muted-foreground">Sin equipos cargados.</div>}
         {lista.map((f, i) => (
-          <div key={i} className="grid gap-2 sm:grid-cols-[1.3fr_1.1fr_0.8fr_0.6fr_auto]">
+          <div key={i} className="grid gap-2 sm:grid-cols-[1.3fr_1.1fr_0.8fr_0.6fr_0.7fr_auto]">
             <Input
               list="equipos-planilla"
               value={f.equipo_nombre}
