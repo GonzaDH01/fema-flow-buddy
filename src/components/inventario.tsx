@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X, Star, FileText } from "lucide-react";
@@ -461,6 +461,7 @@ function ActivoForm({
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
   const [nuevosDocs, setNuevosDocs] = useState<File[]>([]);
+  const documentoInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [imagenEnProceso, setImagenEnProceso] = useState<string | null>(null);
   const { data: empleados } = useEmpleados();
@@ -675,9 +676,16 @@ function ActivoForm({
     if (invalidos.length > 0) {
       toast.error("Elegí archivos PDF de hasta 10 MB cada uno");
     }
-    setNuevosDocs(
-      seleccionados.filter((file) => file.name.toLowerCase().endsWith(".pdf") && file.size <= MAX_PDF_BYTES),
+    const validos = seleccionados.filter(
+      (file) => file.name.toLowerCase().endsWith(".pdf") && file.size <= MAX_PDF_BYTES,
     );
+    setNuevosDocs((actuales) => {
+      const todos = [...actuales, ...validos];
+      return todos.filter(
+        (file, index) =>
+          todos.findIndex((otro) => otro.name === file.name && otro.size === file.size) === index,
+      );
+    });
   };
 
   return (
@@ -885,21 +893,48 @@ function ActivoForm({
               ))}
             </div>
           )}
-          <Input
+          <input
+            ref={documentoInputRef}
             type="file"
-            accept=".pdf,application/pdf"
             multiple
+            className="sr-only"
             disabled={saving}
-            onChange={(e) => seleccionarPdf(e.target.files)}
+            onChange={(e) => {
+              seleccionarPdf(e.target.files);
+              e.target.value = "";
+            }}
           />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start"
+            disabled={saving}
+            onClick={() => documentoInputRef.current?.click()}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Seleccionar archivos PDF
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            El selector muestra todos los archivos. Podés elegir uno o varios PDF de hasta 10 MB cada uno.
+          </p>
           {nuevosDocs.length > 0 && (
             <div className="space-y-1 text-xs text-muted-foreground">
-              {nuevosDocs.map((file) => (
-                <p key={`${file.name}-${file.size}`} className="flex items-center gap-1.5">
+              {nuevosDocs.map((file, index) => (
+                <div key={`${file.name}-${file.size}`} className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{file.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{file.name}</span>
                   <span className="shrink-0">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
-                </p>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0"
+                    aria-label={`Quitar ${file.name}`}
+                    onClick={() => setNuevosDocs((actuales) => actuales.filter((_, i) => i !== index))}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               ))}
               <p>Se subirán al guardar los cambios.</p>
             </div>
