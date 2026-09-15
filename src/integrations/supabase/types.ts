@@ -1808,9 +1808,12 @@ export type Database = {
       }
       fema_planilla_equipos: {
         Row: {
+          chofer: string | null
           created_at: string
+          dominio: string | null
           equipo_id: string | null
           equipo_nombre: string
+          es_tercero: boolean
           id: string
           metros_bolsa: number
           observaciones: string | null
@@ -1821,9 +1824,12 @@ export type Database = {
           viajes: number
         }
         Insert: {
+          chofer?: string | null
           created_at?: string
+          dominio?: string | null
           equipo_id?: string | null
           equipo_nombre: string
+          es_tercero?: boolean
           id?: string
           metros_bolsa?: number
           observaciones?: string | null
@@ -1834,9 +1840,12 @@ export type Database = {
           viajes?: number
         }
         Update: {
+          chofer?: string | null
           created_at?: string
+          dominio?: string | null
           equipo_id?: string | null
           equipo_nombre?: string
+          es_tercero?: boolean
           id?: string
           metros_bolsa?: number
           observaciones?: string | null
@@ -1866,14 +1875,18 @@ export type Database = {
       fema_planillas_bolsero: {
         Row: {
           anio: number | null
+          bolsas: number[]
           bolsero_empleado_id: string | null
           bolsero_nombre: string | null
           cliente_id: string | null
+          cliente_nombre: string | null
           created_at: string
           cultivo: string | null
+          establecimiento: string | null
           fecha: string
           id: string
           imagen_path: string | null
+          lote: string | null
           mes: number | null
           observaciones: string | null
           total_metros: number
@@ -1884,14 +1897,18 @@ export type Database = {
         }
         Insert: {
           anio?: number | null
+          bolsas?: number[]
           bolsero_empleado_id?: string | null
           bolsero_nombre?: string | null
           cliente_id?: string | null
+          cliente_nombre?: string | null
           created_at?: string
           cultivo?: string | null
+          establecimiento?: string | null
           fecha?: string
           id?: string
           imagen_path?: string | null
+          lote?: string | null
           mes?: number | null
           observaciones?: string | null
           total_metros?: number
@@ -1902,14 +1919,18 @@ export type Database = {
         }
         Update: {
           anio?: number | null
+          bolsas?: number[]
           bolsero_empleado_id?: string | null
           bolsero_nombre?: string | null
           cliente_id?: string | null
+          cliente_nombre?: string | null
           created_at?: string
           cultivo?: string | null
+          establecimiento?: string | null
           fecha?: string
           id?: string
           imagen_path?: string | null
+          lote?: string | null
           mes?: number | null
           observaciones?: string | null
           total_metros?: number
