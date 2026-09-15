@@ -36,7 +36,16 @@ type Activo = {
   proximo_service: string | null;
   observaciones: string | null;
 };
-type Imagen = { id: string; activo_id: string; path: string; orden: number; es_principal: boolean };
+type Imagen = {
+  id: string;
+  activo_id: string;
+  path: string;
+  orden: number;
+  es_principal: boolean;
+  es_documento: boolean;
+  nombre_archivo: string | null;
+};
+const COLS_ARCHIVO = "id,activo_id,path,orden,es_principal,es_documento,nombre_archivo";
 type EmpleadoOpt = { id: string; nombre: string };
 
 const money = (n: number | null, moneda?: string | null) =>
