@@ -394,6 +394,25 @@ function DetalleActivo({
               <p className="whitespace-pre-line">{activo.observaciones}</p>
             </div>
           )}
+          {documentos.length > 0 && (
+            <div className="rounded-md border border-border p-3 text-sm">
+              <p className="mb-2 text-xs text-muted-foreground">Documentos</p>
+              <div className="space-y-1">
+                {documentos.map((d) => (
+                  <a
+                    key={d.id}
+                    href={urls?.[d.path] ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{d.nombre_archivo ?? "Documento PDF"}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <DialogFooter className="gap-2 sm:justify-between">
