@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/lib/form-helpers";
