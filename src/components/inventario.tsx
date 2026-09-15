@@ -262,6 +262,7 @@ export function Inventario() {
             key={detalle.id}
             activo={detalle}
             imagenes={porActivo[detalle.id] ?? []}
+            documentos={docsPorActivo[detalle.id] ?? []}
             onEdit={() => {
               const row = detalle;
               setDetalle(null);
@@ -278,15 +279,17 @@ export function Inventario() {
 function DetalleActivo({
   activo,
   imagenes,
+  documentos,
   onEdit,
   onDelete,
 }: {
   activo: Activo;
   imagenes: Imagen[];
+  documentos: Imagen[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const paths = useMemo(() => imagenes.map((i) => i.path), [imagenes]);
+  const paths = useMemo(() => [...imagenes, ...documentos].map((i) => i.path), [imagenes, documentos]);
   const { data: urls } = useSignedUrls(paths);
   const [idx, setIdx] = useState(0);
 
