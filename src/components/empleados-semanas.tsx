@@ -13,10 +13,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-type EmpleadoMin = {
+export type EmpleadoPago = {
   id: string; nombre: string; tipo_contratacion: string | null;
+  frecuencia_pago?: string | null; importe_periodo?: number | null; forma_pago?: string | null;
   valor_hora: number | null; sueldo_bruto: number | null; activo: boolean | null;
 };
+type EmpleadoMin = EmpleadoPago;
+
+/** Días laborables que cubre el importe acordado según cada cuánto cobra el empleado. */
+export function DIAS_BASE(frecuencia?: string | null) {
+  const f = (frecuencia ?? "Mensual").toLowerCase();
+  if (f.startsWith("semanal")) return 6;
+  if (f.startsWith("quincenal")) return 13;
+  if (f.startsWith("por jornal") || f.startsWith("jornal")) return 1;
+  return 26; // mensual y otras
+}
+
+/** Importe a cobrar por los días (u horas) trabajados de un período. */
+export function importePorDias(e: EmpleadoPago, dias: number, horas: number) {
+  const frec = (e.frecuencia_pago ?? "").toLowerCase();
+  if (frec.startsWith("por hora")) return horas * Number(e.valor_hora ?? 0);
+  const importe = Number(e.importe_periodo ?? 0) || Number(e.sueldo_bruto ?? 0);
+  if (!importe) return horas * Number(e.valor_hora ?? 0);
+  return (importe / DIAS_BASE(e.frecuencia_pago)) * dias;
+}
+
+/** Modalidad con la que se registra el pago generado. */
+export function modalidadDe(e: EmpleadoPago, tramo: string) {
+  if (tramo === "q1" || tramo === "q2") return "quincenal";
+  const f = (e.frecuencia_pago ?? "").toLowerCase();
+  if (f.startsWith("semanal")) return "semanal";
+  if (f.startsWith("quincenal")) return "quincenal";
+  return "mensual";
+}
 type HoraRow = {
   id: string; empleado_id: string | null; fecha: string; horas: number;
   referencia: string | null; tarea: string | null;
