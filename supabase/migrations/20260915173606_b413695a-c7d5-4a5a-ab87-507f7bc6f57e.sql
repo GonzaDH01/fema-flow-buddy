@@ -1,0 +1,4 @@
+CREATE POLICY "planillas img select" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'planillas-img' AND public.is_approved(auth.uid()));
+CREATE POLICY "planillas img insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'planillas-img' AND public.is_approved(auth.uid()));
+CREATE POLICY "planillas img update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'planillas-img' AND public.is_approved(auth.uid()));
+CREATE POLICY "planillas img delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'planillas-img' AND public.is_approved(auth.uid()));
