@@ -443,6 +443,17 @@ function ActivoForm({
     refetch();
   };
 
+  const marcarPortada = async (im: Imagen) => {
+    await supabase.from("fema_activo_imagenes").update({ es_principal: false }).eq("activo_id", im.activo_id);
+    const { error } = await supabase.from("fema_activo_imagenes").update({ es_principal: true }).eq("id", im.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Imagen de portada actualizada");
+    refetch();
+  };
+
   const guardar = async () => {
     if (v.nombre.trim().length < 2) {
       toast.error("Ingresá el nombre del bien");
