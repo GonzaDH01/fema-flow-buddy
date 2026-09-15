@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const BUCKET = "inventario-img";
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const TIPOS = ["Maquinaria", "Herramienta", "Implemento", "Rodado", "Equipo", "Otro"] as const;
 const ESTADOS = ["Operativo", "En reparación", "Fuera de servicio", "Vendido"] as const;
 
@@ -601,71 +602,82 @@ function ActivoForm({
       observaciones: v.observaciones || null,
     };
 
-    let activoId = initial?.id;
-    if (activoId) {
-      const { error } = await supabase.from("fema_activos").update(payload).eq("id", activoId);
-      if (error) {
-        setSaving(false);
-        toast.error(error.message);
-        return;
+    try {
+      let activoId = initial?.id;
+      if (activoId) {
+        const { error } = await supabase.from("fema_activos").update(payload).eq("id", activoId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("fema_activos").insert(payload).select("id").single();
+        if (error || !data) throw error ?? new Error("No se pudo guardar el bien");
+        activoId = data.id;
       }
-    } else {
-      const { data, error } = await supabase.from("fema_activos").insert(payload).select("id").single();
-      if (error || !data) {
-        setSaving(false);
-        toast.error(error?.message ?? "No se pudo guardar");
-        return;
-      }
-      activoId = data.id;
-    }
 
-    const base = imgsExistentes.length;
-    for (let i = 0; i < nuevas.length; i++) {
-      const file = nuevas[i];
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userId}/${activoId}/${Date.now()}-${i}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
-      if (upErr) {
-        toast.error(`No se pudo subir ${file.name}: ${upErr.message}`);
-        continue;
+      const base = imgsExistentes.length;
+      for (let i = 0; i < nuevas.length; i++) {
+        const file = nuevas[i];
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${userId}/${activoId}/${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
+        if (upErr) throw new Error(`No se pudo subir ${file.name}: ${upErr.message}`);
+        const { error: rowErr } = await supabase.from("fema_activo_imagenes").insert({
+          user_id: userId,
+          activo_id: activoId,
+          path,
+          orden: base + i,
+          es_principal: base + i === 0,
+          es_documento: false,
+          nombre_archivo: file.name,
+        });
+        if (rowErr) {
+          await supabase.storage.from(BUCKET).remove([path]);
+          throw new Error(`No se pudo registrar ${file.name}: ${rowErr.message}`);
+        }
       }
-      await supabase.from("fema_activo_imagenes").insert({
-        user_id: userId,
-        activo_id: activoId,
-        path,
-        orden: base + i,
-        es_principal: base + i === 0,
-        es_documento: false,
-        nombre_archivo: file.name,
-      });
-    }
 
-    const baseDoc = docsExistentes.length;
-    for (let i = 0; i < nuevosDocs.length; i++) {
-      const file = nuevosDocs[i];
-      const ext = file.name.split(".").pop() || "pdf";
-      const path = `${userId}/${activoId}/doc-${Date.now()}-${i}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type || "application/pdf" });
-      if (upErr) {
-        toast.error(`No se pudo subir ${file.name}: ${upErr.message}`);
-        continue;
+      const baseDoc = docsExistentes.length;
+      for (let i = 0; i < nuevosDocs.length; i++) {
+        const file = nuevosDocs[i];
+        const path = `${userId}/${activoId}/doc-${Date.now()}-${i}.pdf`;
+        const { error: upErr } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, { upsert: false, contentType: "application/pdf" });
+        if (upErr) throw new Error(`No se pudo subir ${file.name}: ${upErr.message}`);
+        const { error: rowErr } = await supabase.from("fema_activo_imagenes").insert({
+          user_id: userId,
+          activo_id: activoId,
+          path,
+          orden: baseDoc + i,
+          es_principal: false,
+          es_documento: true,
+          nombre_archivo: file.name,
+        });
+        if (rowErr) {
+          await supabase.storage.from(BUCKET).remove([path]);
+          throw new Error(`No se pudo registrar ${file.name}: ${rowErr.message}`);
+        }
       }
-      await supabase.from("fema_activo_imagenes").insert({
-        user_id: userId,
-        activo_id: activoId,
-        path,
-        orden: baseDoc + i,
-        es_principal: false,
-        es_documento: true,
-        nombre_archivo: file.name,
-      });
-    }
 
-    setSaving(false);
-    toast.success(initial ? "Bien actualizado" : "Bien cargado");
-    onDone();
+      toast.success(initial ? "Bien actualizado" : "Bien cargado");
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron guardar los cambios");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const seleccionarPdf = (files: FileList | null) => {
+    const seleccionados = Array.from(files ?? []);
+    const invalidos = seleccionados.filter(
+      (file) => !file.name.toLowerCase().endsWith(".pdf") || file.size > MAX_PDF_BYTES,
+    );
+    if (invalidos.length > 0) {
+      toast.error("Elegí archivos PDF de hasta 10 MB cada uno");
+    }
+    setNuevosDocs(
+      seleccionados.filter((file) => file.name.toLowerCase().endsWith(".pdf") && file.size <= MAX_PDF_BYTES),
+    );
   };
 
   return (
@@ -875,21 +887,28 @@ function ActivoForm({
           )}
           <Input
             type="file"
-            accept="application/pdf"
+            accept=".pdf,application/pdf"
             multiple
-            onChange={(e) => setNuevosDocs(Array.from(e.target.files ?? []))}
+            disabled={saving}
+            onChange={(e) => seleccionarPdf(e.target.files)}
           />
           {nuevosDocs.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              <FileText className="mr-1 inline h-3.5 w-3.5" />
-              {nuevosDocs.length} documento(s) se subirán al guardar
-            </p>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              {nuevosDocs.map((file) => (
+                <p key={`${file.name}-${file.size}`} className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="shrink-0">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
+                </p>
+              ))}
+              <p>Se subirán al guardar los cambios.</p>
+            </div>
           )}
         </div>
       </div>
       <DialogFooter>
         <Button onClick={guardar} disabled={saving}>
-          {initial ? "Guardar cambios" : "Crear bien"}
+          {saving ? "Guardando…" : initial ? "Guardar cambios" : "Crear bien"}
         </Button>
       </DialogFooter>
     </DialogContent>
