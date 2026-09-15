@@ -359,7 +359,8 @@ function PersonalTab() {
           <TableRow>
             <TableHead>Nombre</TableHead><TableHead>DNI</TableHead><TableHead>CUIL</TableHead>
             <TableHead>Función</TableHead><TableHead>Contratación</TableHead>
-            <TableHead className="text-right">Básico</TableHead>
+            <TableHead>Forma de pago</TableHead>
+            <TableHead className="text-right">Importe acordado</TableHead>
             <TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
