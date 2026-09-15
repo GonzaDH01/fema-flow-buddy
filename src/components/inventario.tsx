@@ -111,7 +111,7 @@ export function Inventario() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_activo_imagenes")
-        .select("id,activo_id,path,orden,es_principal")
+        .select(COLS_ARCHIVO)
         .order("orden", { ascending: true });
       if (error) throw error;
       return data as Imagen[];
@@ -433,7 +433,7 @@ function ActivoForm({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_activo_imagenes")
-        .select("id,activo_id,path,orden,es_principal")
+        .select(COLS_ARCHIVO)
         .eq("activo_id", initial!.id)
         .order("orden");
       if (error) throw error;
