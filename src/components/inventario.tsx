@@ -28,16 +28,35 @@ type Activo = {
   estado: string;
   ubicacion: string | null;
   responsable: string | null;
+  responsable_empleado_id: string | null;
   valor_compra: number | null;
+  moneda_compra: string | null;
   fecha_compra: string | null;
   mantenimiento: string | null;
   proximo_service: string | null;
   observaciones: string | null;
 };
 type Imagen = { id: string; activo_id: string; path: string; orden: number; es_principal: boolean };
+type EmpleadoOpt = { id: string; nombre: string };
 
-const money = (n: number | null) =>
-  n == null ? "—" : `$ ${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+const money = (n: number | null, moneda?: string | null) =>
+  n == null
+    ? "—"
+    : `${moneda === "USD" ? "US$" : "$"} ${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+
+function useEmpleados() {
+  return useQuery({
+    queryKey: ["fema_empleados_inventario"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_empleados")
+        .select("id,nombre")
+        .order("nombre");
+      if (error) throw error;
+      return (data ?? []) as EmpleadoOpt[];
+    },
+  });
+}
 
 const estadoVariant = (e: string) =>
   e === "Operativo" ? "default" : e === "En reparación" ? "secondary" : "outline";
