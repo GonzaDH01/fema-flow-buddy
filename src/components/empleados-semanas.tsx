@@ -4,14 +4,17 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { formatPesos, formatFecha } from "@/lib/format";
+import { formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ExtraDialog } from "@/components/empleados-extra";
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+/** Jornada estándar: el registro solo marca presente / ausente. */
+const JORNADA = 8;
 
 export type EmpleadoPago = {
   id: string; nombre: string; tipo_contratacion: string | null;
@@ -46,6 +49,7 @@ export function modalidadDe(e: EmpleadoPago, tramo: string) {
   if (f.startsWith("quincenal")) return "quincenal";
   return "mensual";
 }
+
 type HoraRow = {
   id: string; empleado_id: string | null; fecha: string; horas: number;
   referencia: string | null; tarea: string | null;
@@ -66,12 +70,11 @@ function sumarDias(fechaIso: string, n: number) {
   return iso(d);
 }
 
-/** Registro semanal de asistencia: se marca si el empleado trabajó cada día y se calcula el sueldo. */
+/** Registro semanal simple: solo se marca si el empleado trabajó cada día. */
 export function SemanasTrabajadasTab() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [semana, setSemana] = useState(() => lunesDe(iso(new Date())));
-  const [jornada, setJornada] = useState("8");
   const [draft, setDraft] = useState<Record<string, Record<string, boolean>>>({});
   const [guardando, setGuardando] = useState(false);
 
@@ -104,7 +107,6 @@ export function SemanasTrabajadasTab() {
 
   const activos = (empleados ?? []).filter((e) => e.activo !== false);
 
-  // Estado guardado en base
   const guardado = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
     (registros ?? []).forEach((r) => {
@@ -127,29 +129,12 @@ export function SemanasTrabajadasTab() {
       [empId]: Object.fromEntries(dias.slice(0, val ? 6 : 7).map((f) => [f, val])),
     }));
 
-  const horasJornada = Number(jornada || 0);
-
-  const calcular = (e: EmpleadoMin) => {
-    const diasTrabajados = dias.filter((f) => marcado(e.id, f)).length;
-    const horas = dias.reduce((a, f) => {
-      if (!marcado(e.id, f)) return a;
-      const h = draft[e.id]?.[f] !== undefined ? horasJornada : (guardado[e.id]?.[f] || horasJornada);
-      return a + h;
-    }, 0);
-    const importe = importePorDias(e, diasTrabajados, horas);
-    return { diasTrabajados, horas, importe };
-  };
-
-  const totales = activos.reduce(
-    (a, e) => {
-      const c = calcular(e);
-      return { dias: a.dias + c.diasTrabajados, horas: a.horas + c.horas, importe: a.importe + c.importe };
-    },
-    { dias: 0, horas: 0, importe: 0 },
-  );
+  const diasDe = (empId: string) => dias.filter((f) => marcado(empId, f)).length;
+  const totalDias = activos.reduce((a, e) => a + diasDe(e.id), 0);
+  const hayCambios = Object.keys(draft).length > 0;
 
   const guardar = async () => {
-    if (Object.keys(draft).length === 0) return toast.info("No hay cambios para guardar");
+    if (!hayCambios) return toast.info("No hay cambios para guardar");
     setGuardando(true);
     try {
       for (const [empId, cambios] of Object.entries(draft)) {
@@ -161,16 +146,12 @@ export function SemanasTrabajadasTab() {
               user_id: user!.id,
               empleado_id: empId,
               fecha,
-              horas: horasJornada,
+              horas: JORNADA,
               referencia: `Semana ${formatFecha(semana)}`,
               tarea: "Jornada trabajada",
               mes: d.getMonth() + 1,
               anio: d.getFullYear(),
             });
-            if (error) throw error;
-          } else if (trabajo && existente) {
-            const { error } = await supabase
-              .from("fema_horas_trabajadas").update({ horas: horasJornada }).eq("id", existente.id);
             if (error) throw error;
           } else if (!trabajo && existente) {
             const { error } = await supabase.from("fema_horas_trabajadas").delete().eq("id", existente.id);
@@ -182,6 +163,7 @@ export function SemanasTrabajadasTab() {
       setDraft({});
       qc.invalidateQueries({ queryKey: ["fema_horas_semana"] });
       qc.invalidateQueries({ queryKey: ["fema_horas"] });
+      qc.invalidateQueries({ queryKey: ["fema_horas_cupon"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo guardar la semana");
     } finally {
@@ -194,14 +176,14 @@ export function SemanasTrabajadasTab() {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between gap-3 p-4 border-b flex-wrap">
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setSemana(sumarDias(semana, -7))}>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, -7)); setDraft({}); }}>
               <ChevronLeft className="size-4" />
             </Button>
             <div className="text-sm">
               <div className="font-medium">Semana del {formatFecha(semana)} al {formatFecha(finSemana)}</div>
-              <div className="text-xs text-muted-foreground">Marcá los días trabajados de cada empleado</div>
+              <div className="text-xs text-muted-foreground">Tildá los días que trabajó cada empleado</div>
             </div>
-            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setSemana(sumarDias(semana, 7))}>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, 7)); setDraft({}); }}>
               <ChevronRight className="size-4" />
             </Button>
           </div>
@@ -210,11 +192,12 @@ export function SemanasTrabajadasTab() {
               <Label className="text-xs">Ir a la semana de</Label>
               <Input type="date" className="h-9 w-40" value={semana} onChange={(e) => { setSemana(lunesDe(e.target.value)); setDraft({}); }} />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Horas por jornada</Label>
-              <Input type="number" step="0.5" className="h-9 w-28" value={jornada} onChange={(e) => setJornada(e.target.value)} />
-            </div>
-            <Button onClick={guardar} disabled={guardando}>
+            <ExtraDialog
+              empleados={activos.map((e) => ({ id: e.id, nombre: e.nombre }))}
+              fecha={finSemana}
+              trigger={<span>+ Pago extra</span>}
+            />
+            <Button onClick={guardar} disabled={guardando || !hayCambios}>
               <Save className="size-4 mr-1" /> Guardar semana
             </Button>
           </div>
@@ -231,54 +214,49 @@ export function SemanasTrabajadasTab() {
                     <div className="text-[10px] font-normal leading-tight text-muted-foreground">{formatFecha(f).slice(0, 5)}</div>
                   </TableHead>
                 ))}
-                <TableHead className="text-center">Todos</TableHead>
+                <TableHead className="text-center">Semana completa</TableHead>
                 <TableHead className="text-right">Días</TableHead>
-                <TableHead className="text-right">Horas</TableHead>
-                <TableHead className="text-right">Sueldo estimado</TableHead>
+                <TableHead className="text-center">Extra</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {activos.length === 0 && (
-                <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Sin empleados activos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Sin empleados activos</TableCell></TableRow>
               )}
-              {activos.map((e) => {
-                const c = calcular(e);
-                return (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">
-                      {e.nombre}
-                      <div className="text-xs text-muted-foreground">
-                        {(e.frecuencia_pago ?? "Mensual")} ·{" "}
-                        {(e.frecuencia_pago ?? "").toLowerCase().startsWith("por hora")
-                          ? `${formatPesos(Number(e.valor_hora ?? 0))}/h`
-                          : `${formatPesos(Number(e.importe_periodo ?? 0) || Number(e.sueldo_bruto ?? 0))} · base ${DIAS_BASE(e.frecuencia_pago)} día(s)`}
+              {activos.map((e) => (
+                <TableRow key={e.id}>
+                  <TableCell className="font-medium">
+                    {e.nombre}
+                    <div className="text-xs text-muted-foreground">{e.frecuencia_pago ?? "Mensual"}</div>
+                  </TableCell>
+                  {dias.map((f) => (
+                    <TableCell key={f} className="w-14 min-w-14 text-center align-middle">
+                      <div className="flex justify-center">
+                        <Checkbox checked={marcado(e.id, f)} onCheckedChange={(v) => toggle(e.id, f, Boolean(v))} />
                       </div>
                     </TableCell>
-                    {dias.map((f) => (
-                      <TableCell key={f} className="w-14 min-w-14 text-center align-middle">
-                        <div className="flex justify-center">
-                          <Checkbox checked={marcado(e.id, f)} onCheckedChange={(v) => toggle(e.id, f, Boolean(v))} />
-                        </div>
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center">
-                      <div className="flex gap-1 justify-center">
-                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => marcarSemana(e.id, true)}>Sí</Button>
-                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => marcarSemana(e.id, false)}>No</Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{c.diasTrabajados}</TableCell>
-                    <TableCell className="text-right font-mono">{c.horas.toFixed(1)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatPesos(c.importe)}</TableCell>
-                  </TableRow>
-                );
-              })}
+                  ))}
+                  <TableCell className="text-center">
+                    <div className="flex gap-1 justify-center">
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => marcarSemana(e.id, true)}>Trabajó</Button>
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => marcarSemana(e.id, false)}>Ninguno</Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{diasDe(e.id)}</TableCell>
+                  <TableCell className="text-center">
+                    <ExtraDialog
+                      empleados={activos.map((x) => ({ id: x.id, nombre: x.nombre }))}
+                      empleadoId={e.id}
+                      fecha={finSemana}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
               {activos.length > 0 && (
                 <TableRow className="bg-muted/40">
-                  <TableCell colSpan={8} className="font-medium">Totales de la semana</TableCell>
-                  <TableCell className="text-right font-mono">{totales.dias}</TableCell>
-                  <TableCell className="text-right font-mono">{totales.horas.toFixed(1)}</TableCell>
-                  <TableCell className="text-right font-semibold">{formatPesos(totales.importe)}</TableCell>
+                  <TableCell colSpan={9} className="font-medium">Total de jornadas de la semana</TableCell>
+                  <TableCell className="text-right font-mono">{totalDias}</TableCell>
+                  <TableCell />
                 </TableRow>
               )}
             </TableBody>
@@ -286,8 +264,8 @@ export function SemanasTrabajadasTab() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        El sueldo estimado surge de las horas marcadas por el valor hora del empleado. Para los mensualizados se prorratea
-        el sueldo bruto según los días trabajados de la semana. El importe definitivo se registra en la pestaña Pagos.
+        Acá solo se marcan las jornadas. Los importes se calculan después, en Cupones de pago, según lo acordado con cada
+        empleado. Los pagos extra quedan pendientes y se suman al cupón del período.
       </p>
     </div>
   );
