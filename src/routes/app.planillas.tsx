@@ -15,7 +15,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, ImagePlus, X } from "lucide-react";
+import { Plus, Pencil, Trash2, ImagePlus, X, Printer } from "lucide-react";
+import { imprimirPlanilla } from "@/lib/planilla-print";
 
 export const Route = createFileRoute("/app/planillas")({ component: Page });
 
