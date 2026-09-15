@@ -286,11 +286,13 @@ export type Database = {
           mantenimiento: string | null
           marca: string | null
           modelo: string | null
+          moneda_compra: string
           nombre: string
           numero_serie: string | null
           observaciones: string | null
           proximo_service: string | null
           responsable: string | null
+          responsable_empleado_id: string | null
           tipo: string
           ubicacion: string | null
           updated_at: string
@@ -306,11 +308,13 @@ export type Database = {
           mantenimiento?: string | null
           marca?: string | null
           modelo?: string | null
+          moneda_compra?: string
           nombre: string
           numero_serie?: string | null
           observaciones?: string | null
           proximo_service?: string | null
           responsable?: string | null
+          responsable_empleado_id?: string | null
           tipo?: string
           ubicacion?: string | null
           updated_at?: string
@@ -326,18 +330,28 @@ export type Database = {
           mantenimiento?: string | null
           marca?: string | null
           modelo?: string | null
+          moneda_compra?: string
           nombre?: string
           numero_serie?: string | null
           observaciones?: string | null
           proximo_service?: string | null
           responsable?: string | null
+          responsable_empleado_id?: string | null
           tipo?: string
           ubicacion?: string | null
           updated_at?: string
           user_id?: string
           valor_compra?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fema_activos_responsable_empleado_id_fkey"
+            columns: ["responsable_empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fema_auditoria: {
         Row: {
