@@ -120,10 +120,19 @@ export function Inventario() {
 
   const porActivo = useMemo(() => {
     const m: Record<string, Imagen[]> = {};
-    (imagenes ?? []).forEach((i) => {
+    (imagenes ?? []).filter((i) => !i.es_documento).forEach((i) => {
       (m[i.activo_id] ??= []).push(i);
     });
     Object.values(m).forEach((l) => l.sort((a, b) => Number(b.es_principal) - Number(a.es_principal) || a.orden - b.orden));
+    return m;
+  }, [imagenes]);
+
+  const docsPorActivo = useMemo(() => {
+    const m: Record<string, Imagen[]> = {};
+    (imagenes ?? []).filter((i) => i.es_documento).forEach((i) => {
+      (m[i.activo_id] ??= []).push(i);
+    });
+    Object.values(m).forEach((l) => l.sort((a, b) => a.orden - b.orden));
     return m;
   }, [imagenes]);
 
