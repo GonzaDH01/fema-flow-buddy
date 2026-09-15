@@ -82,7 +82,6 @@ const sections: { title: string; items: NavItem[] }[] = [
   {
     title: "Ventas",
     items: [
-      { to: "/app/presupuestos", label: "Presupuestos", icon: ClipboardList, key: "presupuestos" },
       { to: "/app/medios", label: "Medios de Pago", icon: CreditCard, key: "medios" },
     ],
   },
