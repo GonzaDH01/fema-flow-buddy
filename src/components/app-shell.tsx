@@ -56,8 +56,10 @@ const sections: { title: string; items: NavItem[] }[] = [
     title: "Ingresos",
     items: [
       { to: "/app/facturas", label: "Facturas", icon: FileText, key: "facturas" },
+      { to: "/app/presupuestos", label: "Presupuestos", icon: ClipboardList, key: "presupuestos" },
       { to: "/app/clientes", label: "Clientes", icon: Users, key: "clientes" },
       { to: "/app/productos", label: "Productos", icon: Package, key: "productos" },
+      { to: "/app/planillas", label: "Planilla Bolsero", icon: ClipboardCheck, key: "planillas" },
     ],
   },
   {
