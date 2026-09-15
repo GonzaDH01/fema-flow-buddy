@@ -415,6 +415,7 @@ function ActivoForm({
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const { data: empleados } = useEmpleados();
 
   const { data: existentes, refetch } = useQuery({
     queryKey: ["fema_activo_imagenes", initial?.id],
