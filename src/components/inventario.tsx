@@ -456,6 +456,7 @@ function ActivoForm({
   });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
+  const [nuevosDocs, setNuevosDocs] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [imagenEnProceso, setImagenEnProceso] = useState<string | null>(null);
   const { data: empleados } = useEmpleados();
@@ -474,6 +475,8 @@ function ActivoForm({
     },
   });
   const { data: urls } = useSignedUrls((existentes ?? []).map((i) => i.path));
+  const imgsExistentes = (existentes ?? []).filter((i) => !i.es_documento);
+  const docsExistentes = (existentes ?? []).filter((i) => i.es_documento);
 
   const qcForm = useQueryClient();
 
