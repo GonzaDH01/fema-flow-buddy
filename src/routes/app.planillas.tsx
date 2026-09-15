@@ -424,6 +424,10 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
               type="number" inputMode="numeric" value={f.viajes}
               onChange={(e) => setFila(lista, set, i, "viajes", e.target.value)} placeholder="Viajes"
             />
+            <Input
+              type="number" inputMode="decimal" value={f.metros}
+              onChange={(e) => setFila(lista, set, i, "metros", e.target.value)} placeholder="Mts bolsa"
+            />
             <Button type="button" variant="ghost" size="icon" onClick={() => set(lista.filter((_, idx) => idx !== i))}>
               <X className="h-4 w-4" />
             </Button>
