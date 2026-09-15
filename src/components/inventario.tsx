@@ -616,7 +616,7 @@ function ActivoForm({
       activoId = data.id;
     }
 
-    const base = (existentes?.length ?? 0);
+    const base = imgsExistentes.length;
     for (let i = 0; i < nuevas.length; i++) {
       const file = nuevas[i];
       const ext = file.name.split(".").pop() || "jpg";
@@ -632,6 +632,31 @@ function ActivoForm({
         path,
         orden: base + i,
         es_principal: base + i === 0,
+        es_documento: false,
+        nombre_archivo: file.name,
+      });
+    }
+
+    const baseDoc = docsExistentes.length;
+    for (let i = 0; i < nuevosDocs.length; i++) {
+      const file = nuevosDocs[i];
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${userId}/${activoId}/doc-${Date.now()}-${i}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || "application/pdf" });
+      if (upErr) {
+        toast.error(`No se pudo subir ${file.name}: ${upErr.message}`);
+        continue;
+      }
+      await supabase.from("fema_activo_imagenes").insert({
+        user_id: userId,
+        activo_id: activoId,
+        path,
+        orden: baseDoc + i,
+        es_principal: false,
+        es_documento: true,
+        nombre_archivo: file.name,
       });
     }
 
