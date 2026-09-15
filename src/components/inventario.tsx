@@ -287,7 +287,7 @@ function DetalleActivo({
     ["Estado", activo.estado],
     ["Ubicación", activo.ubicacion ?? "—"],
     ["Responsable", activo.responsable ?? "—"],
-    ["Valor de compra", money(activo.valor_compra)],
+    ["Valor de compra", money(activo.valor_compra, activo.moneda_compra)],
     ["Fecha de compra", activo.fecha_compra ?? "—"],
     ["Próximo servicio", activo.proximo_service ?? "—"],
   ];
