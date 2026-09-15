@@ -1806,6 +1806,135 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_planilla_equipos: {
+        Row: {
+          created_at: string
+          equipo_id: string | null
+          equipo_nombre: string
+          id: string
+          metros_bolsa: number
+          observaciones: string | null
+          orden: number
+          planilla_id: string
+          updated_at: string
+          user_id: string
+          viajes: number
+        }
+        Insert: {
+          created_at?: string
+          equipo_id?: string | null
+          equipo_nombre: string
+          id?: string
+          metros_bolsa?: number
+          observaciones?: string | null
+          orden?: number
+          planilla_id: string
+          updated_at?: string
+          user_id: string
+          viajes?: number
+        }
+        Update: {
+          created_at?: string
+          equipo_id?: string | null
+          equipo_nombre?: string
+          id?: string
+          metros_bolsa?: number
+          observaciones?: string | null
+          orden?: number
+          planilla_id?: string
+          updated_at?: string
+          user_id?: string
+          viajes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_planilla_equipos_equipo_id_fkey"
+            columns: ["equipo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_equipos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_planilla_equipos_planilla_id_fkey"
+            columns: ["planilla_id"]
+            isOneToOne: false
+            referencedRelation: "fema_planillas_bolsero"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_planillas_bolsero: {
+        Row: {
+          anio: number | null
+          bolsero_empleado_id: string | null
+          bolsero_nombre: string | null
+          cliente_id: string | null
+          created_at: string
+          cultivo: string | null
+          fecha: string
+          id: string
+          imagen_path: string | null
+          mes: number | null
+          observaciones: string | null
+          total_metros: number
+          total_viajes: number
+          updated_at: string
+          user_id: string
+          zona: string | null
+        }
+        Insert: {
+          anio?: number | null
+          bolsero_empleado_id?: string | null
+          bolsero_nombre?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          cultivo?: string | null
+          fecha?: string
+          id?: string
+          imagen_path?: string | null
+          mes?: number | null
+          observaciones?: string | null
+          total_metros?: number
+          total_viajes?: number
+          updated_at?: string
+          user_id: string
+          zona?: string | null
+        }
+        Update: {
+          anio?: number | null
+          bolsero_empleado_id?: string | null
+          bolsero_nombre?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          cultivo?: string | null
+          fecha?: string
+          id?: string
+          imagen_path?: string | null
+          mes?: number | null
+          observaciones?: string | null
+          total_metros?: number
+          total_viajes?: number
+          updated_at?: string
+          user_id?: string
+          zona?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_planillas_bolsero_bolsero_empleado_id_fkey"
+            columns: ["bolsero_empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_planillas_bolsero_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "fema_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_presupuesto_items: {
         Row: {
           alicuota_iva: number
