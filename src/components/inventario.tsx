@@ -580,11 +580,43 @@ function ActivoForm({
             <Input value={v.ubicacion} onChange={set("ubicacion")} placeholder="Galpón, campo, taller…" />
           </FormField>
           <FormField label="Responsable">
-            <Input value={v.responsable} onChange={set("responsable")} />
+            <Select
+              value={v.responsable_empleado_id || "__ninguno"}
+              onValueChange={(x) =>
+                setV((s) => ({
+                  ...s,
+                  responsable_empleado_id: x === "__ninguno" ? "" : x,
+                  responsable: x === "__ninguno" ? "" : (empleados ?? []).find((e) => e.id === x)?.nombre ?? "",
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Elegir empleado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__ninguno">Sin responsable</SelectItem>
+                {(empleados ?? []).map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <FormField label="Valor de compra">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <FormField label="Moneda">
+            <Select value={v.moneda_compra} onValueChange={(x) => setV((s) => ({ ...s, moneda_compra: x }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ARS">Pesos (ARS)</SelectItem>
+                <SelectItem value="USD">Dólares (USD)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label={`Valor de compra (${v.moneda_compra === "USD" ? "US$" : "$"})`}>
             <Input type="number" step="0.01" value={v.valor_compra} onChange={set("valor_compra")} />
           </FormField>
           <FormField label="Fecha de compra">
