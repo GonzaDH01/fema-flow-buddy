@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X, Star } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X, Star, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/lib/form-helpers";
@@ -36,7 +36,16 @@ type Activo = {
   proximo_service: string | null;
   observaciones: string | null;
 };
-type Imagen = { id: string; activo_id: string; path: string; orden: number; es_principal: boolean };
+type Imagen = {
+  id: string;
+  activo_id: string;
+  path: string;
+  orden: number;
+  es_principal: boolean;
+  es_documento: boolean;
+  nombre_archivo: string | null;
+};
+const COLS_ARCHIVO = "id,activo_id,path,orden,es_principal,es_documento,nombre_archivo";
 type EmpleadoOpt = { id: string; nombre: string };
 
 const money = (n: number | null, moneda?: string | null) =>
@@ -102,7 +111,7 @@ export function Inventario() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_activo_imagenes")
-        .select("id,activo_id,path,orden,es_principal")
+        .select(COLS_ARCHIVO)
         .order("orden", { ascending: true });
       if (error) throw error;
       return data as Imagen[];
@@ -111,10 +120,19 @@ export function Inventario() {
 
   const porActivo = useMemo(() => {
     const m: Record<string, Imagen[]> = {};
-    (imagenes ?? []).forEach((i) => {
+    (imagenes ?? []).filter((i) => !i.es_documento).forEach((i) => {
       (m[i.activo_id] ??= []).push(i);
     });
     Object.values(m).forEach((l) => l.sort((a, b) => Number(b.es_principal) - Number(a.es_principal) || a.orden - b.orden));
+    return m;
+  }, [imagenes]);
+
+  const docsPorActivo = useMemo(() => {
+    const m: Record<string, Imagen[]> = {};
+    (imagenes ?? []).filter((i) => i.es_documento).forEach((i) => {
+      (m[i.activo_id] ??= []).push(i);
+    });
+    Object.values(m).forEach((l) => l.sort((a, b) => a.orden - b.orden));
     return m;
   }, [imagenes]);
 
@@ -141,7 +159,7 @@ export function Inventario() {
   };
 
   const eliminar = async (row: Activo) => {
-    const paths = (porActivo[row.id] ?? []).map((i) => i.path);
+    const paths = [...(porActivo[row.id] ?? []), ...(docsPorActivo[row.id] ?? [])].map((i) => i.path);
     if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
     const { error } = await supabase.from("fema_activos").delete().eq("id", row.id);
     if (error) {
@@ -213,7 +231,9 @@ export function Inventario() {
                     {[a.tipo, a.marca, a.modelo, a.anio].filter(Boolean).join(" · ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {(porActivo[a.id]?.length ?? 0)} imagen(es){a.ubicacion ? ` · ${a.ubicacion}` : ""}
+                    {(porActivo[a.id]?.length ?? 0)} imagen(es)
+                    {(docsPorActivo[a.id]?.length ?? 0) > 0 ? ` · ${docsPorActivo[a.id].length} PDF` : ""}
+                    {a.ubicacion ? ` · ${a.ubicacion}` : ""}
                   </p>
                 </div>
               </button>
@@ -242,6 +262,7 @@ export function Inventario() {
             key={detalle.id}
             activo={detalle}
             imagenes={porActivo[detalle.id] ?? []}
+            documentos={docsPorActivo[detalle.id] ?? []}
             onEdit={() => {
               const row = detalle;
               setDetalle(null);
@@ -258,15 +279,17 @@ export function Inventario() {
 function DetalleActivo({
   activo,
   imagenes,
+  documentos,
   onEdit,
   onDelete,
 }: {
   activo: Activo;
   imagenes: Imagen[];
+  documentos: Imagen[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const paths = useMemo(() => imagenes.map((i) => i.path), [imagenes]);
+  const paths = useMemo(() => [...imagenes, ...documentos].map((i) => i.path), [imagenes, documentos]);
   const { data: urls } = useSignedUrls(paths);
   const [idx, setIdx] = useState(0);
 
@@ -371,6 +394,25 @@ function DetalleActivo({
               <p className="whitespace-pre-line">{activo.observaciones}</p>
             </div>
           )}
+          {documentos.length > 0 && (
+            <div className="rounded-md border border-border p-3 text-sm">
+              <p className="mb-2 text-xs text-muted-foreground">Documentos</p>
+              <div className="space-y-1">
+                {documentos.map((d) => (
+                  <a
+                    key={d.id}
+                    href={urls?.[d.path] ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{d.nombre_archivo ?? "Documento PDF"}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <DialogFooter className="gap-2 sm:justify-between">
@@ -414,6 +456,7 @@ function ActivoForm({
   });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
+  const [nuevosDocs, setNuevosDocs] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [imagenEnProceso, setImagenEnProceso] = useState<string | null>(null);
   const { data: empleados } = useEmpleados();
@@ -424,7 +467,7 @@ function ActivoForm({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_activo_imagenes")
-        .select("id,activo_id,path,orden,es_principal")
+        .select(COLS_ARCHIVO)
         .eq("activo_id", initial!.id)
         .order("orden");
       if (error) throw error;
@@ -432,6 +475,8 @@ function ActivoForm({
     },
   });
   const { data: urls } = useSignedUrls((existentes ?? []).map((i) => i.path));
+  const imgsExistentes = (existentes ?? []).filter((i) => !i.es_documento);
+  const docsExistentes = (existentes ?? []).filter((i) => i.es_documento);
 
   const qcForm = useQueryClient();
 
@@ -461,7 +506,7 @@ function ActivoForm({
       const restantes = (existentes ?? []).filter((item) => item.id !== im.id);
       let siguienteId: string | undefined;
       if (im.es_principal && restantes.length > 0) {
-        siguienteId = [...restantes].sort((a, b) => a.orden - b.orden)[0]?.id;
+        siguienteId = restantes.filter((r) => !r.es_documento).sort((a, b) => a.orden - b.orden)[0]?.id;
         if (siguienteId) {
           const { error: principalError } = await supabase
             .from("fema_activo_imagenes")
@@ -571,7 +616,7 @@ function ActivoForm({
       activoId = data.id;
     }
 
-    const base = (existentes?.length ?? 0);
+    const base = imgsExistentes.length;
     for (let i = 0; i < nuevas.length; i++) {
       const file = nuevas[i];
       const ext = file.name.split(".").pop() || "jpg";
@@ -587,6 +632,31 @@ function ActivoForm({
         path,
         orden: base + i,
         es_principal: base + i === 0,
+        es_documento: false,
+        nombre_archivo: file.name,
+      });
+    }
+
+    const baseDoc = docsExistentes.length;
+    for (let i = 0; i < nuevosDocs.length; i++) {
+      const file = nuevosDocs[i];
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${userId}/${activoId}/doc-${Date.now()}-${i}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || "application/pdf" });
+      if (upErr) {
+        toast.error(`No se pudo subir ${file.name}: ${upErr.message}`);
+        continue;
+      }
+      await supabase.from("fema_activo_imagenes").insert({
+        user_id: userId,
+        activo_id: activoId,
+        path,
+        orden: baseDoc + i,
+        es_principal: false,
+        es_documento: true,
+        nombre_archivo: file.name,
       });
     }
 
@@ -708,13 +778,13 @@ function ActivoForm({
 
         <div className="space-y-2 rounded-md border border-border p-3">
           <p className="text-sm font-medium">Imágenes</p>
-          {!!existentes?.length && (
+          {!!imgsExistentes.length && (
             <>
               <p className="text-xs text-muted-foreground">
                 Tocá la estrella para elegir cuál es la imagen de portada del bien.
               </p>
               <div className="flex flex-wrap gap-2">
-                {existentes.map((im) => (
+                {imgsExistentes.map((im) => (
                   <div
                     key={im.id}
                     className={`relative h-24 w-28 overflow-hidden rounded-md border bg-muted ${
@@ -765,6 +835,51 @@ function ActivoForm({
             <p className="text-xs text-muted-foreground">
               <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
               {nuevas.length} imagen(es) se subirán al guardar
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <p className="text-sm font-medium">Documentos (PDF)</p>
+          <p className="text-xs text-muted-foreground">
+            Manuales, seguros, títulos, facturas de compra u otra documentación del bien.
+          </p>
+          {!!docsExistentes.length && (
+            <div className="space-y-1">
+              {docsExistentes.map((d) => (
+                <div key={d.id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <a
+                    href={urls?.[d.path] ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 truncate text-sm text-primary hover:underline"
+                  >
+                    {d.nombre_archivo ?? "Documento PDF"}
+                  </a>
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-7 w-7"
+                    disabled={imagenEnProceso !== null}
+                    onClick={() => borrarImagen(d)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Input
+            type="file"
+            accept="application/pdf"
+            multiple
+            onChange={(e) => setNuevosDocs(Array.from(e.target.files ?? []))}
+          />
+          {nuevosDocs.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              <FileText className="mr-1 inline h-3.5 w-3.5" />
+              {nuevosDocs.length} documento(s) se subirán al guardar
             </p>
           )}
         </div>
