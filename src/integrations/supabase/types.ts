@@ -242,8 +242,10 @@ export type Database = {
         Row: {
           activo_id: string
           created_at: string
+          es_documento: boolean
           es_principal: boolean
           id: string
+          nombre_archivo: string | null
           orden: number
           path: string
           user_id: string
@@ -251,8 +253,10 @@ export type Database = {
         Insert: {
           activo_id: string
           created_at?: string
+          es_documento?: boolean
           es_principal?: boolean
           id?: string
+          nombre_archivo?: string | null
           orden?: number
           path: string
           user_id: string
@@ -260,8 +264,10 @@ export type Database = {
         Update: {
           activo_id?: string
           created_at?: string
+          es_documento?: boolean
           es_principal?: boolean
           id?: string
+          nombre_archivo?: string | null
           orden?: number
           path?: string
           user_id?: string
