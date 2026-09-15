@@ -159,7 +159,7 @@ export function Inventario() {
   };
 
   const eliminar = async (row: Activo) => {
-    const paths = (porActivo[row.id] ?? []).map((i) => i.path);
+    const paths = [...(porActivo[row.id] ?? []), ...(docsPorActivo[row.id] ?? [])].map((i) => i.path);
     if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
     const { error } = await supabase.from("fema_activos").delete().eq("id", row.id);
     if (error) {
