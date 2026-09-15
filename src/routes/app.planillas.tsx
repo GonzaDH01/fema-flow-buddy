@@ -272,7 +272,8 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       setBolsas(b);
       const mapFila = (e: PlanillaEquipo): FilaEquipo => ({
         equipo_nombre: e.equipo_nombre, chofer: e.chofer ?? "", dominio: e.dominio ?? "",
-        viajes: String(e.viajes ?? ""), es_tercero: e.es_tercero,
+        viajes: e.viajes ? String(e.viajes) : "", metros: e.metros_bolsa ? String(e.metros_bolsa) : "",
+        es_tercero: e.es_tercero,
       });
       const p = equiposIniciales.filter((e) => !e.es_tercero).map(mapFila);
       const t = equiposIniciales.filter((e) => e.es_tercero).map(mapFila);
