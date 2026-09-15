@@ -8,7 +8,7 @@ import { formatPesos } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const MODALIDAD_EXTRA = "extra";
@@ -85,11 +85,11 @@ export function ExtraDialog({
 
   return (
     <Dialog open={open} onOpenChange={abrir}>
-      <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-        <span onClick={() => abrir(true)} role="button">
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
           {trigger ?? (<><Plus className="size-3 mr-1" /> Extra</>)}
-        </span>
-      </Button>
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Pago extraordinario</DialogTitle>
