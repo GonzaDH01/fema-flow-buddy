@@ -380,7 +380,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
           dominio: f.dominio.trim() || null,
           es_tercero: f.es_tercero,
           viajes: Number(f.viajes) || 0,
-          metros_bolsa: 0,
+          metros_bolsa: Number(f.metros) || 0,
           orden: i,
         }));
         const { error } = await (supabase as any).from("fema_planilla_equipos").insert(rows);
