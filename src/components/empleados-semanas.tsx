@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Save } from "lucide-react";
@@ -15,6 +15,8 @@ import { ExtraDialog } from "@/components/empleados-extra";
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 /** Jornada estándar: el registro solo marca presente / ausente. */
 const JORNADA = 8;
+/** Prefijo para guardar el borrador de la semana en el navegador. */
+const BORRADOR_KEY = "fema_semana_draft_";
 
 export type EmpleadoPago = {
   id: string; nombre: string; tipo_contratacion: string | null;
@@ -77,6 +79,23 @@ export function SemanasTrabajadasTab() {
   const [semana, setSemana] = useState(() => lunesDe(iso(new Date())));
   const [draft, setDraft] = useState<Record<string, Record<string, boolean>>>({});
   const [guardando, setGuardando] = useState(false);
+
+  // Los tildes sin guardar sobreviven al cambio de solapa o de pantalla.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BORRADOR_KEY + semana);
+      setDraft(raw ? JSON.parse(raw) : {});
+    } catch {
+      setDraft({});
+    }
+  }, [semana]);
+
+  useEffect(() => {
+    try {
+      if (Object.keys(draft).length > 0) localStorage.setItem(BORRADOR_KEY + semana, JSON.stringify(draft));
+      else localStorage.removeItem(BORRADOR_KEY + semana);
+    } catch { /* almacenamiento no disponible */ }
+  }, [draft, semana]);
 
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => sumarDias(semana, i)), [semana]);
   const finSemana = dias[6];
