@@ -56,6 +56,9 @@ const money = (n: number | null, moneda?: string | null) =>
 function useEmpleados() {
   return useQuery({
     queryKey: ["fema_empleados_inventario"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_empleados")
