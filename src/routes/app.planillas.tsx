@@ -20,19 +20,23 @@ import { Plus, Pencil, Trash2, ImagePlus, X } from "lucide-react";
 export const Route = createFileRoute("/app/planillas")({ component: Page });
 
 const BUCKET = "planillas-img";
+const CANT_BOLSAS = 7;
 
 type Planilla = {
   id: string; fecha: string; bolsero_empleado_id: string | null; bolsero_nombre: string | null;
+  cliente_id: string | null; cliente_nombre: string | null; establecimiento: string | null; lote: string | null;
   zona: string | null; cultivo: string | null; imagen_path: string | null; observaciones: string | null;
-  total_viajes: number; total_metros: number; anio: number | null; mes: number | null;
+  bolsas: number[] | null; total_viajes: number; total_metros: number; anio: number | null; mes: number | null;
 };
 type PlanillaEquipo = {
   id: string; planilla_id: string; equipo_id: string | null; equipo_nombre: string;
+  chofer: string | null; dominio: string | null; es_tercero: boolean;
   viajes: number; metros_bolsa: number; observaciones: string | null; orden: number;
 };
-type FilaEquipo = { equipo_nombre: string; viajes: string; metros_bolsa: string; observaciones: string };
+type FilaEquipo = { equipo_nombre: string; chofer: string; dominio: string; viajes: string; es_tercero: boolean };
 
-const FILA_VACIA: FilaEquipo = { equipo_nombre: "", viajes: "", metros_bolsa: "", observaciones: "" };
+const filaVacia = (es_tercero: boolean): FilaEquipo => ({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", es_tercero });
+const EQUIPOS_PROPIOS_SUGERIDOS = ["FORD 700", "CHEVROLET 600", "CARRO FONTANINI"];
 
 function Page() {
   const { user } = useAuth();
@@ -73,6 +77,13 @@ function Page() {
       if (error) throw error; return data as { id: string; nombre: string }[];
     },
   });
+  const clientesQ = useQuery({
+    queryKey: ["fema_clientes_planilla"], enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_clientes").select("id,nombre").order("nombre");
+      if (error) throw error; return data as { id: string; nombre: string }[];
+    },
+  });
 
   const planillas = planillasQ.data ?? [];
   const equiposPlanilla = equiposPlanillaQ.data ?? [];
@@ -87,7 +98,8 @@ function Page() {
     const q = busqueda.trim().toLowerCase();
     if (!q) return planillas;
     return planillas.filter((p) =>
-      [p.bolsero_nombre, p.zona, p.cultivo].some((v) => (v ?? "").toLowerCase().includes(q)),
+      [p.bolsero_nombre, p.zona, p.cultivo, p.cliente_nombre, p.establecimiento, p.lote]
+        .some((v) => (v ?? "").toLowerCase().includes(q)),
     );
   }, [planillas, busqueda]);
 
@@ -108,10 +120,10 @@ function Page() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Buscar por bolsero, zona o cultivo..."
+          placeholder="Buscar por bolsero, cliente, establecimiento, zona o cultivo..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="max-w-xs"
+          className="max-w-sm"
         />
         <div className="ml-auto">
           <Button onClick={() => { setEdit(null); setOpen(true); }}>
@@ -135,37 +147,41 @@ function Page() {
         </CardContent></Card>
       </div>
 
-      <Card><CardContent className="p-0">
+      <Card><CardContent className="p-0 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Bolsero</TableHead>
-              <TableHead>Zona / Localidad</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Establecimiento / Lote</TableHead>
+              <TableHead>Zona</TableHead>
               <TableHead>Cultivo</TableHead>
+              <TableHead>Bolsero</TableHead>
               <TableHead>Equipos</TableHead>
               <TableHead className="text-right">Viajes</TableHead>
-              <TableHead className="text-right">Metros</TableHead>
+              <TableHead className="text-right">Metros día</TableHead>
               <TableHead className="w-24"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtradas.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+              <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                 Sin planillas cargadas para {year}.
               </TableCell></TableRow>
             )}
             {filtradas.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>{formatFecha(p.fecha)}</TableCell>
-                <TableCell className="font-medium">{p.bolsero_nombre || "—"}</TableCell>
+                <TableCell>{p.cliente_nombre || "—"}</TableCell>
+                <TableCell>{[p.establecimiento, p.lote].filter(Boolean).join(" / ") || "—"}</TableCell>
                 <TableCell>{p.zona || "—"}</TableCell>
                 <TableCell>{p.cultivo || "—"}</TableCell>
+                <TableCell className="font-medium">{p.bolsero_nombre || "—"}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {(porPlanilla[p.id] ?? []).map((e) => (
-                      <Badge key={e.id} variant="secondary" className="font-normal">
-                        {e.equipo_nombre}: {formatNumero(e.viajes, 0)} v / {formatNumero(e.metros_bolsa, 0)} m
+                      <Badge key={e.id} variant={e.es_tercero ? "outline" : "secondary"} className="font-normal">
+                        {e.equipo_nombre}: {formatNumero(e.viajes, 0)} viajes
                       </Badge>
                     ))}
                     {(porPlanilla[p.id] ?? []).length === 0 && <span className="text-muted-foreground">—</span>}
@@ -196,30 +212,38 @@ function Page() {
         equiposIniciales={edit ? (porPlanilla[edit.id] ?? []) : []}
         empleados={empleadosQ.data ?? []}
         equipos={equiposQ.data ?? []}
+        clientes={clientesQ.data ?? []}
       />
     </div>
   );
 }
 
-function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, empleados, equipos }: {
+function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, empleados, equipos, clientes }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   planilla: Planilla | null;
   equiposIniciales: PlanillaEquipo[];
   empleados: { id: string; nombre: string; activo: boolean | null }[];
   equipos: { id: string; nombre: string }[];
+  clientes: { id: string; nombre: string }[];
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [guardando, setGuardando] = useState(false);
   const [fecha, setFecha] = useState("");
+  const [clienteId, setClienteId] = useState("libre");
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [establecimiento, setEstablecimiento] = useState("");
+  const [lote, setLote] = useState("");
   const [empleadoId, setEmpleadoId] = useState("libre");
   const [nombre, setNombre] = useState("");
   const [zona, setZona] = useState("");
   const [cultivo, setCultivo] = useState("");
   const [observaciones, setObservaciones] = useState("");
-  const [filas, setFilas] = useState<FilaEquipo[]>([{ ...FILA_VACIA }]);
+  const [bolsas, setBolsas] = useState<string[]>(Array(CANT_BOLSAS).fill(""));
+  const [propios, setPropios] = useState<FilaEquipo[]>([]);
+  const [terceros, setTerceros] = useState<FilaEquipo[]>([]);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imagenPath, setImagenPath] = useState<string | null>(null);
@@ -230,28 +254,37 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
     setGuardando(false);
     if (planilla) {
       setFecha(planilla.fecha);
+      setClienteId(planilla.cliente_id ?? "libre");
+      setClienteNombre(planilla.cliente_nombre ?? "");
+      setEstablecimiento(planilla.establecimiento ?? "");
+      setLote(planilla.lote ?? "");
       setEmpleadoId(planilla.bolsero_empleado_id ?? "libre");
       setNombre(planilla.bolsero_nombre ?? "");
       setZona(planilla.zona ?? "");
       setCultivo(planilla.cultivo ?? "");
       setObservaciones(planilla.observaciones ?? "");
       setImagenPath(planilla.imagen_path);
-      setFilas(
-        equiposIniciales.length
-          ? equiposIniciales.map((e) => ({
-              equipo_nombre: e.equipo_nombre,
-              viajes: String(e.viajes ?? ""),
-              metros_bolsa: String(e.metros_bolsa ?? ""),
-              observaciones: e.observaciones ?? "",
-            }))
-          : [{ ...FILA_VACIA }],
-      );
+      const b = Array(CANT_BOLSAS).fill("");
+      (planilla.bolsas ?? []).forEach((v, i) => { if (i < CANT_BOLSAS) b[i] = v ? String(v) : ""; });
+      setBolsas(b);
+      const mapFila = (e: PlanillaEquipo): FilaEquipo => ({
+        equipo_nombre: e.equipo_nombre, chofer: e.chofer ?? "", dominio: e.dominio ?? "",
+        viajes: String(e.viajes ?? ""), es_tercero: e.es_tercero,
+      });
+      const p = equiposIniciales.filter((e) => !e.es_tercero).map(mapFila);
+      const t = equiposIniciales.filter((e) => e.es_tercero).map(mapFila);
+      setPropios(p.length ? p : EQUIPOS_PROPIOS_SUGERIDOS.map((n) => ({ ...filaVacia(false), equipo_nombre: n })));
+      setTerceros(t);
     } else {
       setFecha(new Date().toISOString().slice(0, 10));
-      setEmpleadoId("libre");
-      setNombre(""); setZona(""); setCultivo(""); setObservaciones("");
+      setClienteId("libre"); setClienteNombre("");
+      setEstablecimiento(""); setLote("");
+      setEmpleadoId("libre"); setNombre("");
+      setZona(""); setCultivo(""); setObservaciones("");
       setImagenPath(null);
-      setFilas([{ ...FILA_VACIA }]);
+      setBolsas(Array(CANT_BOLSAS).fill(""));
+      setPropios(EQUIPOS_PROPIOS_SUGERIDOS.map((n) => ({ ...filaVacia(false), equipo_nombre: n })));
+      setTerceros([]);
     }
   }, [open, planilla, equiposIniciales]);
 
@@ -269,20 +302,24 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
     return () => { cancelado = true; };
   }, [archivo, imagenPath]);
 
-  const setFila = (i: number, campo: keyof FilaEquipo, valor: string) =>
-    setFilas((prev) => prev.map((f, idx) => (idx === i ? { ...f, [campo]: valor } : f)));
+  const setFila = (
+    lista: FilaEquipo[], set: (v: FilaEquipo[]) => void, i: number, campo: keyof FilaEquipo, valor: string,
+  ) => set(lista.map((f, idx) => (idx === i ? { ...f, [campo]: valor } : f)));
 
-  const totalViajes = filas.reduce((a, f) => a + (Number(f.viajes) || 0), 0);
-  const totalMetros = filas.reduce((a, f) => a + (Number(f.metros_bolsa) || 0), 0);
+  const totalMetros = bolsas.reduce((a, v) => a + (Number(v) || 0), 0);
+  const totalViajes = [...propios, ...terceros].reduce((a, f) => a + (Number(f.viajes) || 0), 0);
 
   const guardar = async () => {
     if (!user) return;
-    if (!fecha) { toast.error("Indicá la fecha"); return; }
+    if (!fecha) { toast.error("Indicá la fecha de trabajo"); return; }
     const nombreFinal = empleadoId !== "libre"
       ? (empleados.find((e) => e.id === empleadoId)?.nombre ?? nombre)
       : nombre.trim();
-    if (!nombreFinal) { toast.error("Indicá el bolsero"); return; }
-    const filasValidas = filas.filter((f) => f.equipo_nombre.trim());
+    if (!nombreFinal) { toast.error("Indicá el bolsero interviniente"); return; }
+    const clienteFinal = clienteId !== "libre"
+      ? (clientes.find((c) => c.id === clienteId)?.nombre ?? clienteNombre)
+      : clienteNombre.trim();
+    const filasValidas = [...propios, ...terceros].filter((f) => f.equipo_nombre.trim());
     setGuardando(true);
     try {
       let path = imagenPath;
@@ -298,12 +335,17 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       const payload = {
         user_id: user.id,
         fecha,
+        cliente_id: clienteId !== "libre" ? clienteId : null,
+        cliente_nombre: clienteFinal || null,
+        establecimiento: establecimiento.trim() || null,
+        lote: lote.trim() || null,
         bolsero_empleado_id: empleadoId !== "libre" ? empleadoId : null,
         bolsero_nombre: nombreFinal,
         zona: zona.trim() || null,
         cultivo: cultivo.trim() || null,
         observaciones: observaciones.trim() || null,
         imagen_path: path,
+        bolsas: bolsas.map((v) => Number(v) || 0),
         total_viajes: totalViajes,
         total_metros: totalMetros,
         anio: d.getFullYear(),
@@ -328,11 +370,13 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
         const rows = filasValidas.map((f, i) => ({
           user_id: user.id,
           planilla_id: planillaId,
-          equipo_id: equipos.find((e) => e.nombre === f.equipo_nombre.trim())?.id ?? null,
+          equipo_id: equipos.find((e) => e.nombre.toLowerCase() === f.equipo_nombre.trim().toLowerCase())?.id ?? null,
           equipo_nombre: f.equipo_nombre.trim(),
+          chofer: f.chofer.trim() || null,
+          dominio: f.dominio.trim() || null,
+          es_tercero: f.es_tercero,
           viajes: Number(f.viajes) || 0,
-          metros_bolsa: Number(f.metros_bolsa) || 0,
-          observaciones: f.observaciones.trim() || null,
+          metros_bolsa: 0,
           orden: i,
         }));
         const { error } = await (supabase as any).from("fema_planilla_equipos").insert(rows);
@@ -350,85 +394,132 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
     }
   };
 
+  const bloqueEquipos = (
+    titulo: string, lista: FilaEquipo[], set: (v: FilaEquipo[]) => void, es_tercero: boolean,
+  ) => (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</div>
+        <Button type="button" variant="outline" size="sm" onClick={() => set([...lista, filaVacia(es_tercero)])}>
+          <Plus className="mr-1 h-4 w-4" /> Agregar
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {lista.length === 0 && <div className="text-sm text-muted-foreground">Sin equipos cargados.</div>}
+        {lista.map((f, i) => (
+          <div key={i} className="grid gap-2 sm:grid-cols-[1.3fr_1.1fr_0.8fr_0.6fr_auto]">
+            <Input
+              list="equipos-planilla"
+              value={f.equipo_nombre}
+              onChange={(e) => setFila(lista, set, i, "equipo_nombre", e.target.value)}
+              placeholder="Equipo / Vehículo"
+            />
+            <Input value={f.chofer} onChange={(e) => setFila(lista, set, i, "chofer", e.target.value)} placeholder="Chofer" />
+            <Input value={f.dominio} onChange={(e) => setFila(lista, set, i, "dominio", e.target.value)} placeholder="Dominio" />
+            <Input
+              type="number" inputMode="numeric" value={f.viajes}
+              onChange={(e) => setFila(lista, set, i, "viajes", e.target.value)} placeholder="Viajes"
+            />
+            <Button type="button" variant="ghost" size="icon" onClick={() => set(lista.filter((_, idx) => idx !== i))}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{planilla ? "Editar planilla" : "Nueva planilla de bolsero"}</DialogTitle>
+          <DialogTitle>
+            {planilla ? "Editar planilla" : "Planilla diaria de picado y embolsado"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Fecha" required>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <FormField label="Fecha de trabajo" required>
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </FormField>
-            <FormField label="Bolsero">
-              <Select value={empleadoId} onValueChange={setEmpleadoId}>
-                <SelectTrigger><SelectValue placeholder="Elegir empleado" /></SelectTrigger>
+            <FormField label="Cliente">
+              <Select value={clienteId} onValueChange={setClienteId}>
+                <SelectTrigger><SelectValue placeholder="Elegir cliente" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="libre">Otro (escribir nombre)</SelectItem>
-                  {empleados.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
-                  ))}
+                  {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
                 </SelectContent>
               </Select>
             </FormField>
-            {empleadoId === "libre" && (
-              <FormField label="Apellido y nombre" required>
-                <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Pérez, Juan" />
+            {clienteId === "libre" && (
+              <FormField label="Nombre del cliente">
+                <Input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} />
               </FormField>
             )}
+            <FormField label="Establecimiento">
+              <Input value={establecimiento} onChange={(e) => setEstablecimiento(e.target.value)} />
+            </FormField>
+            <FormField label="Lote">
+              <Input value={lote} onChange={(e) => setLote(e.target.value)} />
+            </FormField>
             <FormField label="Zona / Localidad">
-              <Input value={zona} onChange={(e) => setZona(e.target.value)} placeholder="Ej: Rufino" />
+              <Input value={zona} onChange={(e) => setZona(e.target.value)} />
             </FormField>
             <FormField label="Cultivo">
               <Input value={cultivo} onChange={(e) => setCultivo(e.target.value)} placeholder="Ej: Maíz" />
             </FormField>
+            <FormField label="Bolsero interviniente">
+              <Select value={empleadoId} onValueChange={setEmpleadoId}>
+                <SelectTrigger><SelectValue placeholder="Elegir empleado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="libre">Otro (escribir nombre)</SelectItem>
+                  {empleados.map((e) => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FormField>
+            {empleadoId === "libre" && (
+              <FormField label="Apellido y nombre del bolsero" required>
+                <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Pérez, Juan" />
+              </FormField>
+            )}
           </div>
 
           <div className="rounded-lg border p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm font-medium">Equipos que trabajaron</div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setFilas((p) => [...p, { ...FILA_VACIA }])}>
-                <Plus className="mr-1 h-4 w-4" /> Agregar equipo
-              </Button>
+            <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              1. Bolsas realizadas en el día (metros por bolsa)
             </div>
-            <div className="space-y-2">
-              {filas.map((f, i) => (
-                <div key={i} className="grid gap-2 sm:grid-cols-[1.4fr_0.8fr_0.9fr_auto]">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+              {bolsas.map((v, i) => (
+                <div key={i}>
+                  <div className="mb-1 text-xs text-muted-foreground">Bolsa {i + 1}</div>
                   <Input
-                    list="equipos-planilla"
-                    value={f.equipo_nombre}
-                    onChange={(e) => setFila(i, "equipo_nombre", e.target.value)}
-                    placeholder="Equipo (Ford, Chevrolet, Zanello...)"
+                    type="number" inputMode="decimal" value={v}
+                    onChange={(e) => setBolsas(bolsas.map((b, idx) => (idx === i ? e.target.value : b)))}
+                    placeholder="m"
                   />
-                  <Input
-                    type="number" inputMode="decimal" value={f.viajes}
-                    onChange={(e) => setFila(i, "viajes", e.target.value)} placeholder="Viajes"
-                  />
-                  <Input
-                    type="number" inputMode="decimal" value={f.metros_bolsa}
-                    onChange={(e) => setFila(i, "metros_bolsa", e.target.value)} placeholder="Metros de bolsa"
-                  />
-                  <Button
-                    type="button" variant="ghost" size="icon"
-                    onClick={() => setFilas((p) => (p.length === 1 ? [{ ...FILA_VACIA }] : p.filter((_, idx) => idx !== i)))}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
-              <datalist id="equipos-planilla">
-                {equipos.map((e) => <option key={e.id} value={e.nombre} />)}
-              </datalist>
             </div>
-            <div className="mt-2 text-sm text-muted-foreground">
-              Total: {formatNumero(totalViajes, 0)} viajes · {formatNumero(totalMetros, 0)} metros de bolsa
+            <div className="mt-3 text-sm font-medium">
+              Total metros día: {formatNumero(totalMetros, 0)} m
             </div>
           </div>
 
+          <div className="space-y-4 rounded-lg border p-3">
+            <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              2. Viajes por carro / transportista
+            </div>
+            {bloqueEquipos("Equipos propios de la empresa", propios, setPropios, false)}
+            {bloqueEquipos("Contratistas / Terceros", terceros, setTerceros, true)}
+            <datalist id="equipos-planilla">
+              {equipos.map((e) => <option key={e.id} value={e.nombre} />)}
+            </datalist>
+            <div className="text-sm font-medium">Total viajes: {formatNumero(totalViajes, 0)}</div>
+          </div>
+
           <div className="rounded-lg border p-3">
-            <div className="mb-2 text-sm font-medium">Imagen de la planilla</div>
+            <div className="mb-2 text-sm font-medium">Foto de la planilla en papel</div>
             <input
               ref={fileRef}
               type="file"
