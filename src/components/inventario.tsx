@@ -778,13 +778,13 @@ function ActivoForm({
 
         <div className="space-y-2 rounded-md border border-border p-3">
           <p className="text-sm font-medium">Imágenes</p>
-          {!!existentes?.length && (
+          {!!imgsExistentes.length && (
             <>
               <p className="text-xs text-muted-foreground">
                 Tocá la estrella para elegir cuál es la imagen de portada del bien.
               </p>
               <div className="flex flex-wrap gap-2">
-                {existentes.map((im) => (
+                {imgsExistentes.map((im) => (
                   <div
                     key={im.id}
                     className={`relative h-24 w-28 overflow-hidden rounded-md border bg-muted ${
@@ -835,6 +835,51 @@ function ActivoForm({
             <p className="text-xs text-muted-foreground">
               <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
               {nuevas.length} imagen(es) se subirán al guardar
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <p className="text-sm font-medium">Documentos (PDF)</p>
+          <p className="text-xs text-muted-foreground">
+            Manuales, seguros, títulos, facturas de compra u otra documentación del bien.
+          </p>
+          {!!docsExistentes.length && (
+            <div className="space-y-1">
+              {docsExistentes.map((d) => (
+                <div key={d.id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <a
+                    href={urls?.[d.path] ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 truncate text-sm text-primary hover:underline"
+                  >
+                    {d.nombre_archivo ?? "Documento PDF"}
+                  </a>
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-7 w-7"
+                    disabled={imagenEnProceso !== null}
+                    onClick={() => borrarImagen(d)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Input
+            type="file"
+            accept="application/pdf"
+            multiple
+            onChange={(e) => setNuevosDocs(Array.from(e.target.files ?? []))}
+          />
+          {nuevosDocs.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              <FileText className="mr-1 inline h-3.5 w-3.5" />
+              {nuevosDocs.length} documento(s) se subirán al guardar
             </p>
           )}
         </div>
