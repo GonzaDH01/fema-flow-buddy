@@ -78,6 +78,7 @@ function Page() {
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="horas">Semanas trabajadas</TabsTrigger>
+          <TabsTrigger value="cupones">Cupones de pago</TabsTrigger>
           <TabsTrigger value="campana">Campaña / Bonos</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
@@ -87,6 +88,7 @@ function Page() {
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="horas" className="space-y-4"><SemanasTrabajadasTab /><HorasTab /></TabsContent>
+        <TabsContent value="cupones"><CuponesPagoTab /></TabsContent>
 
         <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
