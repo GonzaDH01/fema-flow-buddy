@@ -197,9 +197,9 @@ export function Inventario() {
                 onClick={() => setDetalle(a)}
                 className="group overflow-hidden rounded-lg border border-border bg-card text-left transition hover:border-primary"
               >
-                <div className="flex h-40 items-center justify-center overflow-hidden bg-muted">
+                <div className="flex h-44 items-center justify-center overflow-hidden bg-muted p-2">
                   {src ? (
-                    <img src={src} alt={a.nombre} className="h-full w-full object-cover transition group-hover:scale-105" />
+                    <img src={src} alt={a.nombre} className="h-full w-full object-contain transition group-hover:scale-105" />
                   ) : (
                     <Wrench className="h-8 w-8 text-muted-foreground" />
                   )}
