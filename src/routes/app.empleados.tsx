@@ -46,6 +46,7 @@ type Empleado = {
   observaciones: string | null; cargo: string | null;
   foto_path: string | null; dni_frente_path: string | null; dni_dorso_path: string | null;
   fecha_nacimiento: string | null; forma_pago: string | null; frecuencia_pago: string | null;
+  importe_periodo: number | null;
   banco: string | null; cbu: string | null; alias_cbu: string | null; titular_cuenta: string | null;
   tareas: string | null; maquinaria: string | null;
 };
@@ -359,7 +360,8 @@ function PersonalTab() {
           <TableRow>
             <TableHead>Nombre</TableHead><TableHead>DNI</TableHead><TableHead>CUIL</TableHead>
             <TableHead>Función</TableHead><TableHead>Contratación</TableHead>
-            <TableHead className="text-right">Básico</TableHead>
+            <TableHead>Forma de pago</TableHead>
+            <TableHead className="text-right">Importe acordado</TableHead>
             <TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -381,7 +383,10 @@ function PersonalTab() {
               <TableCell>{r.funcion ?? r.cargo ?? "—"}</TableCell>
               <TableCell>{r.tipo_contratacion ?? "—"}</TableCell>
               <TableCell>{r.forma_pago ?? "—"}</TableCell>
-              <TableCell className="text-right">{formatPesos(r.sueldo_bruto)}</TableCell>
+              <TableCell className="text-right">
+                {formatPesos(Number(r.importe_periodo ?? 0) || Number(r.sueldo_bruto ?? 0))}
+                <div className="text-xs text-muted-foreground">{r.frecuencia_pago ?? "Mensual"}</div>
+              </TableCell>
               <TableCell>{r.activo
                 ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Activo</Badge>
                 : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
