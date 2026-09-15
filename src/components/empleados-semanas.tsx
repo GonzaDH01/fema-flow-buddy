@@ -195,21 +195,21 @@ export function SemanasTrabajadasTab() {
       <div className="rounded-lg border bg-card">
         <div className="flex items-center justify-between gap-3 p-4 border-b flex-wrap">
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, -7)); setDraft({}); }}>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, -7)); }}>
               <ChevronLeft className="size-4" />
             </Button>
             <div className="text-sm">
               <div className="font-medium">Semana del {formatFecha(semana)} al {formatFecha(finSemana)}</div>
               <div className="text-xs text-muted-foreground">Tildá los días que trabajó cada empleado</div>
             </div>
-            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, 7)); setDraft({}); }}>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => { setSemana(sumarDias(semana, 7)); }}>
               <ChevronRight className="size-4" />
             </Button>
           </div>
           <div className="flex items-end gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Ir a la semana de</Label>
-              <Input type="date" className="h-9 w-40" value={semana} onChange={(e) => { setSemana(lunesDe(e.target.value)); setDraft({}); }} />
+              <Input type="date" className="h-9 w-40" value={semana} onChange={(e) => { setSemana(lunesDe(e.target.value)); }} />
             </div>
             <ExtraDialog
               empleados={activos.map((e) => ({ id: e.id, nombre: e.nombre }))}
