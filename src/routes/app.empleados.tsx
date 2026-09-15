@@ -382,7 +382,10 @@ function PersonalTab() {
               <TableCell>{r.funcion ?? r.cargo ?? "—"}</TableCell>
               <TableCell>{r.tipo_contratacion ?? "—"}</TableCell>
               <TableCell>{r.forma_pago ?? "—"}</TableCell>
-              <TableCell className="text-right">{formatPesos(r.sueldo_bruto)}</TableCell>
+              <TableCell className="text-right">
+                {formatPesos(Number(r.importe_periodo ?? 0) || Number(r.sueldo_bruto ?? 0))}
+                <div className="text-xs text-muted-foreground">{r.frecuencia_pago ?? "Mensual"}</div>
+              </TableCell>
               <TableCell>{r.activo
                 ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Activo</Badge>
                 : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
