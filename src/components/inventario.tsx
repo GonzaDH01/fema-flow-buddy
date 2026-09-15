@@ -231,7 +231,9 @@ export function Inventario() {
                     {[a.tipo, a.marca, a.modelo, a.anio].filter(Boolean).join(" · ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {(porActivo[a.id]?.length ?? 0)} imagen(es){a.ubicacion ? ` · ${a.ubicacion}` : ""}
+                    {(porActivo[a.id]?.length ?? 0)} imagen(es)
+                    {(docsPorActivo[a.id]?.length ?? 0) > 0 ? ` · ${docsPorActivo[a.id].length} PDF` : ""}
+                    {a.ubicacion ? ` · ${a.ubicacion}` : ""}
                   </p>
                 </div>
               </button>
