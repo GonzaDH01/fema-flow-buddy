@@ -201,6 +201,9 @@ function Page() {
                 <TableCell className="text-right">{formatNumero(p.total_metros, 0)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" title="Imprimir" onClick={() => imprimirPlanilla(p)}>
+                      <Printer className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
