@@ -506,7 +506,7 @@ function ActivoForm({
       const restantes = (existentes ?? []).filter((item) => item.id !== im.id);
       let siguienteId: string | undefined;
       if (im.es_principal && restantes.length > 0) {
-        siguienteId = [...restantes].sort((a, b) => a.orden - b.orden)[0]?.id;
+        siguienteId = restantes.filter((r) => !r.es_documento).sort((a, b) => a.orden - b.orden)[0]?.id;
         if (siguienteId) {
           const { error: principalError } = await supabase
             .from("fema_activo_imagenes")
