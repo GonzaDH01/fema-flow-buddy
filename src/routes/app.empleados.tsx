@@ -46,6 +46,7 @@ type Empleado = {
   observaciones: string | null; cargo: string | null;
   foto_path: string | null; dni_frente_path: string | null; dni_dorso_path: string | null;
   fecha_nacimiento: string | null; forma_pago: string | null; frecuencia_pago: string | null;
+  importe_periodo: number | null;
   banco: string | null; cbu: string | null; alias_cbu: string | null; titular_cuenta: string | null;
   tareas: string | null; maquinaria: string | null;
 };
