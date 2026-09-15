@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ImagePlus, Wrench, X, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { FormField } from "@/lib/form-helpers";
@@ -28,16 +28,35 @@ type Activo = {
   estado: string;
   ubicacion: string | null;
   responsable: string | null;
+  responsable_empleado_id: string | null;
   valor_compra: number | null;
+  moneda_compra: string | null;
   fecha_compra: string | null;
   mantenimiento: string | null;
   proximo_service: string | null;
   observaciones: string | null;
 };
 type Imagen = { id: string; activo_id: string; path: string; orden: number; es_principal: boolean };
+type EmpleadoOpt = { id: string; nombre: string };
 
-const money = (n: number | null) =>
-  n == null ? "—" : `$ ${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+const money = (n: number | null, moneda?: string | null) =>
+  n == null
+    ? "—"
+    : `${moneda === "USD" ? "US$" : "$"} ${Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
+
+function useEmpleados() {
+  return useQuery({
+    queryKey: ["fema_empleados_inventario"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_empleados")
+        .select("id,nombre")
+        .order("nombre");
+      if (error) throw error;
+      return (data ?? []) as EmpleadoOpt[];
+    },
+  });
+}
 
 const estadoVariant = (e: string) =>
   e === "Operativo" ? "default" : e === "En reparación" ? "secondary" : "outline";
@@ -178,9 +197,9 @@ export function Inventario() {
                 onClick={() => setDetalle(a)}
                 className="group overflow-hidden rounded-lg border border-border bg-card text-left transition hover:border-primary"
               >
-                <div className="flex h-40 items-center justify-center overflow-hidden bg-muted">
+                <div className="flex h-44 items-center justify-center overflow-hidden bg-muted p-2">
                   {src ? (
-                    <img src={src} alt={a.nombre} className="h-full w-full object-cover transition group-hover:scale-105" />
+                    <img src={src} alt={a.nombre} className="h-full w-full object-contain transition group-hover:scale-105" />
                   ) : (
                     <Wrench className="h-8 w-8 text-muted-foreground" />
                   )}
@@ -268,7 +287,7 @@ function DetalleActivo({
     ["Estado", activo.estado],
     ["Ubicación", activo.ubicacion ?? "—"],
     ["Responsable", activo.responsable ?? "—"],
-    ["Valor de compra", money(activo.valor_compra)],
+    ["Valor de compra", money(activo.valor_compra, activo.moneda_compra)],
     ["Fecha de compra", activo.fecha_compra ?? "—"],
     ["Próximo servicio", activo.proximo_service ?? "—"],
   ];
@@ -385,7 +404,9 @@ function ActivoForm({
     estado: initial?.estado ?? "Operativo",
     ubicacion: initial?.ubicacion ?? "",
     responsable: initial?.responsable ?? "",
+    responsable_empleado_id: initial?.responsable_empleado_id ?? "",
     valor_compra: initial?.valor_compra != null ? String(initial.valor_compra) : "",
+    moneda_compra: initial?.moneda_compra ?? "ARS",
     fecha_compra: initial?.fecha_compra ?? "",
     proximo_service: initial?.proximo_service ?? "",
     mantenimiento: initial?.mantenimiento ?? "",
@@ -394,6 +415,7 @@ function ActivoForm({
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const { data: empleados } = useEmpleados();
 
   const { data: existentes, refetch } = useQuery({
     queryKey: ["fema_activo_imagenes", initial?.id],
@@ -421,6 +443,17 @@ function ActivoForm({
     refetch();
   };
 
+  const marcarPortada = async (im: Imagen) => {
+    await supabase.from("fema_activo_imagenes").update({ es_principal: false }).eq("activo_id", im.activo_id);
+    const { error } = await supabase.from("fema_activo_imagenes").update({ es_principal: true }).eq("id", im.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Imagen de portada actualizada");
+    refetch();
+  };
+
   const guardar = async () => {
     if (v.nombre.trim().length < 2) {
       toast.error("Ingresá el nombre del bien");
@@ -438,7 +471,9 @@ function ActivoForm({
       estado: v.estado,
       ubicacion: v.ubicacion || null,
       responsable: v.responsable || null,
+      responsable_empleado_id: v.responsable_empleado_id || null,
       valor_compra: v.valor_compra ? Number(v.valor_compra) : null,
+      moneda_compra: v.moneda_compra,
       fecha_compra: v.fecha_compra || null,
       proximo_service: v.proximo_service || null,
       mantenimiento: v.mantenimiento || null,
@@ -545,11 +580,43 @@ function ActivoForm({
             <Input value={v.ubicacion} onChange={set("ubicacion")} placeholder="Galpón, campo, taller…" />
           </FormField>
           <FormField label="Responsable">
-            <Input value={v.responsable} onChange={set("responsable")} />
+            <Select
+              value={v.responsable_empleado_id || "__ninguno"}
+              onValueChange={(x) =>
+                setV((s) => ({
+                  ...s,
+                  responsable_empleado_id: x === "__ninguno" ? "" : x,
+                  responsable: x === "__ninguno" ? "" : (empleados ?? []).find((e) => e.id === x)?.nombre ?? "",
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Elegir empleado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__ninguno">Sin responsable</SelectItem>
+                {(empleados ?? []).map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <FormField label="Valor de compra">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <FormField label="Moneda">
+            <Select value={v.moneda_compra} onValueChange={(x) => setV((s) => ({ ...s, moneda_compra: x }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ARS">Pesos (ARS)</SelectItem>
+                <SelectItem value="USD">Dólares (USD)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label={`Valor de compra (${v.moneda_compra === "USD" ? "US$" : "$"})`}>
             <Input type="number" step="0.01" value={v.valor_compra} onChange={set("valor_compra")} />
           </FormField>
           <FormField label="Fecha de compra">
@@ -569,25 +636,49 @@ function ActivoForm({
         <div className="space-y-2 rounded-md border border-border p-3">
           <p className="text-sm font-medium">Imágenes</p>
           {!!existentes?.length && (
-            <div className="flex flex-wrap gap-2">
-              {existentes.map((im) => (
-                <div key={im.id} className="relative h-20 w-24 overflow-hidden rounded-md border border-border">
-                  {urls?.[im.path] ? (
-                    <img src={urls[im.path]} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-muted" />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="absolute right-1 top-1 h-6 w-6"
-                    onClick={() => borrarImagen(im)}
+            <>
+              <p className="text-xs text-muted-foreground">
+                Tocá la estrella para elegir cuál es la imagen de portada del bien.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {existentes.map((im) => (
+                  <div
+                    key={im.id}
+                    className={`relative h-24 w-28 overflow-hidden rounded-md border bg-muted ${
+                      im.es_principal ? "border-primary ring-2 ring-ring" : "border-border"
+                    }`}
                   >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    {urls?.[im.path] ? (
+                      <img src={urls[im.path]} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="h-full w-full bg-muted" />
+                    )}
+                    <Button
+                      size="icon"
+                      variant={im.es_principal ? "default" : "secondary"}
+                      className="absolute left-1 top-1 h-6 w-6"
+                      title="Usar como portada"
+                      onClick={() => marcarPortada(im)}
+                    >
+                      <Star className={`h-3 w-3 ${im.es_principal ? "fill-current" : ""}`} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute right-1 top-1 h-6 w-6"
+                      onClick={() => borrarImagen(im)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    {im.es_principal && (
+                      <span className="absolute bottom-0 w-full bg-primary/80 py-0.5 text-center text-[10px] text-primary-foreground">
+                        Portada
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           <Input
             type="file"
