@@ -12,6 +12,8 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ingresarCombustibleAlTanque, precioPorLitro } from "@/lib/combustible-stock";
+import { referenciaCompra } from "@/components/combustible-compras";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -259,6 +261,14 @@ function Page() {
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
   const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
+  // Combustible: define si los litros entran al tanque de suministro de la empresa
+  // o si son cargas de vehículos particulares (no suman stock).
+  const [sumaTanque, setSumaTanque] = useState(true);
+  const esCombustible =
+    kind === "compra" &&
+    (!!result?.es_combustible ||
+      result?.categoria_sugerida === "Gasoil_Combustible" ||
+      Number(result?.litros ?? 0) > 0);
 
   const { data: empleadosOCR } = useQuery({
     queryKey: ["fema_empleados_min"],
