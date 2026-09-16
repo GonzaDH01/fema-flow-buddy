@@ -1181,8 +1181,8 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
             </Select>
           </FormField>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
-            <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
+            <FormField label="Metros de bolsa"><Input className="min-w-[100px]" type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
+            <FormField label="Precio unitario ($/m)"><Input className="min-w-[120px]" type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
             <FormField label="Importe">
               <Input readOnly value={formatPesos(importeBolsa)} className="bg-muted/30" />
             </FormField>
