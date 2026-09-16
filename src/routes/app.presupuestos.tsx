@@ -279,6 +279,43 @@ function PresupuestoForm({
   const [consideraciones, setConsideraciones] = useState(initial?.consideraciones ?? "");
   const [items, setItems] = useState<Item[]>([]);
   const [saving, setSaving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerFilter, setPickerFilter] = useState("");
+  const [seleccion, setSeleccion] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem(FRECUENTES_KEY) ?? "[]") as string[]; } catch { return []; }
+  });
+
+  const { data: productos } = useQuery({
+    queryKey: ["fema_productos_presupuesto"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("fema_productos")
+        .select("id,nombre,categoria,unidad_medida,precio,precio_venta")
+        .order("nombre");
+      return (data ?? []) as ProductoServicio[];
+    },
+  });
+
+  const toggleFrecuente = (id: string) => {
+    setSeleccion((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try { window.localStorage.setItem(FRECUENTES_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const frecuentes = useMemo(
+    () => (productos ?? []).filter((p) => seleccion.includes(p.id)),
+    [productos, seleccion],
+  );
+
+  const productosFiltrados = useMemo(() => {
+    const q = pickerFilter.trim().toLowerCase();
+    const rows = productos ?? [];
+    if (!q) return rows;
+    return rows.filter((p) => `${p.nombre} ${p.categoria ?? ""}`.toLowerCase().includes(q));
+  }, [productos, pickerFilter]);
 
   useEffect(() => {
     if (!initial) { setItems([]); return; }
