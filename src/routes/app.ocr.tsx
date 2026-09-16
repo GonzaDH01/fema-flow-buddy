@@ -1038,7 +1038,110 @@ function Page() {
               </Badge>
             )}
           </div>
-          {!result ? (
+          {kind === "planilla" ? (
+            !planilla ? (
+              <p className="grid h-64 place-items-center text-sm text-muted-foreground">
+                Subí la foto de la planilla y presioná Analizar.
+              </p>
+            ) : (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fecha</Label>
+                    <Input type="date" value={planilla.fecha ?? ""} onChange={(e) => setPlanilla({ ...planilla, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
+                  </div>
+                  <EditableOCRField label="Cliente" value={planilla.cliente ?? ""} onChange={(v) => setPlanilla({ ...planilla, cliente: v })} />
+                  <EditableOCRField label="Establecimiento" value={planilla.establecimiento ?? ""} onChange={(v) => setPlanilla({ ...planilla, establecimiento: v })} />
+                  <EditableOCRField label="Lote" value={planilla.lote ?? ""} onChange={(v) => setPlanilla({ ...planilla, lote: v })} />
+                  <EditableOCRField label="Zona / Localidad" value={planilla.zona ?? ""} onChange={(v) => setPlanilla({ ...planilla, zona: v })} />
+                  <EditableOCRField label="Cultivo" value={planilla.cultivo ?? ""} onChange={(v) => setPlanilla({ ...planilla, cultivo: v })} />
+                  <EditableOCRField label="Bolsero" value={planilla.bolsero ?? ""} onChange={(v) => setPlanilla({ ...planilla, bolsero: v })} />
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Metros por bolsa (1 a {CANT_BOLSAS_OCR})</Label>
+                  <div className="mt-1 grid grid-cols-7 gap-2">
+                    {Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => (
+                      <Input
+                        key={i}
+                        inputMode="decimal"
+                        value={String(planilla.bolsas?.[i] ?? "")}
+                        onChange={(e) => {
+                          const arr = Array.from({ length: CANT_BOLSAS_OCR }, (_, j) => planilla.bolsas?.[j] ?? "");
+                          arr[i] = e.target.value;
+                          setPlanilla({ ...planilla, bolsas: arr });
+                        }}
+                        className="h-8 px-1 text-center text-sm"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Equipos y viajes</Label>
+                  <div className="mt-1 space-y-2">
+                    {(planilla.equipos ?? []).map((eq, i) => (
+                      <div key={i} className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-2">
+                        <Input
+                          value={eq.equipo ?? ""}
+                          placeholder="Equipo"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, equipo: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-4 h-8 text-sm"
+                        />
+                        <Input
+                          value={eq.chofer ?? ""}
+                          placeholder="Chofer"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, chofer: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-4 h-8 text-sm"
+                        />
+                        <Input
+                          inputMode="numeric"
+                          value={String(eq.viajes ?? "")}
+                          placeholder="Viajes"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, viajes: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-2 h-8 text-center text-sm"
+                        />
+                        <span className="col-span-2 text-[11px] text-muted-foreground">
+                          {eq.es_tercero ? "Tercero" : "Propio"}
+                        </span>
+                      </div>
+                    ))}
+                    {!(planilla.equipos ?? []).length && (
+                      <p className="text-xs text-muted-foreground">No se detectaron equipos con viajes en la foto.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Observaciones</Label>
+                  <textarea
+                    value={planilla.observaciones ?? ""}
+                    onChange={(e) => setPlanilla({ ...planilla, observaciones: e.target.value })}
+                    className="mt-1 h-20 w-full rounded-md border border-input bg-background p-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={guardarPlanilla} disabled={saving}>
+                    {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                    Guardar en Planilla Bolsero
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : !result ? (
             <p className="grid h-64 place-items-center text-sm text-muted-foreground">
               Subí una factura y presioná Analizar.
             </p>
