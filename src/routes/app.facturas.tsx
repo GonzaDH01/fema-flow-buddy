@@ -1152,8 +1152,8 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
             </Select>
           </FormField>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
-            <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
+            <FormField label="Hectáreas"><Input className="min-w-[100px]" type="number" step="0.01" {...f.register("hectareas")} /></FormField>
+            <FormField label="Precio unitario ($/ha)"><Input className="min-w-[120px]" type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
             <FormField label="Importe">
               <Input readOnly value={formatPesos(importePicado)} className="bg-muted/30" />
             </FormField>
@@ -1181,8 +1181,8 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
             </Select>
           </FormField>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Metros de bolsa"><Input type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
-            <FormField label="Precio unitario ($/m)"><Input type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
+            <FormField label="Metros de bolsa"><Input className="min-w-[100px]" type="number" step="0.01" {...f.register("metros_bolsa")} /></FormField>
+            <FormField label="Precio unitario ($/m)"><Input className="min-w-[120px]" type="number" step="0.01" {...f.register("precio_metro")} /></FormField>
             <FormField label="Importe">
               <Input readOnly value={formatPesos(importeBolsa)} className="bg-muted/30" />
             </FormField>
@@ -1198,9 +1198,9 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
           )}
           <div className="space-y-2">
             {items.map((it, i) => (
-              <div key={i} className="grid grid-cols-12 items-center gap-1.5">
+              <div key={i} className="grid grid-cols-12 items-center gap-2">
                 <Select value={it.producto_id || ""} onValueChange={(v) => elegirProducto(i, v)}>
-                  <SelectTrigger className="col-span-4 h-8 text-xs"><SelectValue placeholder="Producto…" /></SelectTrigger>
+                  <SelectTrigger className="col-span-3 h-8 text-xs"><SelectValue placeholder="Producto…" /></SelectTrigger>
                   <SelectContent>
                     {(productos ?? []).map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.nombre} ({p.unidad_medida})</SelectItem>
@@ -1214,12 +1214,12 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
                   onChange={(e) => updateItem(i, { descripcion: e.target.value })}
                 />
                 <Input
-                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Cant."
+                  type="number" step="1" className="col-span-3 h-8 min-w-[80px] text-xs" placeholder="Cant."
                   value={it.cantidad}
                   onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })}
                 />
                 <Input
-                  type="number" step="0.01" className="col-span-2 h-8 text-xs" placeholder="Precio"
+                  type="number" step="0.01" className="col-span-2 h-8 min-w-[90px] text-xs" placeholder="Precio"
                   value={it.precio_unitario}
                   onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })}
                 />
