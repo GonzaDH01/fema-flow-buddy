@@ -589,6 +589,7 @@ export type Database = {
       }
       fema_combustible: {
         Row: {
+          activo_id: string | null
           anio: number | null
           co2: number | null
           created_at: string
@@ -608,6 +609,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          activo_id?: string | null
           anio?: number | null
           co2?: number | null
           created_at?: string
@@ -627,6 +629,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          activo_id?: string | null
           anio?: number | null
           co2?: number | null
           created_at?: string
@@ -646,6 +649,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fema_combustible_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fema_combustible_equipo_id_fkey"
             columns: ["equipo_id"]
