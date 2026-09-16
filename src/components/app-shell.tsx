@@ -176,6 +176,21 @@ export function AppShell() {
     .map((s) => ({ ...s, items: s.items.filter((i) => allowed(i.key)) }))
     .filter((s) => s.items.length > 0);
 
+  // Módulo correspondiente a la ruta actual (para bloquear el acceso directo por URL).
+  const allItems = sections.flatMap((s) => s.items);
+  const currentItem =
+    allItems.find((i) => (i.exact ? loc.pathname === i.to : loc.pathname !== "/app" && loc.pathname.startsWith(i.to))) ??
+    null;
+  const rutaPermitida = currentItem ? allowed(currentItem.key) : true;
+  const primeraRuta = visibleSections[0]?.items[0]?.to ?? null;
+
+  useEffect(() => {
+    if (loadingProfile || !profile || !profile.aprobado) return;
+    if (rutaPermitida) return;
+    if (primeraRuta) navigate({ to: primeraRuta, replace: true });
+  }, [loadingProfile, profile, rutaPermitida, primeraRuta, navigate]);
+
+
   const Sidebar = (
     <aside
       className={`flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out ${
