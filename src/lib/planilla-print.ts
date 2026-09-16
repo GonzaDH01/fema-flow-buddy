@@ -19,105 +19,187 @@ export type PlanillaImpresion = {
   bolsas?: (number | string | null)[] | null;
   total_viajes?: number | null;
   total_metros?: number | null;
+  equipos?: EquipoImpresion[] | null;
 };
 
-const EQUIPOS_BASE = ["FORD 700", "CHEVROLET 660", "CARRO FONTANINI", "MB BATEA"];
+const EQUIPOS_BASE = ["FORD 700", "CHEVROLET 600", "CARRO FONTANINI"];
+const CONTEO = 30;
 const v = (x: unknown) => (x === null || x === undefined || x === "" || x === 0 ? "" : String(x));
 
-const fechaLarga = (f?: string | null) => {
-  if (!f) return "";
+const fechaPartes = (f?: string | null) => {
+  if (!f) return ["", "", ""];
   const [a, m, d] = f.split("-");
-  return `${d}/${m}/${a}`;
+  return [d ?? "", m ?? "", a ?? ""];
 };
 
-export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 5, cantBolsas = 7) {
-  const bolsas = Array.from({ length: cantBolsas }, (_, i) => v(p?.bolsas?.[i]));
-  const propios = EQUIPOS_BASE.map((n) => ({ equipo_nombre: n, chofer: "", dominio: "", viajes: "", metros_bolsa: "" }));
-  const contratistas = Array.from({ length: cantContratistas }, () => ({
-    equipo_nombre: "", chofer: "", dominio: "", viajes: "", metros_bolsa: "",
-  }));
+/** 30 casillas en 6 grupos de 5; se marcan con X las primeras `viajes`. */
+const conteoHTML = (viajes: number) => {
+  let html = "";
+  for (let g = 0; g < 6; g++) {
+    html += `<span class="grp">`;
+    for (let i = 0; i < 5; i++) {
+      const n = g * 5 + i + 1;
+      html += `<span class="tick">${n <= viajes ? "X" : ""}</span>`;
+    }
+    html += `</span>`;
+  }
+  return html;
+};
 
-  const filaEquipo = (e: { equipo_nombre: string; chofer: string; dominio: string; viajes: string; metros_bolsa: string }, fijo: boolean) => `
-    <tr>
-      <td class="eq">${fijo ? e.equipo_nombre : `<span class="linea"></span>`}</td>
-      <td>Chofer: <span class="linea"></span></td>
-      <td>Dominio: <span class="linea"></span></td>
-      <td class="num">${e.viajes}</td>
-      <td class="num">${e.metros_bolsa}</td>
-    </tr>`;
+const filaEquipo = (
+  nombre: string,
+  chofer: string,
+  dominio: string,
+  viajes: number | string,
+  fijo: boolean,
+  idx?: number,
+) => `
+  <tr>
+    <td class="eq">${fijo ? (nombre || "&nbsp;") : `${idx}. <span class="linea">${nombre}</span>`}</td>
+    <td class="ch">Chofer: <span class="linea">${chofer}</span>${dominio ? `<br/><span class="dom">Dom.: ${dominio}</span>` : ""}</td>
+    <td class="conteo">${conteoHTML(Number(viajes) || 0)}</td>
+    <td class="tot"><span class="cajaTot">${v(viajes)}</span></td>
+  </tr>`;
+
+export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 4, cantBolsas = 7) {
+  const bolsas = Array.from({ length: cantBolsas }, (_, i) => v(p?.bolsas?.[i]));
+  const [dd, mm, aa] = fechaPartes(p?.fecha);
+
+  const cargados = p?.equipos ?? [];
+  const propiosCargados = cargados.filter((e) => !e.es_tercero);
+  const tercerosCargados = cargados.filter((e) => e.es_tercero);
+
+  const propios = propiosCargados.length
+    ? propiosCargados
+    : EQUIPOS_BASE.map((n) => ({ equipo_nombre: n, chofer: "", dominio: "", viajes: "", es_tercero: false }));
+
+  const terceros = [...tercerosCargados];
+  while (terceros.length < cantContratistas) {
+    terceros.push({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", es_tercero: true });
+  }
+
+  const totalMetros = v(p?.total_metros);
+  const totMet = [totalMetros.slice(0, -2), totalMetros.slice(-2, -1), totalMetros.slice(-1)];
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8" />
 <title>Planilla Bolsero</title>
 <style>
-  @page { size: A4 landscape; margin: 10mm; }
+  @page { size: A4 landscape; margin: 8mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #10233f; font-size: 11px; margin: 0; }
-  h1 { font-size: 17px; margin: 0; letter-spacing: .5px; }
-  h2 { font-size: 12px; margin: 2px 0 8px; font-weight: 600; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #10233f; font-size: 10px; margin: 0; }
+  h1 { font-size: 19px; margin: 0; letter-spacing: .2px; }
+  h2 { font-size: 11px; margin: 1px 0 0; font-weight: 700; letter-spacing: .2px; }
+  .ver { font-size: 7.5px; color: #3b6098; text-align: right; }
   table { width: 100%; border-collapse: collapse; }
-  td, th { border: 1px solid #10233f; padding: 4px 6px; }
-  .cab td { border: none; padding: 2px 0; }
-  .band { background: #10233f; color: #fff; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
-  .sub { background: #dbe5f1; font-weight: 700; }
-  .linea { display: inline-block; border-bottom: 1px dotted #10233f; min-width: 120px; height: 11px; }
-  .val { font-weight: 700; }
-  .num { text-align: center; width: 70px; }
-  .eq { font-weight: 700; width: 150px; }
-  .box { height: 26px; }
-  .firma { margin-top: 26px; text-align: right; }
-  .firma span { display: inline-block; border-top: 1px solid #10233f; padding-top: 4px; min-width: 240px; text-align: center; }
-  .nota { margin-top: 8px; font-size: 9px; }
+  td, th { border: 1px solid #10233f; padding: 3px 5px; vertical-align: middle; }
+  .cab td { border: none; padding: 3px 4px; font-weight: 700; font-size: 9.5px; }
+  .marco { border: 1.4px solid #10233f; margin-bottom: 6px; }
+  .band td { background: #10233f; color: #fff; font-weight: 700; text-transform: uppercase;
+             letter-spacing: .3px; font-size: 9.5px; padding: 3px 6px; }
+  .sub td { background: #c9d8ec; font-weight: 700; text-transform: uppercase; font-size: 9px; }
+  .head td { background: #dfe8f4; font-weight: 700; text-transform: uppercase; font-size: 9px; text-align: center; }
+  .linea { display: inline-block; border-bottom: 1px dotted #10233f; min-width: 95px; font-weight: 700; }
+  .lg { min-width: 150px; }
+  .caja { display: inline-block; width: 15px; height: 17px; border: 1px solid #10233f; margin-right: 2px;
+          text-align: center; font-weight: 700; line-height: 17px; vertical-align: middle; }
+  .cajaTot { display: inline-block; width: 30px; height: 19px; border: 1.2px solid #10233f;
+             text-align: center; font-weight: 700; line-height: 19px; }
+  .bolsa td { text-align: center; }
+  .grp { display: inline-block; margin-right: 7px; }
+  .tick { display: inline-block; width: 11px; height: 12px; border: 1px solid #10233f; margin-right: 1.5px;
+          font-size: 8px; line-height: 12px; text-align: center; font-weight: 700; }
+  .eq { font-weight: 700; width: 145px; font-size: 9.5px; }
+  .ch { width: 185px; font-size: 9px; }
+  .dom { font-size: 8px; }
+  .conteo { text-align: center; }
+  .tot { text-align: center; width: 62px; }
+  .pie { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px; }
+  .nota { font-size: 7.5px; line-height: 1.5; }
+  .firma { text-align: center; }
+  .firma span { display: inline-block; border-top: 1px solid #10233f; padding-top: 3px;
+                min-width: 250px; font-weight: 700; font-size: 9px; }
 </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div class="ver">[REGISTRO DIARIO / OCR - V8]</div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:5px">
     <div>
       <h1>FEMA AGRONEGOCIOS S.A.S.</h1>
       <h2>PLANILLA DIARIA DE PICADO Y EMBOLSADO</h2>
     </div>
-    <div><strong>FECHA TRABAJO:</strong> <span class="val">${fechaLarga(p?.fecha) || "___ / ___ / ______"}</span></div>
+    <div style="font-weight:700;font-size:10px">
+      FECHA TRABAJO: <span class="linea" style="min-width:34px;text-align:center">${dd}</span> /
+      <span class="linea" style="min-width:34px;text-align:center">${mm}</span> /
+      <span class="linea" style="min-width:46px;text-align:center">${aa}</span>
+    </div>
   </div>
 
-  <table style="margin-bottom:8px"><tr><td>
+  <div class="marco">
     <table class="cab">
       <tr>
-        <td style="width:34%">CLIENTE: <span class="linea val">${v(p?.cliente_nombre)}</span></td>
-        <td style="width:33%">ESTABLECIMIENTO: <span class="linea val">${v(p?.establecimiento)}</span></td>
-        <td style="width:33%">BOLSERO INTERV.: <span class="linea val">${v(p?.bolsero_nombre)}</span></td>
+        <td style="width:36%">CLIENTE: <span class="linea lg">${v(p?.cliente_nombre)}</span></td>
+        <td style="width:34%">ESTABLECIMIENTO: <span class="linea">${v(p?.establecimiento)}</span></td>
+        <td style="width:30%">BOLSERO INTERV.: <span class="linea">${v(p?.bolsero_nombre)}</span></td>
       </tr>
       <tr>
-        <td>LOTE: <span class="linea val">${v(p?.lote)}</span></td>
-        <td>ZONA / LOC.: <span class="linea val">${v(p?.zona)}</span></td>
-        <td>CULTIVO: <span class="linea val">${v(p?.cultivo)}</span></td>
+        <td>LOTE: <span class="linea lg">${v(p?.lote)}</span></td>
+        <td>ZONA / LOC.: <span class="linea">${v(p?.zona)}</span></td>
+        <td>CULTIVO: <span class="linea">${v(p?.cultivo)}</span></td>
       </tr>
     </table>
-  </td></tr></table>
+  </div>
 
-  <table style="margin-bottom:8px">
-    <tr><td class="band" colspan="${cantBolsas}">1. Registro de bolsas realizadas en el día (mts. por bolsa)</td>
-        <td class="band num">Total metros día</td></tr>
-    <tr class="sub">${bolsas.map((_, i) => `<td class="num">Bolsa ${i + 1}</td>`).join("")}<td class="num"></td></tr>
-    <tr>${bolsas.map((b) => `<td class="num box">${b}</td>`).join("")}
-        <td class="num box val">${v(p?.total_metros)}</td></tr>
+  <table style="margin-bottom:6px">
+    <tr class="band">
+      <td colspan="${cantBolsas}">1. Registro de bolsas realizadas en el día (mts. por bolsa)</td>
+      <td style="width:130px;text-align:center">Total metros día</td>
+    </tr>
+    <tr class="head">
+      ${bolsas.map((_, i) => `<td>Bolsa ${i + 1}</td>`).join("")}
+      <td rowspan="2" style="background:#fff">
+        <span class="caja">${totMet[0]}</span><span class="caja">${totMet[1]}</span><span class="caja">${totMet[2]}</span> m
+      </td>
+    </tr>
+    <tr class="bolsa">
+      ${bolsas
+        .map((b) => {
+          const s = String(b);
+          return `<td><span class="caja">${s.slice(0, -1) || ""}</span><span class="caja">${s.slice(-1) || ""}</span> m</td>`;
+        })
+        .join("")}
+    </tr>
   </table>
 
   <table>
-    <tr><td class="band" colspan="5">2. Registro de viajes por carro / transportista</td></tr>
-    <tr class="sub"><td>Equipo / Vehículo</td><td>Chofer</td><td>Dominio</td><td class="num">Total viajes</td><td class="num">Mts. bolsa</td></tr>
-    <tr><td class="sub" colspan="5">Equipos propios de la empresa</td></tr>
-    ${propios.map((e) => filaEquipo(e, true)).join("")}
-    <tr><td class="sub" colspan="5">Contratistas / Terceros</td></tr>
-    ${contratistas.map((e) => filaEquipo(e, false)).join("")}
-    <tr><td colspan="3" style="text-align:right;font-weight:700">TOTALES</td>
-        <td class="num val">${v(p?.total_viajes)}</td><td class="num val">${v(p?.total_metros)}</td></tr>
+    <tr class="band"><td colspan="4">2. Registro de viajes por carro / transportista</td></tr>
+    <tr class="head">
+      <td>Equipo / Vehículo</td>
+      <td>Chofer / Dominio</td>
+      <td>Conteo de viajes (marcar "X" - hasta ${CONTEO} viajes)</td>
+      <td>Total viajes</td>
+    </tr>
+    <tr class="sub"><td colspan="4">Equipos propios de la empresa</td></tr>
+    ${propios
+      .map((e) => filaEquipo(e.equipo_nombre, v(e.chofer), v(e.dominio), v(e.viajes), true))
+      .join("")}
+    <tr class="sub"><td colspan="4">Contratistas / Terceros</td></tr>
+    ${terceros
+      .map((e, i) => filaEquipo(e.equipo_nombre, v(e.chofer), v(e.dominio), v(e.viajes), false, i + 1))
+      .join("")}
   </table>
 
-  <div class="nota">Observaciones: <span class="linea val" style="min-width:420px">${v(p?.observaciones)}</span></div>
-  <div class="nota">Modo de llenado: 1. Escriba los metros por bolsa en las casillas correspondientes. 2. Anote la cantidad de viajes de cada equipo y el total de metros.</div>
-  <div class="firma"><span>Firma Bolsero / Operador Responsable</span></div>
+  <div class="pie">
+    <div class="nota">
+      <strong>Modo de Llenado:</strong><br/>
+      1. Escriba los metros por bolsa en sus casillas correspondientes.<br/>
+      2. Marque con una "X" cada recuadro por viaje realizado (hasta ${CONTEO}) y anote el número final en la casilla correspondiente.
+      ${p?.observaciones ? `<br/><strong>Observaciones:</strong> ${v(p.observaciones)}` : ""}
+    </div>
+    <div class="firma"><span>Firma Bolsero / Operador Responsable</span></div>
+  </div>
 </body></html>`;
 }
 
 export function imprimirPlanilla(p: PlanillaImpresion | null) {
-  const w = window.open("", "_blank", "width=1100,height=800");
+  const w = window.open("", "_blank", "width=1150,height=800");
   if (!w) return false;
   w.document.write(planillaHTML(p));
   w.document.close();
