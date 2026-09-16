@@ -441,6 +441,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
   const [archivo, setArchivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imagenPath, setImagenPath] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
 
   const empMap = useMemo(() => new Map(empleados.map((e) => [e.id, e.nombre])), [empleados]);
   const responsableDe = (a: Activo) =>
