@@ -24,6 +24,43 @@ const BUCKET = "planillas-img";
 const CANT_BOLSAS = 7;
 const MAX_VIAJES = 30;
 
+/** Reduce la foto de la planilla a un tamaño que el lector pueda procesar (máx ~2200px, JPEG). */
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+    el.src = dataUrl;
+  });
+  const MAX = 2200;
+  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let calidad = 0.85;
+  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  while (base64.length > 3_800_000 && calidad > 0.35) {
+    calidad -= 0.15;
+    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  }
+  return { base64, mimeType: "image/jpeg" };
+}
+
+const texto = (x: unknown) => (x != null && String(x).trim() ? String(x).trim() : "");
+const numero = (x: unknown) => {
+  const n = Number(String(x ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
+
 type Planilla = {
   id: string; fecha: string; bolsero_empleado_id: string | null; bolsero_nombre: string | null;
   cliente_id: string | null; cliente_nombre: string | null; establecimiento: string | null; lote: string | null;
