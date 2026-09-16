@@ -1150,7 +1150,7 @@ function Page() {
                   <Label className="text-xs text-muted-foreground">Equipos y viajes</Label>
                   <div className="mt-1 space-y-2">
                     {(planilla.equipos ?? []).map((eq, i) => (
-                      <div key={i} className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-2">
+                      <div key={i} className="grid grid-cols-6 items-center gap-2 rounded-md border border-border p-2 sm:grid-cols-12">
                         <Input
                           value={eq.equipo ?? ""}
                           placeholder="Equipo"
@@ -1159,7 +1159,7 @@ function Page() {
                             arr[i] = { ...eq, equipo: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-4 h-8 text-sm"
+                          className="col-span-6 h-9 text-sm sm:col-span-4"
                         />
                         <Input
                           value={eq.chofer ?? ""}
@@ -1169,7 +1169,7 @@ function Page() {
                             arr[i] = { ...eq, chofer: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-4 h-8 text-sm"
+                          className="col-span-4 h-9 text-sm sm:col-span-4"
                         />
                         <Input
                           inputMode="numeric"
@@ -1180,12 +1180,13 @@ function Page() {
                             arr[i] = { ...eq, viajes: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-2 h-8 text-center text-sm"
+                          className="col-span-2 h-9 text-center text-sm"
                         />
-                        <span className="col-span-2 text-[11px] text-muted-foreground">
+                        <span className="col-span-6 text-[11px] text-muted-foreground sm:col-span-2">
                           {eq.es_tercero ? "Tercero" : "Propio"}
                         </span>
                       </div>
+
                     ))}
                     {!(planilla.equipos ?? []).length && (
                       <p className="text-xs text-muted-foreground">No se detectaron equipos con viajes en la foto.</p>
