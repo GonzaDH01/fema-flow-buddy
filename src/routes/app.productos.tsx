@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Inventario } from "@/components/inventario";
+import { ImportarCombustible } from "@/components/combustible-compras";
 import { cotizacionOficial, precioEnPesos, precioBase } from "@/lib/cotizacion";
 
 export const Route = createFileRoute("/app/productos")({ component: Page });
@@ -216,6 +217,7 @@ function Page() {
         onDelete={onDelete}
         extraHeader={
           <div className="flex items-center gap-2">
+            <ImportarCombustible />
             <Button
               size="sm"
               variant="outline"
