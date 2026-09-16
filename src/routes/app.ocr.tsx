@@ -866,13 +866,23 @@ function Page() {
           >
             <Truck className="mr-1.5 h-4 w-4" /> Remito
           </Button>
+          <Button
+            type="button"
+            variant={kind === "planilla" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setKind("planilla"); setModo("nuevo"); setDestinoId(null); }}
+          >
+            <ClipboardList className="mr-1.5 h-4 w-4" /> Planilla bolsero
+          </Button>
         </div>
         <p className="ml-auto text-xs text-muted-foreground">
           {kind === "compra"
             ? "Se cargará en Compras"
             : kind === "venta"
               ? "Se cargará en Facturas (ventas)"
-              : "Se cargará en Imágenes → Remitos, con número interno correlativo"}
+              : kind === "remito"
+                ? "Se cargará en Imágenes → Remitos, con número interno correlativo"
+                : "Se cargará en Planilla Bolsero con los viajes y metros leídos"}
         </p>
       </div>
 
