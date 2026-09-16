@@ -1044,6 +1044,40 @@ function Page() {
                 <Label className="text-xs text-muted-foreground">Es combustible</Label>
                 <Input value={result.es_combustible ? "Sí" : "No"} readOnly className="mt-1 h-8 text-sm" />
               </div>
+              {esCombustible && (
+                <>
+                  <EditableOCRField
+                    label="Litros"
+                    value={String(result.litros ?? 0)}
+                    onChange={(v) => setResult({ ...result, litros: num(v) })}
+                  />
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Precio de referencia por litro</Label>
+                    <Input
+                      readOnly
+                      className="mt-1 h-8 text-sm"
+                      value={
+                        precioPorLitro(result.litros ?? 0, result.neto ?? null, result.total ?? null)?.toLocaleString(
+                          "es-AR", { minimumFractionDigits: 2 },
+                        ) ?? "—"
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+                    <span className="text-xs font-medium">¿Estos litros entran al tanque de suministro?</span>
+                    <Button type="button" size="sm" variant={sumaTanque ? "default" : "outline"} onClick={() => setSumaTanque(true)}>
+                      Sí, suma stock al tanque
+                    </Button>
+                    <Button type="button" size="sm" variant={!sumaTanque ? "default" : "outline"} onClick={() => setSumaTanque(false)}>
+                      No, carga de vehículo particular
+                    </Button>
+                    <span className="w-full text-xs text-muted-foreground">
+                      Si suma, los litros entran al producto Combustible del catálogo y al tanque propio, con el precio por litro como referencia.
+                    </span>
+                  </div>
+                </>
+              )}
+
 
               {avisos.length > 0 && (
                 <div className="col-span-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
