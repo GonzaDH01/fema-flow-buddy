@@ -12,6 +12,8 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ingresarCombustibleAlTanque, precioPorLitro } from "@/lib/combustible-stock";
+import { referenciaCompra } from "@/components/combustible-compras";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
@@ -259,6 +261,14 @@ function Page() {
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
   const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
+  // Combustible: define si los litros entran al tanque de suministro de la empresa
+  // o si son cargas de vehículos particulares (no suman stock).
+  const [sumaTanque, setSumaTanque] = useState(true);
+  const esCombustible =
+    kind === "compra" &&
+    (!!result?.es_combustible ||
+      result?.categoria_sugerida === "Gasoil_Combustible" ||
+      Number(result?.litros ?? 0) > 0);
 
   const { data: empleadosOCR } = useQuery({
     queryKey: ["fema_empleados_min"],
@@ -651,7 +661,7 @@ function Page() {
         } catch { /* no bloquear guardado si falla la subida */ }
       }
       if (kind === "compra") {
-        const { error } = await supabase.from("fema_facturas_compra").insert({
+        const { data: creadaC, error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
           proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
@@ -664,9 +674,24 @@ function Page() {
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
           imagen_path,
-        });
+        }).select("id").single();
         if (error) throw error;
         toast.success("Factura de compra guardada");
+        const litrosComb = Number(result.litros ?? 0);
+        if (esCombustible && sumaTanque && litrosComb > 0) {
+          const res = await ingresarCombustibleAlTanque({
+            userId: user.id,
+            litros: litrosComb,
+            precioLitro: precioPorLitro(litrosComb, result.neto ?? null, result.total ?? null),
+            fecha: base.fecha,
+            referencia: referenciaCompra(base.numero, creadaC?.id ?? ""),
+            proveedor: result.emisor ?? null,
+          });
+          if (res.ok) toast.success(`${litrosComb.toLocaleString("es-AR")} lt sumados al tanque de la empresa`);
+          else toast.warning(res.motivo ?? "No se pudo sumar al tanque");
+          qc.invalidateQueries({ queryKey: ["fema_productos"] });
+          qc.invalidateQueries({ queryKey: ["fema_tanque"] });
+        }
       } else {
         const { error } = await supabase.from("fema_facturas_venta").insert({
           ...base,
@@ -1019,6 +1044,40 @@ function Page() {
                 <Label className="text-xs text-muted-foreground">Es combustible</Label>
                 <Input value={result.es_combustible ? "Sí" : "No"} readOnly className="mt-1 h-8 text-sm" />
               </div>
+              {esCombustible && (
+                <>
+                  <EditableOCRField
+                    label="Litros"
+                    value={String(result.litros ?? 0)}
+                    onChange={(v) => setResult({ ...result, litros: num(v) })}
+                  />
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Precio de referencia por litro</Label>
+                    <Input
+                      readOnly
+                      className="mt-1 h-8 text-sm"
+                      value={
+                        precioPorLitro(result.litros ?? 0, result.neto ?? null, result.total ?? null)?.toLocaleString(
+                          "es-AR", { minimumFractionDigits: 2 },
+                        ) ?? "—"
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2">
+                    <span className="text-xs font-medium">¿Estos litros entran al tanque de suministro?</span>
+                    <Button type="button" size="sm" variant={sumaTanque ? "default" : "outline"} onClick={() => setSumaTanque(true)}>
+                      Sí, suma stock al tanque
+                    </Button>
+                    <Button type="button" size="sm" variant={!sumaTanque ? "default" : "outline"} onClick={() => setSumaTanque(false)}>
+                      No, carga de vehículo particular
+                    </Button>
+                    <span className="w-full text-xs text-muted-foreground">
+                      Si suma, los litros entran al producto Combustible del catálogo y al tanque propio, con el precio por litro como referencia.
+                    </span>
+                  </div>
+                </>
+              )}
+
 
               {avisos.length > 0 && (
                 <div className="col-span-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
