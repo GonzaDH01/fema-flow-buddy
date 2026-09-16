@@ -103,6 +103,18 @@ function Page() {
     setEdit(null);
   };
 
+  // Sugiere el próximo código correlativo según la categoría (ej. SRV-007)
+  const sugerirCodigo = (categoria: string) => {
+    const pfx = PREFIJO_CAT[categoria] ?? "GEN";
+    const nums = (data ?? [])
+      .map((r) => r.codigo ?? "")
+      .filter((c) => c.startsWith(`${pfx}-`))
+      .map((c) => Number(c.split("-")[1]))
+      .filter((n) => !isNaN(n));
+    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+    return `${pfx}-${String(next).padStart(3, "0")}`;
+  };
+
   const onSubmit = async (v: FormVals) => {
     const venta = v.precio_venta ? Number(v.precio_venta) : null;
     const payload = {
