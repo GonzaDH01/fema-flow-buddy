@@ -897,9 +897,10 @@ function Page() {
         <p className="mt-1 text-sm text-muted-foreground">Subí una imagen o PDF para extraer datos automáticamente con IA.</p>
       </header>
 
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <Label className="text-sm font-medium">Tipo de comprobante:</Label>
-        <div className="flex gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4">
+        <Label className="w-full text-sm font-medium md:w-auto">Tipo de comprobante:</Label>
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto">
+
           <Button
             type="button"
             variant={kind === "compra" ? "default" : "outline"}
@@ -933,7 +934,8 @@ function Page() {
             <ClipboardList className="mr-1.5 h-4 w-4" /> Planilla bolsero
           </Button>
         </div>
-        <p className="ml-auto text-xs text-muted-foreground">
+        <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
           {kind === "compra"
             ? "Se cargará en Compras"
             : kind === "venta"
@@ -945,9 +947,9 @@ function Page() {
       </div>
 
       {kind === "remito" && (
-        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-          <Label className="text-sm font-medium">El remito es de:</Label>
-          <div className="flex gap-2">
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4">
+          <Label className="w-full text-sm font-medium md:w-auto">El remito es de:</Label>
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:w-auto">
             <Button type="button" size="sm" variant={remitoTipo === "compra" ? "default" : "outline"} onClick={() => setRemitoTipo("compra")}>
               Mercadería recibida (proveedor)
             </Button>
@@ -955,15 +957,16 @@ function Page() {
               Mercadería entregada (cliente)
             </Button>
           </div>
-          <p className="ml-auto text-xs text-muted-foreground">
+          <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
             El remito no genera factura ni movimiento de caja: queda archivado para consulta.
           </p>
         </div>
       )}
 
-      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
-        <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
-        <div className="flex gap-2">
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
+        <Label className="w-full text-sm font-medium md:w-auto">¿Qué querés hacer?</Label>
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:w-auto">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
             <Save className="mr-1.5 h-4 w-4" /> Cargar comprobante nuevo
           </Button>
@@ -971,7 +974,8 @@ function Page() {
             <Paperclip className="mr-1.5 h-4 w-4" /> Adjuntar imagen a uno ya cargado
           </Button>
         </div>
-        <p className="ml-auto text-xs text-muted-foreground">
+        <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
           {modo === "adjuntar"
             ? "No se crea ningún registro: solo se guarda la imagen en el comprobante elegido."
             : "Si el número y el total ya existen, el sistema te avisa y pasa a modo adjuntar."}
