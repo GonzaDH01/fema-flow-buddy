@@ -294,7 +294,7 @@ function Page() {
 
   const pag = usePaginacion(filtered, 50);
 
-  const close = () => { setOpen(false); setEdit(null); setPrefill(null); };
+  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); };
 
   const facturarEstim = (g: EstimGroup) => {
     setEdit(null);
