@@ -844,10 +844,11 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
   year: number;
 }) {
   const inferIva = (r: Row | null): typeof TIPOS_IVA[number] => {
+    // Los comprobantes de servicio se emiten por defecto con IVA 21%; se cambia manualmente si corresponde.
     if (!r) return "21%";
     if ((r.iva_21 ?? 0) > 0) return "21%";
     if ((r.iva_105 ?? 0) > 0) return "10.5%";
-    return r.tipo === "A" ? "21%" : "0%";
+    return "21%";
   };
 
   // Derivar ha, mts, precios y cultivo desde el estimado precargado
@@ -886,9 +887,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefill?.group.descripcionBase ?? "",
       categoria: initial?.categoria ?? "",
       cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
-      iva_pct: prefillPresup
-        ? (Number(prefillPresup.presupuesto.iva_105 ?? 0) > 0 && Number(prefillPresup.presupuesto.iva_21 ?? 0) === 0 ? "10.5%" : "21%")
-        : inferIva(initial),
+      iva_pct: "21%",
       hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
       precio_ha: Number(initial?.precio_ha ?? estimDerived?.pHa ?? 0),
       metros_bolsa: Number(initial?.metros_bolsa ?? estimDerived?.mt ?? 0),
