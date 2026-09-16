@@ -59,7 +59,6 @@ export async function ingresarCombustibleAlTanque(i: IngresoCombustible): Promis
   if (i.precioLitro && i.precioLitro > 0) patch.precio_compra = Number(i.precioLitro.toFixed(2));
   await supabase.from("fema_productos").update(patch).eq("id", prod.id);
 
-  const d = new Date(`${i.fecha}T00:00:00`);
   await (supabase as any).from("fema_tanque_mov").insert({
     user_id: i.userId,
     fecha: i.fecha,
@@ -68,8 +67,6 @@ export async function ingresarCombustibleAlTanque(i: IngresoCombustible): Promis
     precio_litro: i.precioLitro,
     proveedor: i.proveedor ?? null,
     observaciones: i.referencia,
-    anio: d.getFullYear(),
-    mes: d.getMonth() + 1,
   });
 
   return { ok: true };
