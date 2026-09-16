@@ -30,7 +30,13 @@ const numOpt = z
   .or(z.literal(""))
   .refine((v) => !v || !isNaN(Number(v)), { message: "Debe ser un número" });
 
+const PREFIJO_CAT: Record<string, string> = {
+  Combustible: "COM", Insumos: "INS", Servicios: "SRV",
+  Cotizaciones: "COT", Traslados: "TRA", Otro: "GEN",
+};
+
 const schema = z.object({
+  codigo: z.string().max(20).optional().or(z.literal("")),
   nombre: z.string().min(2).max(150),
   unidad_medida: z.enum(UNIDADES),
   precio_compra: numOpt,
@@ -43,6 +49,7 @@ const schema = z.object({
 type FormVals = z.infer<typeof schema>;
 type Row = {
   id: string;
+  codigo: string | null;
   nombre: string;
   unidad_medida: string;
   precio: number | null;
@@ -71,8 +78,8 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
-        .order("created_at", { ascending: false });
+        .select("id,codigo,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
+        .order("codigo", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as Row[];
     },
@@ -84,6 +91,7 @@ function Page() {
     const q = search.toLowerCase();
     return rows.filter(
       (r) =>
+        (r.codigo ?? "").toLowerCase().includes(q) ||
         (r.nombre ?? "").toLowerCase().includes(q) ||
         (r.unidad_medida ?? "").toLowerCase().includes(q) ||
         (r.categoria ?? "").toLowerCase().includes(q),
@@ -95,10 +103,23 @@ function Page() {
     setEdit(null);
   };
 
+  // Sugiere el próximo código correlativo según la categoría (ej. SRV-007)
+  const sugerirCodigo = (categoria: string) => {
+    const pfx = PREFIJO_CAT[categoria] ?? "GEN";
+    const nums = (data ?? [])
+      .map((r) => r.codigo ?? "")
+      .filter((c) => c.startsWith(`${pfx}-`))
+      .map((c) => Number(c.split("-")[1]))
+      .filter((n) => !isNaN(n));
+    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+    return `${pfx}-${String(next).padStart(3, "0")}`;
+  };
+
   const onSubmit = async (v: FormVals) => {
     const venta = v.precio_venta ? Number(v.precio_venta) : null;
     const payload = {
       user_id: user!.id,
+      codigo: (v.codigo ?? "").trim() || sugerirCodigo(v.categoria),
       nombre: v.nombre,
       unidad_medida: v.unidad_medida,
       precio: venta,
@@ -166,6 +187,7 @@ function Page() {
           </div>
         }
         columns={[
+          { header: "Código", cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.codigo ?? "—"}</span> },
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "Unidad", cell: (r) => r.unidad_medida },
           { header: "P. compra", cell: (r) => money(r.precio_compra) },
@@ -197,7 +219,7 @@ function Page() {
         ]}
       />
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} />
+        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} sugerirCodigo={sugerirCodigo} />
       </Dialog>
       <Dialog open={!!movProd} onOpenChange={(v) => !v && setMovProd(null)}>
         {movProd && (
@@ -310,10 +332,15 @@ function MovDialog({ producto, onDone }: { producto: Row; onDone: () => void }) 
   );
 }
 
-function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<void>; initial: Row | null }) {
+function FormDialog({ onSubmit, initial, sugerirCodigo }: {
+  onSubmit: (v: FormVals) => Promise<void>;
+  initial: Row | null;
+  sugerirCodigo: (categoria: string) => string;
+}) {
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
+      codigo: initial?.codigo ?? sugerirCodigo(initial?.categoria ?? "Otro"),
       nombre: initial?.nombre ?? "",
       unidad_medida: (initial?.unidad_medida as any) ?? "Unidad",
       precio_compra: initial?.precio_compra != null ? String(initial.precio_compra) : "",
@@ -330,9 +357,14 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
         <DialogTitle>{initial ? "Editar" : "Nuevo"} producto</DialogTitle>
       </DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
-        <FormField label="Nombre" required error={f.formState.errors.nombre?.message}>
-          <Input {...f.register("nombre")} />
-        </FormField>
+        <div className="grid grid-cols-[130px_1fr] gap-3">
+          <FormField label="Código" error={f.formState.errors.codigo?.message}>
+            <Input className="font-mono" {...f.register("codigo")} />
+          </FormField>
+          <FormField label="Nombre" required error={f.formState.errors.nombre?.message}>
+            <Input {...f.register("nombre")} />
+          </FormField>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Unidad de medida">
             <Select value={f.watch("unidad_medida")} onValueChange={(v) => f.setValue("unidad_medida", v as any)}>
@@ -349,7 +381,13 @@ function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<
             </Select>
           </FormField>
           <FormField label="Categoría">
-            <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
+            <Select
+              value={f.watch("categoria")}
+              onValueChange={(v) => {
+                f.setValue("categoria", v as any);
+                if (!initial) f.setValue("codigo", sugerirCodigo(v));
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

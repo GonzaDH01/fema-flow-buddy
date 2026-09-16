@@ -112,6 +112,17 @@ type PrefillEstim = {
   group: EstimGroup;
 };
 
+type PresupRow = {
+  id: string; numero: string | null; fecha: string; estado: string | null;
+  cliente_id: string | null; cliente_nombre: string | null; descripcion: string | null;
+  neto: number | null; iva_21: number | null; iva_105: number | null; total: number | null;
+};
+type PresupItem = {
+  codigo: string | null; descripcion: string; cantidad: number;
+  precio_unitario: number; alicuota_iva: number;
+};
+type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[] };
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
@@ -119,7 +130,8 @@ function Page() {
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
-  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados">("todas");
+  const [prefillPresup, setPrefillPresup] = useState<PrefillPresup | null>(null);
+  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
 
@@ -156,6 +168,39 @@ function Page() {
       return data as EstimRow[];
     },
   });
+
+  // Presupuestos confeccionados: se aprueban y se facturan desde acá
+  const { data: presupuestos } = useQuery({
+    queryKey: ["fema_presupuestos_facturas", year],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_presupuestos")
+        .select("id,numero,fecha,estado,cliente_id,cliente_nombre,descripcion,neto,iva_21,iva_105,total")
+        .eq("anio", year)
+        .order("fecha", { ascending: false });
+      if (error) throw error;
+      return data as PresupRow[];
+    },
+  });
+
+  const aprobarPresup = async (p: PresupRow) => {
+    const nuevo = p.estado === "Aprobado" ? "Pendiente" : "Aprobado";
+    const { error } = await supabase.from("fema_presupuestos").update({ estado: nuevo }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(nuevo === "Aprobado" ? "Presupuesto aprobado" : "Presupuesto marcado como pendiente");
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+  };
+
+  const facturarPresup = async (p: PresupRow) => {
+    const { data: its, error } = await supabase.from("fema_presupuesto_items")
+      .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
+      .eq("presupuesto_id", p.id).order("orden");
+    if (error) { toast.error(error.message); return; }
+    setEdit(null);
+    setPrefill(null);
+    setPrefillPresup({ presupuesto: p, items: (its ?? []) as PresupItem[] });
+    setOpen(true);
+  };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
     const map = new Map<string, EstimGroup>();
@@ -249,7 +294,7 @@ function Page() {
 
   const pag = usePaginacion(filtered, 50);
 
-  const close = () => { setOpen(false); setEdit(null); setPrefill(null); };
+  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); };
 
   const facturarEstim = (g: EstimGroup) => {
     setEdit(null);
@@ -400,6 +445,14 @@ function Page() {
       if (errEst) toast.error(`Estimación: ${errEst.message}`);
       qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
     }
+    // Si venía de un presupuesto → queda marcado como Facturado
+    if (!edit && prefillPresup) {
+      const { error: errP } = await supabase.from("fema_presupuestos")
+        .update({ estado: "Facturado" }).eq("id", prefillPresup.presupuesto.id);
+      if (errP) toast.error(`Presupuesto: ${errP.message}`);
+      qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+      qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+    }
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
@@ -498,6 +551,7 @@ function Page() {
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
               <TabsTrigger value="estimados">Estimados ({estimGroups.length})</TabsTrigger>
+              <TabsTrigger value="presupuestos">Presupuestos ({(presupuestos ?? []).length})</TabsTrigger>
             </TabsList>
           </Tabs>
           <Input
@@ -508,7 +562,66 @@ function Page() {
           />
         </div>
 
-        {tab === "estimados" ? (
+        {tab === "presupuestos" ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>N° Presupuesto</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Detalle</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-56 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(presupuestos ?? []).length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
+              ) : (presupuestos ?? []).map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
+                  <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
+                  <TableCell>{formatFecha(p.fecha)}</TableCell>
+                  <TableCell className="max-w-[260px] truncate text-muted-foreground">{p.descripcion ?? "—"}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(Number(p.total ?? 0))}</TableCell>
+                  <TableCell>
+                    {p.estado === "Facturado"
+                      ? <Badge className="border-0 bg-primary/15 text-primary">● Facturado</Badge>
+                      : p.estado === "Aprobado"
+                        ? <Badge className="border-0 bg-accent/15 text-accent">✓ Aprobado</Badge>
+                        : <Badge variant="outline">{p.estado ?? "Pendiente"}</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {p.estado !== "Facturado" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => aprobarPresup(p)}
+                        >
+                          {p.estado === "Aprobado"
+                            ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
+                            : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        disabled={p.estado !== "Aprobado"}
+                        title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
+                        onClick={() => facturarPresup(p)}
+                      >
+                        <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : tab === "estimados" ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -636,7 +749,7 @@ function Page() {
           </TableBody>
         </Table>
         )}
-        {tab !== "estimados" && (
+        {tab !== "estimados" && tab !== "presupuestos" && (
           <Paginacion
             page={pag.page}
             totalPages={pag.totalPages}
@@ -651,10 +764,11 @@ function Page() {
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         {open && (
           <FormDialog
-            key={prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
+            key={prefillPresup?.presupuesto.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
             onSubmit={onSubmit}
             initial={edit}
             prefill={prefill}
+            prefillPresup={prefillPresup}
             clientes={clientes ?? []}
             year={year}
           />
@@ -721,10 +835,11 @@ function SummaryTable({ title, col1, rows }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
+function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year }: {
   onSubmit: (v: FormVals) => Promise<void>;
   initial: Row | null;
   prefill: PrefillEstim | null;
+  prefillPresup?: PrefillPresup | null;
   clientes: { id: string; nombre: string }[];
   year: number;
 }) {
@@ -767,11 +882,13 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
       fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
-      cliente_id: initial?.cliente_id ?? prefill?.group.cliente_id ?? "",
-      trabajo: initial?.trabajo ?? prefill?.group.descripcionBase ?? "",
+      cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefill?.group.cliente_id ?? "",
+      trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefill?.group.descripcionBase ?? "",
       categoria: initial?.categoria ?? "",
       cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
-      iva_pct: inferIva(initial),
+      iva_pct: prefillPresup
+        ? (Number(prefillPresup.presupuesto.iva_105 ?? 0) > 0 && Number(prefillPresup.presupuesto.iva_21 ?? 0) === 0 ? "10.5%" : "21%")
+        : inferIva(initial),
       hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
       precio_ha: Number(initial?.precio_ha ?? estimDerived?.pHa ?? 0),
       metros_bolsa: Number(initial?.metros_bolsa ?? estimDerived?.mt ?? 0),
@@ -780,7 +897,15 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
-      items: [],
+      items: prefillPresup
+        ? prefillPresup.items.map((it) => ({
+            producto_id: "",
+            descripcion: it.codigo ? `${it.codigo} — ${it.descripcion}` : it.descripcion,
+            unidad: "",
+            cantidad: Number(it.cantidad),
+            precio_unitario: Number(it.precio_unitario),
+          }))
+        : [],
       plan_cuotas: prefill
         ? prefill.group.cuotas.map((c) => ({
             vencimiento: c.vencimiento,

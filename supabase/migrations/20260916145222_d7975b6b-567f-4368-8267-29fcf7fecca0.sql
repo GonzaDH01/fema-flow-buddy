@@ -1,0 +1,2 @@
+ALTER TABLE public.fema_productos ADD COLUMN IF NOT EXISTS codigo text;
+CREATE UNIQUE INDEX IF NOT EXISTS fema_productos_codigo_user_idx ON public.fema_productos (user_id, codigo) WHERE codigo IS NOT NULL;
