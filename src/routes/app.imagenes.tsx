@@ -331,6 +331,9 @@ function Page() {
           <TabsTrigger value="remitos">
             <Truck className="mr-1.5 h-4 w-4" /> Remitos
           </TabsTrigger>
+          <TabsTrigger value="planillas">
+            <ClipboardList className="mr-1.5 h-4 w-4" /> Planillas bolsero
+          </TabsTrigger>
           <TabsTrigger value="control">
             <ShieldCheck className="mr-1.5 h-4 w-4" /> Control
           </TabsTrigger>
