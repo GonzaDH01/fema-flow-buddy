@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +30,8 @@ import {
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
 const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Estimado"] as const;
+// Misma selección de servicios frecuentes que en Presupuestos
+const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
@@ -850,6 +853,30 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
     if (!p) return;
     updateItem(i, { producto_id: id, descripcion: p.nombre, unidad: p.unidad_medida, precio_unitario: precioDe(p) });
   };
+
+  // Servicios frecuentes (compartidos con Presupuestos)
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerFilter, setPickerFilter] = useState("");
+  const [seleccion, setSeleccion] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem(FRECUENTES_KEY) ?? "[]") as string[]; } catch { return []; }
+  });
+  const toggleFrecuente = (id: string) => {
+    setSeleccion((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try { window.localStorage.setItem(FRECUENTES_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const frecuentes = useMemo(() => (productos ?? []).filter((p) => seleccion.includes(p.id)), [productos, seleccion]);
+  const productosFiltrados = useMemo(() => {
+    const q = pickerFilter.trim().toLowerCase();
+    const rows = productos ?? [];
+    if (!q) return rows;
+    return rows.filter((p) => p.nombre.toLowerCase().includes(q));
+  }, [productos, pickerFilter]);
+  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null }) =>
+    setItems([...items, { producto_id: p.id, descripcion: p.nombre, unidad: p.unidad_medida, cantidad: 1, precio_unitario: precioDe(p) }]);
 
   // Plan controls
   const [planQty, setPlanQty] = useState(6);
