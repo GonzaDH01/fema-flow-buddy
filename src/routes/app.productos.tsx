@@ -107,6 +107,7 @@ function Page() {
     const venta = v.precio_venta ? Number(v.precio_venta) : null;
     const payload = {
       user_id: user!.id,
+      codigo: (v.codigo ?? "").trim() || sugerirCodigo(v.categoria),
       nombre: v.nombre,
       unidad_medida: v.unidad_medida,
       precio: venta,
@@ -174,6 +175,7 @@ function Page() {
           </div>
         }
         columns={[
+          { header: "Código", cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.codigo ?? "—"}</span> },
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "Unidad", cell: (r) => r.unidad_medida },
           { header: "P. compra", cell: (r) => money(r.precio_compra) },
