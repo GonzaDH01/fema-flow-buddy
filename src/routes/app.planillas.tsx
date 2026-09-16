@@ -541,6 +541,88 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
     return data.id as string;
   };
 
+  /** Lee la foto de la planilla de papel y completa los campos del formulario. */
+  const leerFoto = async (file: File) => {
+    setLeyendo(true);
+    const t = toast.loading("Leyendo la planilla...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión vencida, volvé a ingresar");
+      const { base64, mimeType } = await comprimirParaOcr(file);
+      if (!base64) throw new Error("No se pudo procesar la imagen");
+      const res = await fetch("/api/public/ocr-planilla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ image: base64, mimeType }),
+      });
+      const out = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(out?.error ?? "No se pudo leer la planilla");
+      const d = (out?.data ?? {}) as any;
+
+      if (texto(d.fecha) && /^\d{4}-\d{2}-\d{2}$/.test(texto(d.fecha))) setFecha(texto(d.fecha));
+      if (texto(d.cliente)) {
+        const c = clientes.find((x) => x.nombre.trim().toLowerCase() === texto(d.cliente).toLowerCase());
+        if (c) { setClienteId(c.id); setClienteNombre(c.nombre); }
+        else { setClienteId("libre"); setClienteNombre(texto(d.cliente)); }
+      }
+      if (texto(d.establecimiento)) setEstablecimiento(texto(d.establecimiento));
+      if (texto(d.lote)) setLote(texto(d.lote));
+      if (texto(d.zona)) setZona(texto(d.zona));
+      if (texto(d.cultivo)) setCultivo(texto(d.cultivo));
+      if (texto(d.bolsero)) {
+        const e = empleados.find((x) => x.nombre.trim().toLowerCase() === texto(d.bolsero).toLowerCase());
+        if (e) { setEmpleadoId(e.id); setNombre(e.nombre); }
+        else { setEmpleadoId("libre"); setNombre(texto(d.bolsero)); }
+      }
+      if (texto(d.observaciones)) setObservaciones(texto(d.observaciones));
+
+      if (Array.isArray(d.bolsas)) {
+        setBolsas(Array.from({ length: CANT_BOLSAS }, (_, i) => {
+          const n = numero(d.bolsas[i]);
+          return n > 0 ? String(n) : "";
+        }));
+      }
+
+      const leidos: any[] = Array.isArray(d.equipos) ? d.equipos : [];
+      const igual = (a: string, b: string) =>
+        a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
+      const usados = new Set<number>();
+      setPropios((lista) => lista.map((f) => {
+        const idx = leidos.findIndex((e, i) =>
+          !usados.has(i) && texto(e.equipo) &&
+          (igual(texto(e.equipo), f.equipo_nombre) ||
+            f.equipo_nombre.toLowerCase().includes(texto(e.equipo).toLowerCase()) ||
+            texto(e.equipo).toLowerCase().includes(f.equipo_nombre.toLowerCase())));
+        if (idx < 0) return f;
+        usados.add(idx);
+        const e = leidos[idx];
+        return {
+          ...f,
+          chofer: texto(e.chofer) || f.chofer,
+          dominio: texto(e.dominio) || f.dominio,
+          viajes: Math.min(MAX_VIAJES, numero(e.viajes)) || f.viajes,
+          metros: numero(e.metros) > 0 ? String(numero(e.metros)) : f.metros,
+        };
+      }));
+      const restantes = leidos
+        .filter((e, i) => !usados.has(i) && texto(e.equipo))
+        .map((e) => ({
+          ref: "", equipo_id: null, equipo_nombre: texto(e.equipo),
+          chofer: texto(e.chofer), dominio: texto(e.dominio),
+          viajes: Math.min(MAX_VIAJES, numero(e.viajes)), metros: numero(e.metros) > 0 ? String(numero(e.metros)) : "",
+          es_tercero: true,
+        }));
+      if (restantes.length) setTerceros(restantes);
+
+      toast.success("Planilla leída: revisá los datos antes de guardar", { id: t });
+    } catch (err: any) {
+      toast.error(err?.message ?? "No se pudo leer la planilla", { id: t });
+    } finally {
+      setLeyendo(false);
+    }
+  };
+
   const guardar = async () => {
     if (!user) return;
     if (!fecha) { toast.error("Indicá la fecha de trabajo"); return; }
