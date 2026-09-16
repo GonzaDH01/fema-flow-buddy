@@ -86,6 +86,7 @@ function Page() {
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
+        <TabsContent value="liquidar"><LiquidadorTab /></TabsContent>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
         <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
