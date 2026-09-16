@@ -24,6 +24,43 @@ const BUCKET = "planillas-img";
 const CANT_BOLSAS = 7;
 const MAX_VIAJES = 30;
 
+/** Reduce la foto de la planilla a un tamaño que el lector pueda procesar (máx ~2200px, JPEG). */
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+    el.src = dataUrl;
+  });
+  const MAX = 2200;
+  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let calidad = 0.85;
+  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  while (base64.length > 3_800_000 && calidad > 0.35) {
+    calidad -= 0.15;
+    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  }
+  return { base64, mimeType: "image/jpeg" };
+}
+
+const texto = (x: unknown) => (x != null && String(x).trim() ? String(x).trim() : "");
+const numero = (x: unknown) => {
+  const n = Number(String(x ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
+
 type Planilla = {
   id: string; fecha: string; bolsero_empleado_id: string | null; bolsero_nombre: string | null;
   cliente_id: string | null; cliente_nombre: string | null; establecimiento: string | null; lote: string | null;
@@ -404,6 +441,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
   const [archivo, setArchivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imagenPath, setImagenPath] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
 
   const empMap = useMemo(() => new Map(empleados.map((e) => [e.id, e.nombre])), [empleados]);
   const responsableDe = (a: Activo) =>
@@ -502,6 +540,88 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
     if (error) throw error;
     toast.success(`Transportista "${nom}" agregado también al módulo Combustible`);
     return data.id as string;
+  };
+
+  /** Lee la foto de la planilla de papel y completa los campos del formulario. */
+  const leerFoto = async (file: File) => {
+    setLeyendo(true);
+    const t = toast.loading("Leyendo la planilla...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión vencida, volvé a ingresar");
+      const { base64, mimeType } = await comprimirParaOcr(file);
+      if (!base64) throw new Error("No se pudo procesar la imagen");
+      const res = await fetch("/api/public/ocr-planilla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ image: base64, mimeType }),
+      });
+      const out = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(out?.error ?? "No se pudo leer la planilla");
+      const d = (out?.data ?? {}) as any;
+
+      if (texto(d.fecha) && /^\d{4}-\d{2}-\d{2}$/.test(texto(d.fecha))) setFecha(texto(d.fecha));
+      if (texto(d.cliente)) {
+        const c = clientes.find((x) => x.nombre.trim().toLowerCase() === texto(d.cliente).toLowerCase());
+        if (c) { setClienteId(c.id); setClienteNombre(c.nombre); }
+        else { setClienteId("libre"); setClienteNombre(texto(d.cliente)); }
+      }
+      if (texto(d.establecimiento)) setEstablecimiento(texto(d.establecimiento));
+      if (texto(d.lote)) setLote(texto(d.lote));
+      if (texto(d.zona)) setZona(texto(d.zona));
+      if (texto(d.cultivo)) setCultivo(texto(d.cultivo));
+      if (texto(d.bolsero)) {
+        const e = empleados.find((x) => x.nombre.trim().toLowerCase() === texto(d.bolsero).toLowerCase());
+        if (e) { setEmpleadoId(e.id); setNombre(e.nombre); }
+        else { setEmpleadoId("libre"); setNombre(texto(d.bolsero)); }
+      }
+      if (texto(d.observaciones)) setObservaciones(texto(d.observaciones));
+
+      if (Array.isArray(d.bolsas)) {
+        setBolsas(Array.from({ length: CANT_BOLSAS }, (_, i) => {
+          const n = numero(d.bolsas[i]);
+          return n > 0 ? String(n) : "";
+        }));
+      }
+
+      const leidos: any[] = Array.isArray(d.equipos) ? d.equipos : [];
+      const igual = (a: string, b: string) =>
+        a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
+      const usados = new Set<number>();
+      setPropios((lista) => lista.map((f) => {
+        const idx = leidos.findIndex((e, i) =>
+          !usados.has(i) && texto(e.equipo) &&
+          (igual(texto(e.equipo), f.equipo_nombre) ||
+            f.equipo_nombre.toLowerCase().includes(texto(e.equipo).toLowerCase()) ||
+            texto(e.equipo).toLowerCase().includes(f.equipo_nombre.toLowerCase())));
+        if (idx < 0) return f;
+        usados.add(idx);
+        const e = leidos[idx];
+        return {
+          ...f,
+          chofer: texto(e.chofer) || f.chofer,
+          dominio: texto(e.dominio) || f.dominio,
+          viajes: Math.min(MAX_VIAJES, numero(e.viajes)) || f.viajes,
+          metros: numero(e.metros) > 0 ? String(numero(e.metros)) : f.metros,
+        };
+      }));
+      const restantes = leidos
+        .filter((e, i) => !usados.has(i) && texto(e.equipo))
+        .map((e) => ({
+          ref: "", equipo_id: null, equipo_nombre: texto(e.equipo),
+          chofer: texto(e.chofer), dominio: texto(e.dominio),
+          viajes: Math.min(MAX_VIAJES, numero(e.viajes)), metros: numero(e.metros) > 0 ? String(numero(e.metros)) : "",
+          es_tercero: true,
+        }));
+      if (restantes.length) setTerceros(restantes);
+
+      toast.success("Planilla leída: revisá los datos antes de guardar", { id: t });
+    } catch (err: any) {
+      toast.error(err?.message ?? "No se pudo leer la planilla", { id: t });
+    } finally {
+      setLeyendo(false);
+    }
   };
 
   const guardar = async () => {
@@ -769,16 +889,29 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wide">Foto de la planilla en papel</div>
               <input
                 ref={fileRef} type="file" accept="image/*" className="sr-only"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setArchivo(f); e.target.value = ""; }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  setArchivo(f);
+                  void leerFoto(f);
+                }}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-                  <ImagePlus className="mr-2 h-4 w-4" /> {previewUrl ? "Cambiar imagen" : "Subir foto"}
+                <Button type="button" variant="outline" disabled={leyendo} onClick={() => fileRef.current?.click()}>
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {leyendo ? "Leyendo..." : previewUrl ? "Cambiar imagen" : "Subir foto"}
                 </Button>
+                {archivo && !leyendo && (
+                  <Button type="button" variant="ghost" onClick={() => void leerFoto(archivo)}>Volver a leer</Button>
+                )}
                 {previewUrl && (
                   <Button type="button" variant="ghost" onClick={() => { setArchivo(null); setImagenPath(null); }}>Quitar</Button>
                 )}
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Al subir la foto se leen solos los datos escritos y se completan los campos. Revisalos y guardá la planilla.
+              </p>
               {previewUrl && <img src={previewUrl} alt="Planilla de trabajo" className="mt-3 max-h-60 w-full rounded-md object-contain" />}
             </div>
             <div className="rounded-md border p-3">
