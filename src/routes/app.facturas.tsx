@@ -1152,8 +1152,8 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
             </Select>
           </FormField>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Hectáreas"><Input type="number" step="0.01" {...f.register("hectareas")} /></FormField>
-            <FormField label="Precio unitario ($/ha)"><Input type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
+            <FormField label="Hectáreas"><Input className="min-w-[100px]" type="number" step="0.01" {...f.register("hectareas")} /></FormField>
+            <FormField label="Precio unitario ($/ha)"><Input className="min-w-[120px]" type="number" step="0.01" {...f.register("precio_ha")} /></FormField>
             <FormField label="Importe">
               <Input readOnly value={formatPesos(importePicado)} className="bg-muted/30" />
             </FormField>
