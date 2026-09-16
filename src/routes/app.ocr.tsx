@@ -493,16 +493,42 @@ function Page() {
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return toast.error("Archivo máximo 5 MB.");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPreview(dataUrl);
-      setMime(file.type);
-      setB64(dataUrl.split(",")[1]);
-      setResult(null);
-    };
-    reader.readAsDataURL(file);
+    const esPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const esImagen = file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+    if (!esPdf && !esImagen) return toast.error("Subí una foto (JPG, PNG, WebP) o un PDF.");
+    if (file.size > 25 * 1024 * 1024) return toast.error("El archivo es muy pesado (máx 25 MB).");
+
+    void (async () => {
+      try {
+        if (esImagen) {
+          const { base64, mimeType } = await comprimirParaOcr(file);
+          if (!base64) throw new Error("No se pudo procesar la imagen");
+          setPreview(`data:${mimeType};base64,${base64}`);
+          setMime(mimeType);
+          setB64(base64);
+          setResult(null);
+          setPlanilla(null);
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error("El PDF supera los 5 MB. Sacale una foto o reducilo.");
+          return;
+        }
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result));
+          r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+          r.readAsDataURL(file);
+        });
+        setPreview(dataUrl);
+        setMime("application/pdf");
+        setB64(dataUrl.split(",")[1] ?? "");
+        setResult(null);
+        setPlanilla(null);
+      } catch (e: any) {
+        toast.error(e?.message ?? "No se pudo cargar el archivo");
+      }
+    })();
   }, []);
 
   const onCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -513,8 +539,9 @@ function Page() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp"], "application/pdf": [".pdf"] },
-    maxFiles: 1,
+    noClick: true,
+    noKeyboard: true,
+    multiple: false,
   });
 
   const analizar = async () => {
