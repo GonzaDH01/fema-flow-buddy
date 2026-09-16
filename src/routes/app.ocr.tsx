@@ -280,6 +280,7 @@ function Page() {
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
   const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
+  const [planilla, setPlanilla] = useState<PlanillaOCR | null>(null);
   // Combustible: define si los litros entran al tanque de suministro de la empresa
   // o si son cargas de vehículos particulares (no suman stock).
   const [sumaTanque, setSumaTanque] = useState(true);
