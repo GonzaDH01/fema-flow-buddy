@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Inventario } from "@/components/inventario";
+import { cotizacionOficial, precioEnPesos } from "@/lib/cotizacion";
 
 export const Route = createFileRoute("/app/productos")({ component: Page });
 
@@ -35,7 +36,10 @@ const PREFIJO_CAT: Record<string, string> = {
   Cotizaciones: "COT", Traslados: "TRA", Otro: "GEN",
 };
 
+const MONEDAS = ["ARS", "USD"] as const;
+
 const schema = z.object({
+  moneda: z.enum(MONEDAS),
   codigo: z.string().max(20).optional().or(z.literal("")),
   nombre: z.string().min(2).max(150),
   unidad_medida: z.enum(UNIDADES),
@@ -55,6 +59,7 @@ type Row = {
   precio: number | null;
   precio_compra: number | null;
   precio_venta: number | null;
+  moneda: string | null;
   stock: number;
   stock_minimo: number;
   categoria: string;
@@ -78,12 +83,14 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,codigo,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
+        .select("id,codigo,nombre,unidad_medida,precio,precio_compra,precio_venta,moneda,stock,stock_minimo,categoria,observaciones")
         .order("codigo", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as Row[];
     },
   });
+
+  const dolar = useMemo(() => cotizacionOficial(data ?? []), [data]);
 
   const filtered = useMemo(() => {
     const rows = data ?? [];
@@ -125,6 +132,7 @@ function Page() {
       precio: venta,
       precio_compra: v.precio_compra ? Number(v.precio_compra) : null,
       precio_venta: venta,
+      moneda: v.moneda,
       stock: v.stock ? Number(v.stock) : 0,
       stock_minimo: v.stock_minimo ? Number(v.stock_minimo) : 0,
       categoria: v.categoria,
@@ -190,8 +198,25 @@ function Page() {
           { header: "Código", cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.codigo ?? "—"}</span> },
           { header: "Nombre", cell: (r) => <span className="font-medium">{r.nombre}</span> },
           { header: "Unidad", cell: (r) => r.unidad_medida },
-          { header: "P. compra", cell: (r) => money(r.precio_compra) },
-          { header: "P. venta", cell: (r) => money(r.precio_venta ?? r.precio) },
+          {
+            header: "P. compra",
+            cell: (r) =>
+              r.moneda === "USD"
+                ? r.precio_compra == null ? "—" : `US$ ${Number(r.precio_compra).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                : money(r.precio_compra),
+          },
+          {
+            header: "P. venta",
+            cell: (r) =>
+              r.moneda === "USD" ? (
+                <span className="flex flex-col">
+                  <span>US$ {Number(r.precio_venta ?? r.precio ?? 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                  <span className="text-xs text-muted-foreground">≈ {money(precioEnPesos(r, dolar))}</span>
+                </span>
+              ) : (
+                money(r.precio_venta ?? r.precio)
+              ),
+          },
           {
             header: "Stock",
             cell: (r) => (
@@ -219,7 +244,7 @@ function Page() {
         ]}
       />
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} sugerirCodigo={sugerirCodigo} />
+        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} sugerirCodigo={sugerirCodigo} dolar={dolar} />
       </Dialog>
       <Dialog open={!!movProd} onOpenChange={(v) => !v && setMovProd(null)}>
         {movProd && (
@@ -332,14 +357,16 @@ function MovDialog({ producto, onDone }: { producto: Row; onDone: () => void }) 
   );
 }
 
-function FormDialog({ onSubmit, initial, sugerirCodigo }: {
+function FormDialog({ onSubmit, initial, sugerirCodigo, dolar }: {
   onSubmit: (v: FormVals) => Promise<void>;
   initial: Row | null;
   sugerirCodigo: (categoria: string) => string;
+  dolar: number;
 }) {
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
+      moneda: ((initial?.moneda as any) ?? "ARS") as "ARS" | "USD",
       codigo: initial?.codigo ?? sugerirCodigo(initial?.categoria ?? "Otro"),
       nombre: initial?.nombre ?? "",
       unidad_medida: (initial?.unidad_medida as any) ?? "Unidad",
@@ -401,7 +428,18 @@ function FormDialog({ onSubmit, initial, sugerirCodigo }: {
             </Select>
           </FormField>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[110px_1fr_1fr] gap-3">
+          <FormField label="Moneda">
+            <Select value={f.watch("moneda")} onValueChange={(v) => f.setValue("moneda", v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ARS">$ ARS</SelectItem>
+                <SelectItem value="USD">US$ USD</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
           <FormField label="Precio de compra" error={f.formState.errors.precio_compra?.message}>
             <Input type="number" step="0.01" {...f.register("precio_compra")} />
           </FormField>
@@ -409,6 +447,13 @@ function FormDialog({ onSubmit, initial, sugerirCodigo }: {
             <Input type="number" step="0.01" {...f.register("precio_venta")} />
           </FormField>
         </div>
+        {f.watch("moneda") === "USD" && (
+          <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+            {dolar > 0
+              ? `Se convierte al dólar oficial del catálogo ($ ${dolar.toLocaleString("es-AR")}): equivale a ${money(Number(f.watch("precio_venta") || 0) * dolar)}`
+              : "Cargá el producto “Dólar oficial” en la categoría Cotizaciones para convertir a pesos."}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Stock actual" error={f.formState.errors.stock?.message}>
             <Input type="number" step="0.01" {...f.register("stock")} />
