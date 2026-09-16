@@ -835,10 +835,11 @@ function SummaryTable({ title, col1, rows }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
+function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year }: {
   onSubmit: (v: FormVals) => Promise<void>;
   initial: Row | null;
   prefill: PrefillEstim | null;
+  prefillPresup?: PrefillPresup | null;
   clientes: { id: string; nombre: string }[];
   year: number;
 }) {
