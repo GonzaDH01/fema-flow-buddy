@@ -130,7 +130,8 @@ function Page() {
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
-  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados">("todas");
+  const [prefillPresup, setPrefillPresup] = useState<PrefillPresup | null>(null);
+  const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
 
@@ -167,6 +168,39 @@ function Page() {
       return data as EstimRow[];
     },
   });
+
+  // Presupuestos confeccionados: se aprueban y se facturan desde acá
+  const { data: presupuestos } = useQuery({
+    queryKey: ["fema_presupuestos_facturas", year],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_presupuestos")
+        .select("id,numero,fecha,estado,cliente_id,cliente_nombre,descripcion,neto,iva_21,iva_105,total")
+        .eq("anio", year)
+        .order("fecha", { ascending: false });
+      if (error) throw error;
+      return data as PresupRow[];
+    },
+  });
+
+  const aprobarPresup = async (p: PresupRow) => {
+    const nuevo = p.estado === "Aprobado" ? "Pendiente" : "Aprobado";
+    const { error } = await supabase.from("fema_presupuestos").update({ estado: nuevo }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(nuevo === "Aprobado" ? "Presupuesto aprobado" : "Presupuesto marcado como pendiente");
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+  };
+
+  const facturarPresup = async (p: PresupRow) => {
+    const { data: its, error } = await supabase.from("fema_presupuesto_items")
+      .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
+      .eq("presupuesto_id", p.id).order("orden");
+    if (error) { toast.error(error.message); return; }
+    setEdit(null);
+    setPrefill(null);
+    setPrefillPresup({ presupuesto: p, items: (its ?? []) as PresupItem[] });
+    setOpen(true);
+  };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
     const map = new Map<string, EstimGroup>();
