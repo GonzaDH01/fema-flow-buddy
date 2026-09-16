@@ -448,15 +448,69 @@ function PresupuestoForm({
             </div>
 
             <div className="mt-4">
-              <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Servicios frecuentes</p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground">Servicios frecuentes</p>
+                <Button size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
+                  <Settings2 className="mr-1.5 h-4 w-4" /> Elegir servicios
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {SERVICIOS_FRECUENTES.map((s) => (
-                  <Button key={s.codigo} size="sm" variant="outline" onClick={() => addItem({ codigo: s.codigo, descripcion: s.descripcion, alicuota_iva: s.iva })}>
-                    + {s.descripcion}
+                {frecuentes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Elegí los servicios del módulo Productos que querés tener a mano.
+                  </p>
+                ) : frecuentes.map((p) => (
+                  <Button
+                    key={p.id}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addItem({
+                      codigo: "",
+                      descripcion: p.nombre,
+                      precio_unitario: Number(p.precio_venta ?? p.precio ?? 0),
+                      alicuota_iva: ivaSugerido(p.nombre),
+                      cantidad: 1,
+                      subtotal: Number(p.precio_venta ?? p.precio ?? 0),
+                    })}
+                  >
+                    + {p.nombre}
                   </Button>
                 ))}
               </div>
             </div>
+
+            <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Servicios frecuentes</DialogTitle>
+                </DialogHeader>
+                <Input
+                  placeholder="Buscar en productos y servicios..."
+                  value={pickerFilter}
+                  onChange={(e) => setPickerFilter(e.target.value)}
+                />
+                <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
+                  {productosFiltrados.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">No hay productos cargados.</p>
+                  ) : productosFiltrados.map((p) => (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md border p-2 text-sm">
+                      <Checkbox
+                        checked={seleccion.includes(p.id)}
+                        onCheckedChange={() => toggleFrecuente(p.id)}
+                      />
+                      <span className="flex-1">
+                        {p.nombre}
+                        {p.categoria ? <span className="ml-2 text-xs text-muted-foreground">{p.categoria}</span> : null}
+                      </span>
+                      <span className="text-muted-foreground">{formatPesos(Number(p.precio_venta ?? p.precio ?? 0))}</span>
+                    </label>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setPickerOpen(false)}>Listo</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <div className="mt-6 grid grid-cols-1 gap-y-1 text-sm md:grid-cols-[1fr_auto] md:gap-x-8">
               <div className="text-right text-muted-foreground">T. Neto:</div>
