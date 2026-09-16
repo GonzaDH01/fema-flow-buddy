@@ -6,7 +6,7 @@ import JSZip from "jszip";
 import { usePaginacion, Paginacion } from "@/components/paginacion";
 import {
   Image as ImageIcon, Download, Trash2, ShoppingCart, Receipt, FileImage, Loader2,
-  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off, Truck,
+  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off, Truck, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -331,6 +331,9 @@ function Page() {
           <TabsTrigger value="remitos">
             <Truck className="mr-1.5 h-4 w-4" /> Remitos
           </TabsTrigger>
+          <TabsTrigger value="planillas">
+            <ClipboardList className="mr-1.5 h-4 w-4" /> Planillas bolsero
+          </TabsTrigger>
           <TabsTrigger value="control">
             <ShieldCheck className="mr-1.5 h-4 w-4" /> Control
           </TabsTrigger>
@@ -343,6 +346,9 @@ function Page() {
         </TabsContent>
         <TabsContent value="remitos" className="mt-4">
           <RemitosPanel />
+        </TabsContent>
+        <TabsContent value="planillas" className="mt-4">
+          <PlanillasPanel />
         </TabsContent>
         <TabsContent value="control" className="mt-4">
           <ControlPanel />
@@ -831,6 +837,285 @@ function RemitosPanel() {
           pageSize={pag.pageSize}
           onPage={pag.setPage}
           label="remitos"
+        />
+      </div>
+    </div>
+  );
+}
+
+type PlanillaImg = {
+  id: string;
+  fecha: string;
+  cliente_nombre: string | null;
+  establecimiento: string | null;
+  lote: string | null;
+  bolsero_nombre: string | null;
+  total_viajes: number | null;
+  total_metros: number | null;
+  imagen_path: string | null;
+};
+
+async function signedUrlPlanilla(path: string) {
+  const { data, error } = await supabase.storage
+    .from("planillas-img")
+    .createSignedUrl(path, 60 * 10);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/** Fotos de las planillas diarias de picado y embolsado (módulo Planilla Bolsero). */
+function PlanillasPanel() {
+  const qc = useQueryClient();
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const [desde, setDesde] = useState<string>(first.toISOString().slice(0, 10));
+  const [hasta, setHasta] = useState<string>(now.toISOString().slice(0, 10));
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const [subiendo, setSubiendo] = useState<string | null>(null);
+
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ["fema_planillas_img", desde, hasta],
+    queryFn: async (): Promise<PlanillaImg[]> => {
+      let q = supabase
+        .from("fema_planillas_bolsero")
+        .select("id, fecha, cliente_nombre, establecimiento, lote, bolsero_nombre, total_viajes, total_metros, imagen_path")
+        .order("fecha", { ascending: false });
+      if (desde) q = q.gte("fecha", desde);
+      if (hasta) q = q.lte("fecha", hasta);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as PlanillaImg[];
+    },
+  });
+
+  const pag = usePaginacion(rows ?? [], 50);
+  const selectedRows = useMemo(() => (rows ?? []).filter((r) => selected[r.id]), [rows, selected]);
+  const allSelected = (rows?.length ?? 0) > 0 && selectedRows.length === (rows?.length ?? 0);
+
+  const nombreArchivo = (r: PlanillaImg) => {
+    const ext = (r.imagen_path ?? "").split(".").pop() ?? "bin";
+    const cli = (r.cliente_nombre ?? "planilla").replace(/[^A-Za-z0-9_-]/g, "-");
+    return `planilla_${r.fecha}_${cli}.${ext}`;
+  };
+
+  const ver = async (r: PlanillaImg) => {
+    if (!r.imagen_path) return toast.error("Esta planilla no tiene imagen");
+    try { window.open(await signedUrlPlanilla(r.imagen_path), "_blank"); }
+    catch (e: any) { toast.error(e.message ?? "Error al abrir la imagen"); }
+  };
+
+  const descargarUno = async (r: PlanillaImg) => {
+    if (!r.imagen_path) return toast.error("Esta planilla no tiene imagen");
+    try {
+      const res = await fetch(await signedUrlPlanilla(r.imagen_path));
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = nombreArchivo(r);
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) { toast.error(e.message ?? "Error al descargar"); }
+  };
+
+  /** Permite adjuntar la foto de una planilla cargada a mano (sin imagen). */
+  const adjuntar = async (r: PlanillaImg, file: File) => {
+    if (file.size > 10 * 1024 * 1024) return toast.error("La imagen no puede superar los 10 MB");
+    setSubiendo(r.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sesión expirada");
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("planillas-img").upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      if (r.imagen_path) await supabase.storage.from("planillas-img").remove([r.imagen_path]);
+      const { error: updErr } = await supabase.from("fema_planillas_bolsero").update({ imagen_path: path }).eq("id", r.id);
+      if (updErr) throw updErr;
+      toast.success("Imagen guardada en la planilla");
+      qc.invalidateQueries({ queryKey: ["fema_planillas_img"] });
+      qc.invalidateQueries({ queryKey: ["fema_planillas_bolsero"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al subir la imagen");
+    } finally { setSubiendo(null); }
+  };
+
+  const descargarZip = async (liberarEspacio: boolean) => {
+    const conImagen = selectedRows.filter((r) => r.imagen_path);
+    if (conImagen.length === 0) return toast.error("Seleccioná al menos una planilla con imagen");
+    setBusy(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(`planillas_${desde}_a_${hasta}`)!;
+      for (const r of conImagen) {
+        try {
+          const res = await fetch(await signedUrlPlanilla(r.imagen_path!));
+          folder.file(nombreArchivo(r), await res.blob());
+        } catch { /* saltar archivos rotos */ }
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url; a.download = `planillas_${desde}_a_${hasta}.zip`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+
+      if (liberarEspacio) {
+        const paths = conImagen.map((r) => r.imagen_path!);
+        const { error: delErr } = await supabase.storage.from("planillas-img").remove(paths);
+        if (delErr) throw delErr;
+        const { error: updErr } = await supabase
+          .from("fema_planillas_bolsero")
+          .update({ imagen_path: null })
+          .in("id", conImagen.map((r) => r.id));
+        if (updErr) throw updErr;
+        toast.success(`Se liberó espacio: ${paths.length} imagen(es) eliminadas`);
+        setSelected({});
+      } else {
+        toast.success(`ZIP descargado (${conImagen.length} planillas)`);
+      }
+      qc.invalidateQueries({ queryKey: ["fema_planillas_img"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error en la descarga");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Desde (fecha de la planilla)</Label>
+          <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="h-9" />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Hasta</Label>
+          <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="h-9" />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Badge variant="secondary">{rows?.length ?? 0} planilla(s)</Badge>
+          <Badge variant="secondary">{selectedRows.length} seleccionada(s)</Badge>
+          <Button variant="outline" size="sm" disabled={busy || selectedRows.length === 0} onClick={() => descargarZip(false)}>
+            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Descargar ZIP
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={busy || selectedRows.length === 0}>
+                <Trash2 className="mr-1.5 h-4 w-4" /> Descargar y liberar espacio
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Descargar y eliminar las imágenes?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se descarga el ZIP y luego se eliminan las fotos del almacenamiento. Los datos de la planilla (viajes, metros, equipos) se conservan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => descargarZip(true)}>Descargar y liberar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left">
+            <tr>
+              <th className="w-10 px-3 py-2">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={() => {
+                    if (!rows) return;
+                    if (allSelected) setSelected({});
+                    else setSelected(Object.fromEntries(rows.map((r) => [r.id, true])));
+                  }}
+                />
+              </th>
+              <th className="px-3 py-2">Fecha</th>
+              <th className="px-3 py-2">Cliente</th>
+              <th className="px-3 py-2">Establecimiento / Lote</th>
+              <th className="px-3 py-2">Bolsero</th>
+              <th className="px-3 py-2 text-right">Viajes</th>
+              <th className="px-3 py-2 text-right">Metros</th>
+              <th className="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i} className="border-t border-border">
+                  {Array.from({ length: 8 }).map((__, j) => (
+                    <td key={j} className="px-3 py-2"><Skeleton className="h-4 w-full" /></td>
+                  ))}
+                </tr>
+              ))
+            ) : (rows?.length ?? 0) === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-16 text-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <ClipboardList className="h-8 w-8" />
+                    <p>No hay planillas en el rango seleccionado</p>
+                    <p className="text-xs">Las planillas se cargan desde Planilla Bolsero o desde OCR.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              pag.pageItems.map((r) => (
+                <tr key={r.id} className="border-t border-border align-top">
+                  <td className="px-3 py-2">
+                    <Checkbox
+                      checked={!!selected[r.id]}
+                      onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: v === true }))}
+                    />
+                  </td>
+                  <td className="px-3 py-2">{r.fecha}</td>
+                  <td className="px-3 py-2">{r.cliente_nombre ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    {[r.establecimiento, r.lote].filter(Boolean).join(" / ") || "—"}
+                  </td>
+                  <td className="px-3 py-2">{r.bolsero_nombre ?? "—"}</td>
+                  <td className="px-3 py-2 text-right">{Number(r.total_viajes ?? 0)}</td>
+                  <td className="px-3 py-2 text-right">{Number(r.total_metros ?? 0)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => ver(r)} disabled={!r.imagen_path}>
+                        <ImageIcon className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => descargarUno(r)} disabled={!r.imagen_path}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <label className="inline-flex cursor-pointer items-center rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted">
+                        {subiendo === r.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <FileImage className="h-4 w-4" />}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void adjuntar(r, f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <Paginacion
+          page={pag.page}
+          totalPages={pag.totalPages}
+          total={pag.total}
+          pageSize={pag.pageSize}
+          onPage={pag.setPage}
+          label="planillas"
         />
       </div>
     </div>
