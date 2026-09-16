@@ -1050,15 +1050,20 @@ function Page() {
             <input {...getInputProps()} />
             <UploadCloud className="h-10 w-10 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá o hacé clic para subir (máx 5 MB)"}
+              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de abajo"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, PDF</p>
+            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
           </div>
 
-          {isMobile && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
+              <Paperclip className="h-5 w-5" />
+              Elegir archivo
+              <input type="file" className="hidden" onChange={onCameraCapture} />
+            </label>
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
               <Camera className="h-5 w-5" />
-              Tomar foto con la cámara
+              {isMobile ? "Tomar foto" : "Usar cámara"}
               <input
                 type="file"
                 accept="image/*"
@@ -1067,7 +1072,7 @@ function Page() {
                 onChange={onCameraCapture}
               />
             </label>
-          )}
+          </div>
 
           {preview && (
             <div className="rounded-xl border border-border bg-card p-3">
