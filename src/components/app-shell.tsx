@@ -354,7 +354,19 @@ export function AppShell() {
           </div>
         </header>
         <div className="flex-1">
-          <Outlet />
+          {rutaPermitida ? (
+            <Outlet />
+          ) : (
+            <div className="grid min-h-[50vh] place-items-center p-6 text-center">
+              <div>
+                <Shield className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Sin acceso a este módulo</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pedile a un administrador que te habilite este módulo.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
