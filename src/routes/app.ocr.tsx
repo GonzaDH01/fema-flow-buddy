@@ -1045,28 +1045,14 @@ function Page() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div
-            {...getRootProps()}
-            className={`flex h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
-              isDragActive ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
-            }`}
-          >
-            <input {...getInputProps()} />
-            <UploadCloud className="h-10 w-10 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de abajo"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
-          </div>
-
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
-              <Paperclip className="h-5 w-5" />
+            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30 active:bg-muted">
+              <Paperclip className="h-5 w-5 shrink-0" />
               Elegir archivo
               <input type="file" className="hidden" onChange={onCameraCapture} />
             </label>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
-              <Camera className="h-5 w-5" />
+            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30 active:bg-muted">
+              <Camera className="h-5 w-5 shrink-0" />
               {isMobile ? "Tomar foto" : "Usar cámara"}
               <input
                 type="file"
@@ -1077,6 +1063,22 @@ function Page() {
               />
             </label>
           </div>
+
+          <div
+            {...getRootProps()}
+            className={`hidden h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition sm:flex ${
+              isDragActive ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className="h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de arriba"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
+          </div>
+          <p className="text-xs text-muted-foreground sm:hidden">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
+
 
           {preview && (
             <div className="rounded-xl border border-border bg-card p-3">
