@@ -112,6 +112,17 @@ type PrefillEstim = {
   group: EstimGroup;
 };
 
+type PresupRow = {
+  id: string; numero: string | null; fecha: string; estado: string | null;
+  cliente_id: string | null; cliente_nombre: string | null; descripcion: string | null;
+  neto: number | null; iva_21: number | null; iva_105: number | null; total: number | null;
+};
+type PresupItem = {
+  codigo: string | null; descripcion: string; cantidad: number;
+  precio_unitario: number; alicuota_iva: number;
+};
+type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[] };
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
