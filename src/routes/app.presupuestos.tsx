@@ -466,8 +466,8 @@ function PresupuestoForm({
                     <TableRow key={i}>
                       <TableCell><Input className="h-8" value={it.codigo} onChange={(e) => updateItem(i, { codigo: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8" value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value })} /></TableCell>
-                      <TableCell><Input className="h-8 text-right" type="number" step="0.01" value={it.cantidad} onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })} /></TableCell>
-                      <TableCell><Input className="h-8 text-right" type="number" step="0.01" value={it.precio_unitario} onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[80px] text-right" type="number" step="1" value={it.cantidad} onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[100px] text-right" type="number" step="0.01" value={it.precio_unitario} onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })} /></TableCell>
                       <TableCell>
                         <Select value={String(it.alicuota_iva)} onValueChange={(v) => updateItem(i, { alicuota_iva: Number(v) })}>
                           <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
