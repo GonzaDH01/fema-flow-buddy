@@ -198,11 +198,43 @@ export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 4, 
 </body></html>`;
 }
 
+/** Imprime en un iframe oculto: evita que el navegador se cuelgue al guardar como PDF. */
 export function imprimirPlanilla(p: PlanillaImpresion | null) {
-  const w = window.open("", "_blank", "width=1150,height=800");
-  if (!w) return false;
-  w.document.write(planillaHTML(p));
-  w.document.close();
-  setTimeout(() => { w.focus(); w.print(); }, 300);
+  if (typeof document === "undefined") return false;
+  const html = planillaHTML(p);
+
+  const prev = document.getElementById("fema-print-frame");
+  if (prev) prev.remove();
+
+  const iframe = document.createElement("iframe");
+  iframe.id = "fema-print-frame";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.visibility = "hidden";
+
+  iframe.onload = () => {
+    const win = iframe.contentWindow;
+    if (!win) return;
+    const limpiar = () => setTimeout(() => iframe.remove(), 1000);
+    win.addEventListener("afterprint", limpiar);
+    setTimeout(() => {
+      try {
+        win.focus();
+        win.print();
+      } catch {
+        /* noop */
+      }
+      // Respaldo por si el navegador no dispara afterprint (Firefox al guardar como PDF)
+      setTimeout(limpiar, 60000);
+    }, 250);
+  };
+
+  document.body.appendChild(iframe);
+  iframe.srcdoc = html;
   return true;
 }
