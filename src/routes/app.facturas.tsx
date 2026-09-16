@@ -969,14 +969,14 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,precio_venta,moneda,stock")
+        .select("id,nombre,unidad_medida,precio,precio_venta,precio_compra,moneda,stock")
         .order("nombre");
       if (error) throw error;
-      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; moneda: string | null; stock: number }[];
+      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; precio_compra: number | null; moneda: string | null; stock: number }[];
     },
   });
   const dolar = cotizacionOficial(productos ?? []);
-  const precioDe = (p: { precio: number | null; precio_venta: number | null; moneda?: string | null }) =>
+  const precioDe = (p: { precio: number | null; precio_venta: number | null; precio_compra?: number | null; moneda?: string | null }) =>
     precioEnPesos(p, dolar);
   const porUnidad = (u: string) => (productos ?? []).filter((p) => p.unidad_medida === u);
 
@@ -1041,7 +1041,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
     if (!q) return rows;
     return rows.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [productos, pickerFilter]);
-  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; moneda?: string | null }) =>
+  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; precio_compra?: number | null; moneda?: string | null }) =>
     setItems([...items, { producto_id: p.id, descripcion: p.nombre, unidad: p.unidad_medida, cantidad: 1, precio_unitario: precioDe(p) }]);
 
   // Plan controls
