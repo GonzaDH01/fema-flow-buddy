@@ -357,9 +357,14 @@ function FormDialog({ onSubmit, initial, sugerirCodigo }: {
         <DialogTitle>{initial ? "Editar" : "Nuevo"} producto</DialogTitle>
       </DialogHeader>
       <form onSubmit={f.handleSubmit(onSubmit)} className="space-y-3">
-        <FormField label="Nombre" required error={f.formState.errors.nombre?.message}>
-          <Input {...f.register("nombre")} />
-        </FormField>
+        <div className="grid grid-cols-[130px_1fr] gap-3">
+          <FormField label="Código" error={f.formState.errors.codigo?.message}>
+            <Input className="font-mono" {...f.register("codigo")} />
+          </FormField>
+          <FormField label="Nombre" required error={f.formState.errors.nombre?.message}>
+            <Input {...f.register("nombre")} />
+          </FormField>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Unidad de medida">
             <Select value={f.watch("unidad_medida")} onValueChange={(v) => f.setValue("unidad_medida", v as any)}>
