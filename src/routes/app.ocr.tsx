@@ -897,9 +897,10 @@ function Page() {
         <p className="mt-1 text-sm text-muted-foreground">Subí una imagen o PDF para extraer datos automáticamente con IA.</p>
       </header>
 
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <Label className="text-sm font-medium">Tipo de comprobante:</Label>
-        <div className="flex gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4">
+        <Label className="w-full text-sm font-medium md:w-auto">Tipo de comprobante:</Label>
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto">
+
           <Button
             type="button"
             variant={kind === "compra" ? "default" : "outline"}
@@ -933,7 +934,8 @@ function Page() {
             <ClipboardList className="mr-1.5 h-4 w-4" /> Planilla bolsero
           </Button>
         </div>
-        <p className="ml-auto text-xs text-muted-foreground">
+        <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
           {kind === "compra"
             ? "Se cargará en Compras"
             : kind === "venta"
@@ -945,9 +947,9 @@ function Page() {
       </div>
 
       {kind === "remito" && (
-        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-          <Label className="text-sm font-medium">El remito es de:</Label>
-          <div className="flex gap-2">
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4">
+          <Label className="w-full text-sm font-medium md:w-auto">El remito es de:</Label>
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:w-auto">
             <Button type="button" size="sm" variant={remitoTipo === "compra" ? "default" : "outline"} onClick={() => setRemitoTipo("compra")}>
               Mercadería recibida (proveedor)
             </Button>
@@ -955,15 +957,16 @@ function Page() {
               Mercadería entregada (cliente)
             </Button>
           </div>
-          <p className="ml-auto text-xs text-muted-foreground">
+          <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
             El remito no genera factura ni movimiento de caja: queda archivado para consulta.
           </p>
         </div>
       )}
 
-      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
-        <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
-        <div className="flex gap-2">
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 md:p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
+        <Label className="w-full text-sm font-medium md:w-auto">¿Qué querés hacer?</Label>
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:w-auto">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
             <Save className="mr-1.5 h-4 w-4" /> Cargar comprobante nuevo
           </Button>
@@ -971,7 +974,8 @@ function Page() {
             <Paperclip className="mr-1.5 h-4 w-4" /> Adjuntar imagen a uno ya cargado
           </Button>
         </div>
-        <p className="ml-auto text-xs text-muted-foreground">
+        <p className="w-full text-xs text-muted-foreground md:ml-auto md:w-auto">
+
           {modo === "adjuntar"
             ? "No se crea ningún registro: solo se guarda la imagen en el comprobante elegido."
             : "Si el número y el total ya existen, el sistema te avisa y pasa a modo adjuntar."}
@@ -1041,28 +1045,14 @@ function Page() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div
-            {...getRootProps()}
-            className={`flex h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition ${
-              isDragActive ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
-            }`}
-          >
-            <input {...getInputProps()} />
-            <UploadCloud className="h-10 w-10 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de abajo"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
-          </div>
-
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
-              <Paperclip className="h-5 w-5" />
+            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30 active:bg-muted">
+              <Paperclip className="h-5 w-5 shrink-0" />
               Elegir archivo
               <input type="file" className="hidden" onChange={onCameraCapture} />
             </label>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
-              <Camera className="h-5 w-5" />
+            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30 active:bg-muted">
+              <Camera className="h-5 w-5 shrink-0" />
               {isMobile ? "Tomar foto" : "Usar cámara"}
               <input
                 type="file"
@@ -1073,6 +1063,22 @@ function Page() {
               />
             </label>
           </div>
+
+          <div
+            {...getRootProps()}
+            className={`hidden h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition sm:flex ${
+              isDragActive ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/30"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className="h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de arriba"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
+          </div>
+          <p className="text-xs text-muted-foreground sm:hidden">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
+
 
           {preview && (
             <div className="rounded-xl border border-border bg-card p-3">
@@ -1108,7 +1114,7 @@ function Page() {
               </p>
             ) : (
               <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs text-muted-foreground">Fecha</Label>
                     <Input type="date" value={planilla.fecha ?? ""} onChange={(e) => setPlanilla({ ...planilla, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
@@ -1123,7 +1129,7 @@ function Page() {
 
                 <div>
                   <Label className="text-xs text-muted-foreground">Metros por bolsa (1 a {CANT_BOLSAS_OCR})</Label>
-                  <div className="mt-1 grid grid-cols-7 gap-2">
+                  <div className="mt-1 grid grid-cols-4 gap-2 sm:grid-cols-7">
                     {Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => (
                       <Input
                         key={i}
@@ -1144,7 +1150,7 @@ function Page() {
                   <Label className="text-xs text-muted-foreground">Equipos y viajes</Label>
                   <div className="mt-1 space-y-2">
                     {(planilla.equipos ?? []).map((eq, i) => (
-                      <div key={i} className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-2">
+                      <div key={i} className="grid grid-cols-6 items-center gap-2 rounded-md border border-border p-2 sm:grid-cols-12">
                         <Input
                           value={eq.equipo ?? ""}
                           placeholder="Equipo"
@@ -1153,7 +1159,7 @@ function Page() {
                             arr[i] = { ...eq, equipo: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-4 h-8 text-sm"
+                          className="col-span-6 h-9 text-sm sm:col-span-4"
                         />
                         <Input
                           value={eq.chofer ?? ""}
@@ -1163,7 +1169,7 @@ function Page() {
                             arr[i] = { ...eq, chofer: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-4 h-8 text-sm"
+                          className="col-span-4 h-9 text-sm sm:col-span-4"
                         />
                         <Input
                           inputMode="numeric"
@@ -1174,12 +1180,13 @@ function Page() {
                             arr[i] = { ...eq, viajes: e.target.value };
                             setPlanilla({ ...planilla, equipos: arr });
                           }}
-                          className="col-span-2 h-8 text-center text-sm"
+                          className="col-span-2 h-9 text-center text-sm"
                         />
-                        <span className="col-span-2 text-[11px] text-muted-foreground">
+                        <span className="col-span-6 text-[11px] text-muted-foreground sm:col-span-2">
                           {eq.es_tercero ? "Tercero" : "Propio"}
                         </span>
                       </div>
+
                     ))}
                     {!(planilla.equipos ?? []).length && (
                       <p className="text-xs text-muted-foreground">No se detectaron equipos con viajes en la foto.</p>
