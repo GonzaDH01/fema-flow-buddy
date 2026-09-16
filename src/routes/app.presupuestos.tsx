@@ -60,15 +60,21 @@ type Presupuesto = {
   anio: number | null;
 };
 
-const SERVICIOS_FRECUENTES = [
-  { codigo: "00003", descripcion: "SERV. PICADO MAIZ/SORGO", iva: 10.5 },
-  { codigo: "00009", descripcion: "SERV EMBOLSADO CON BOLSA DE 10'", iva: 10.5 },
-  { codigo: "00010", descripcion: "SERV EMBOLSADO CON BOLSA DE 9'", iva: 10.5 },
-  { codigo: "00005", descripcion: "SERV. PICADO ALFALFA", iva: 10.5 },
-  { codigo: "00020", descripcion: "TRASLADO / FLETE", iva: 21 },
-  { codigo: "00030", descripcion: "CRACKER", iva: 21 },
-  { codigo: "00031", descripcion: "INOCULANTE", iva: 21 },
-];
+type ProductoServicio = {
+  id: string;
+  nombre: string;
+  categoria: string | null;
+  unidad_medida: string | null;
+  precio: number | null;
+  precio_venta: number | null;
+};
+
+const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
+
+function ivaSugerido(nombre: string): number {
+  const n = (nombre ?? "").toUpperCase();
+  return n.includes("PICADO") || n.includes("EMBOLSADO") ? 10.5 : 21;
+}
 
 const EMPTY_ITEM: Item = { codigo: "", descripcion: "", cantidad: 1, precio_unitario: 0, alicuota_iva: 21, subtotal: 0 };
 
