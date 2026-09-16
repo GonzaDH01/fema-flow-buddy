@@ -551,6 +551,7 @@ function Page() {
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
               <TabsTrigger value="estimados">Estimados ({estimGroups.length})</TabsTrigger>
+              <TabsTrigger value="presupuestos">Presupuestos ({(presupuestos ?? []).length})</TabsTrigger>
             </TabsList>
           </Tabs>
           <Input
@@ -561,7 +562,66 @@ function Page() {
           />
         </div>
 
-        {tab === "estimados" ? (
+        {tab === "presupuestos" ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>N° Presupuesto</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Detalle</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-56 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(presupuestos ?? []).length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
+              ) : (presupuestos ?? []).map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
+                  <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
+                  <TableCell>{formatFecha(p.fecha)}</TableCell>
+                  <TableCell className="max-w-[260px] truncate text-muted-foreground">{p.descripcion ?? "—"}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(Number(p.total ?? 0))}</TableCell>
+                  <TableCell>
+                    {p.estado === "Facturado"
+                      ? <Badge className="border-0 bg-primary/15 text-primary">● Facturado</Badge>
+                      : p.estado === "Aprobado"
+                        ? <Badge className="border-0 bg-accent/15 text-accent">✓ Aprobado</Badge>
+                        : <Badge variant="outline">{p.estado ?? "Pendiente"}</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {p.estado !== "Facturado" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => aprobarPresup(p)}
+                        >
+                          {p.estado === "Aprobado"
+                            ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
+                            : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        disabled={p.estado !== "Aprobado"}
+                        title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
+                        onClick={() => facturarPresup(p)}
+                      >
+                        <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : tab === "estimados" ? (
           <Table>
             <TableHeader>
               <TableRow>
