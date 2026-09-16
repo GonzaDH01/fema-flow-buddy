@@ -389,10 +389,82 @@ function Page() {
 
   const limpiar = () => {
     setResult(null);
+    setPlanilla(null);
     setPreview(null);
     setB64(null);
     setMime(null);
     setDestinoId(null);
+  };
+
+  /** Guarda la planilla de bolsero leída en el módulo Planilla Bolsero. */
+  const guardarPlanilla = async () => {
+    if (!planilla || !user) return toast.error("Sin datos o sesión");
+    setSaving(true);
+    try {
+      let imagen_path: string | null = null;
+      if (b64 && mime) {
+        try {
+          const ext = mime.split("/")[1] ?? "jpg";
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const { error } = await supabase.storage.from("planillas-img").upload(path, bytes, { contentType: mime, upsert: false });
+          if (!error) imagen_path = path;
+        } catch { /* no bloquear el guardado */ }
+      }
+      const fecha = planilla.fecha ?? new Date().toISOString().slice(0, 10);
+      const bolsas = Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => Number(num(planilla.bolsas?.[i]) ?? 0));
+      const equipos = (planilla.equipos ?? []).filter((e) => (e.equipo ?? "").trim());
+      const totalViajes = equipos.reduce((a, e) => a + Number(num(e.viajes) ?? 0), 0);
+      const totalMetros = bolsas.reduce((a, b) => a + b, 0);
+
+      const { data: cab, error } = await supabase
+        .from("fema_planillas_bolsero")
+        .insert({
+          user_id: user.id,
+          fecha,
+          cliente_nombre: planilla.cliente ?? null,
+          establecimiento: planilla.establecimiento ?? null,
+          lote: planilla.lote ?? null,
+          zona: planilla.zona ?? null,
+          cultivo: planilla.cultivo ?? null,
+          bolsero_nombre: planilla.bolsero ?? null,
+          observaciones: planilla.observaciones ?? null,
+          imagen_path,
+          bolsas,
+          total_viajes: totalViajes,
+          total_metros: totalMetros,
+          anio: Number(fecha.slice(0, 4)),
+          mes: Number(fecha.slice(5, 7)),
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      if (equipos.length) {
+        const filas = equipos.map((e, i) => ({
+          user_id: user.id,
+          planilla_id: cab!.id,
+          equipo_nombre: (e.equipo ?? "").trim(),
+          chofer: e.chofer ?? null,
+          dominio: e.dominio ?? null,
+          es_tercero: !!e.es_tercero,
+          viajes: Number(num(e.viajes) ?? 0),
+          metros_bolsa: Number(num(e.metros) ?? 0),
+          orden: i,
+        }));
+        const { error: e2 } = await supabase.from("fema_planilla_equipos").insert(filas);
+        if (e2) throw e2;
+      }
+
+      toast.success("Planilla guardada en Planilla Bolsero");
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["fema_planillas_bolsero"] });
+      qc.invalidateQueries({ queryKey: ["fema_planilla_equipos"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar la planilla");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const adjuntar = async (idForzado?: string) => {
