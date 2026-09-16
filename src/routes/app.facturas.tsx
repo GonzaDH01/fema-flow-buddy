@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +30,8 @@ import {
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
 const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Estimado"] as const;
+// Misma selección de servicios frecuentes que en Presupuestos
+const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
 const LETRAS = ["A", "B", "C", "M", "E"] as const;
 const CULTIVOS = ["Maíz", "Sorgo", "Alfalfa", "Soja", "Trigo", "Girasol", "Otro"] as const;
 const TIPOS_IVA = ["0%", "10.5%", "21%", "27%", "Exento"] as const;
@@ -851,6 +854,30 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
     updateItem(i, { producto_id: id, descripcion: p.nombre, unidad: p.unidad_medida, precio_unitario: precioDe(p) });
   };
 
+  // Servicios frecuentes (compartidos con Presupuestos)
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerFilter, setPickerFilter] = useState("");
+  const [seleccion, setSeleccion] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem(FRECUENTES_KEY) ?? "[]") as string[]; } catch { return []; }
+  });
+  const toggleFrecuente = (id: string) => {
+    setSeleccion((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try { window.localStorage.setItem(FRECUENTES_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const frecuentes = useMemo(() => (productos ?? []).filter((p) => seleccion.includes(p.id)), [productos, seleccion]);
+  const productosFiltrados = useMemo(() => {
+    const q = pickerFilter.trim().toLowerCase();
+    const rows = productos ?? [];
+    if (!q) return rows;
+    return rows.filter((p) => p.nombre.toLowerCase().includes(q));
+  }, [productos, pickerFilter]);
+  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null }) =>
+    setItems([...items, { producto_id: p.id, descripcion: p.nombre, unidad: p.unidad_medida, cantidad: 1, precio_unitario: precioDe(p) }]);
+
   // Plan controls
   const [planQty, setPlanQty] = useState(6);
   const [planFirst, setPlanFirst] = useState(() => {
@@ -1087,6 +1114,53 @@ function FormDialog({ onSubmit, initial, prefill, clientes, year }: {
               </span>
             )}
           </div>
+
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground">Servicios frecuentes</p>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
+                <Settings2 className="mr-1.5 h-4 w-4" /> Elegir servicios
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {frecuentes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Elegí los servicios del módulo Productos que querés tener a mano.
+                </p>
+              ) : frecuentes.map((p) => (
+                <Button key={p.id} type="button" size="sm" variant="outline" onClick={() => agregarFrecuente(p)}>
+                  + {p.nombre}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Servicios frecuentes</DialogTitle>
+              </DialogHeader>
+              <Input
+                placeholder="Buscar en productos y servicios..."
+                value={pickerFilter}
+                onChange={(e) => setPickerFilter(e.target.value)}
+              />
+              <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
+                {productosFiltrados.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No hay productos cargados.</p>
+                ) : productosFiltrados.map((p) => (
+                  <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md border p-2 text-sm">
+                    <Checkbox checked={seleccion.includes(p.id)} onCheckedChange={() => toggleFrecuente(p.id)} />
+                    <span className="flex-1">{p.nombre} <span className="text-xs text-muted-foreground">({p.unidad_medida})</span></span>
+                    <span className="text-muted-foreground">{formatPesos(precioDe(p))}</span>
+                  </label>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setPickerOpen(false)}>Listo</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </fieldset>
 
 
