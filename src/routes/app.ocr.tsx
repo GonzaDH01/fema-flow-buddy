@@ -651,7 +651,7 @@ function Page() {
         } catch { /* no bloquear guardado si falla la subida */ }
       }
       if (kind === "compra") {
-        const { error } = await supabase.from("fema_facturas_compra").insert({
+        const { data: creadaC, error } = await supabase.from("fema_facturas_compra").insert({
           ...base,
           proveedor_id: terceroId,
           categoria: (result.categoria_sugerida as any) ?? (result.es_combustible ? "Gasoil_Combustible" : "Otro"),
