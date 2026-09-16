@@ -283,8 +283,9 @@ export function SemanasTrabajadasTab() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Acá solo se marcan las jornadas. Los importes se calculan después, en Cupones de pago, según lo acordado con cada
-        empleado. Los pagos extra quedan pendientes y se suman al cupón del período.
+        Este calendario queda como información del período: se completa solo al liquidar en «Liquidar pago» y también podés
+        ajustarlo a mano. Los importes se calculan en «Liquidar pago», donde se marcan las faltas y se descuentan del importe
+        acordado.
       </p>
     </div>
   );

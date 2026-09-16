@@ -21,6 +21,7 @@ import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/compon
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { CuponesPagoTab } from "@/components/empleados-cupones";
+import { LiquidadorTab } from "@/components/empleados-liquidador";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
@@ -62,7 +63,7 @@ type Hora = {
 };
 
 function Page() {
-  const [tab, setTab] = useState("pagos");
+  const [tab, setTab] = useState("liquidar");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -74,6 +75,7 @@ function Page() {
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
+          <TabsTrigger value="liquidar">Liquidar pago</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
@@ -84,6 +86,7 @@ function Page() {
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
         </TabsList>
+        <TabsContent value="liquidar"><LiquidadorTab /></TabsContent>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
         <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
         <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
