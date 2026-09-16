@@ -749,7 +749,7 @@ function Page() {
           </TableBody>
         </Table>
         )}
-        {tab !== "estimados" && (
+        {tab !== "estimados" && tab !== "presupuestos" && (
           <Paginacion
             page={pag.page}
             totalPages={pag.totalPages}
@@ -764,10 +764,11 @@ function Page() {
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         {open && (
           <FormDialog
-            key={prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
+            key={prefillPresup?.presupuesto.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
             onSubmit={onSubmit}
             initial={edit}
             prefill={prefill}
+            prefillPresup={prefillPresup}
             clientes={clientes ?? []}
             year={year}
           />
