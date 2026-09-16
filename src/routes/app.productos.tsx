@@ -219,7 +219,7 @@ function Page() {
         ]}
       />
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : close())}>
-        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} />
+        <FormDialog key={edit?.id ?? "nuevo"} onSubmit={onSubmit} initial={edit} sugerirCodigo={sugerirCodigo} />
       </Dialog>
       <Dialog open={!!movProd} onOpenChange={(v) => !v && setMovProd(null)}>
         {movProd && (
@@ -332,10 +332,15 @@ function MovDialog({ producto, onDone }: { producto: Row; onDone: () => void }) 
   );
 }
 
-function FormDialog({ onSubmit, initial }: { onSubmit: (v: FormVals) => Promise<void>; initial: Row | null }) {
+function FormDialog({ onSubmit, initial, sugerirCodigo }: {
+  onSubmit: (v: FormVals) => Promise<void>;
+  initial: Row | null;
+  sugerirCodigo: (categoria: string) => string;
+}) {
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
+      codigo: initial?.codigo ?? sugerirCodigo(initial?.categoria ?? "Otro"),
       nombre: initial?.nombre ?? "",
       unidad_medida: (initial?.unidad_medida as any) ?? "Unidad",
       precio_compra: initial?.precio_compra != null ? String(initial.precio_compra) : "",
