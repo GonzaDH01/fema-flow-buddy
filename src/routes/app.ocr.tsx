@@ -449,6 +449,7 @@ function Page() {
     if (!b64 || !mime) return;
     setLoading(true);
     setResult(null);
+    setPlanilla(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -457,6 +458,26 @@ function Page() {
         setLoading(false);
         return;
       }
+
+      if (kind === "planilla") {
+        if (!mime.startsWith("image/")) {
+          toast.error("Para la planilla subí una foto (JPG o PNG), no un PDF.");
+          setLoading(false);
+          return;
+        }
+        const res = await fetch("/api/public/ocr-planilla", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image: b64, mimeType: mime }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "No se pudo leer la planilla");
+        setPlanilla((json.data ?? {}) as PlanillaOCR);
+        toast.success("Planilla leída: revisá los datos antes de guardar");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/public/ocr-factura", {
         method: "POST",
         headers: {
