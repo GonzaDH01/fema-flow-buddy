@@ -30,7 +30,13 @@ const numOpt = z
   .or(z.literal(""))
   .refine((v) => !v || !isNaN(Number(v)), { message: "Debe ser un número" });
 
+const PREFIJO_CAT: Record<string, string> = {
+  Combustible: "COM", Insumos: "INS", Servicios: "SRV",
+  Cotizaciones: "COT", Traslados: "TRA", Otro: "GEN",
+};
+
 const schema = z.object({
+  codigo: z.string().max(20).optional().or(z.literal("")),
   nombre: z.string().min(2).max(150),
   unidad_medida: z.enum(UNIDADES),
   precio_compra: numOpt,
@@ -43,6 +49,7 @@ const schema = z.object({
 type FormVals = z.infer<typeof schema>;
 type Row = {
   id: string;
+  codigo: string | null;
   nombre: string;
   unidad_medida: string;
   precio: number | null;
