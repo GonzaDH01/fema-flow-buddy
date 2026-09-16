@@ -75,6 +75,7 @@ function Page() {
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
+          <TabsTrigger value="liquidar">Liquidar pago</TabsTrigger>
           <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
