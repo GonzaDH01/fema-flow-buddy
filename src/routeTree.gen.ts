@@ -37,6 +37,7 @@ import { Route as AppProveedoresRouteImport } from './routes/app.proveedores'
 import { Route as AppRentabilidadRouteImport } from './routes/app.rentabilidad'
 import { Route as AppTesoreriaRouteImport } from './routes/app.tesoreria'
 import { Route as AppUsuariosRouteImport } from './routes/app.usuarios'
+import { Route as ApiPublicCotizacionDolarRouteImport } from './routes/api/public/cotizacion-dolar'
 import { Route as ApiPublicOcrCarnetRouteImport } from './routes/api/public/ocr-carnet'
 import { Route as ApiPublicOcrDniRouteImport } from './routes/api/public/ocr-dni'
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
@@ -181,6 +182,12 @@ const AppUsuariosRoute = AppUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicCotizacionDolarRoute =
+  ApiPublicCotizacionDolarRouteImport.update({
+    id: '/api/public/cotizacion-dolar',
+    path: '/api/public/cotizacion-dolar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicOcrCarnetRoute = ApiPublicOcrCarnetRouteImport.update({
   id: '/api/public/ocr-carnet',
   path: '/api/public/ocr-carnet',
@@ -226,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/cotizacion-dolar': typeof ApiPublicCotizacionDolarRoute
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -258,6 +266,7 @@ export interface FileRoutesByTo {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app': typeof AppIndexRoute
+  '/api/public/cotizacion-dolar': typeof ApiPublicCotizacionDolarRoute
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -292,6 +301,7 @@ export interface FileRoutesById {
   '/app/tesoreria': typeof AppTesoreriaRoute
   '/app/usuarios': typeof AppUsuariosRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/cotizacion-dolar': typeof ApiPublicCotizacionDolarRoute
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
+    | '/api/public/cotizacion-dolar'
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app'
+    | '/api/public/cotizacion-dolar'
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
@@ -392,6 +404,7 @@ export interface FileRouteTypes {
     | '/app/tesoreria'
     | '/app/usuarios'
     | '/app/'
+    | '/api/public/cotizacion-dolar'
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
@@ -402,6 +415,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicCotizacionDolarRoute: typeof ApiPublicCotizacionDolarRoute
   ApiPublicOcrCarnetRoute: typeof ApiPublicOcrCarnetRoute
   ApiPublicOcrDniRoute: typeof ApiPublicOcrDniRoute
   ApiPublicOcrFacturaRoute: typeof ApiPublicOcrFacturaRoute
@@ -605,6 +619,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsuariosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/cotizacion-dolar': {
+      id: '/api/public/cotizacion-dolar'
+      path: '/api/public/cotizacion-dolar'
+      fullPath: '/api/public/cotizacion-dolar'
+      preLoaderRoute: typeof ApiPublicCotizacionDolarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ocr-carnet': {
       id: '/api/public/ocr-carnet'
       path: '/api/public/ocr-carnet'
@@ -690,6 +711,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicCotizacionDolarRoute: ApiPublicCotizacionDolarRoute,
   ApiPublicOcrCarnetRoute: ApiPublicOcrCarnetRoute,
   ApiPublicOcrDniRoute: ApiPublicOcrDniRoute,
   ApiPublicOcrFacturaRoute: ApiPublicOcrFacturaRoute,

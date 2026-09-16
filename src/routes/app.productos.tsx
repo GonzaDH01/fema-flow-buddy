@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Search, PackagePlus } from "lucide-react";
+import { Search, PackagePlus, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { CrudTable } from "@/components/crud-table";
@@ -91,6 +91,37 @@ function Page() {
   });
 
   const dolar = useMemo(() => cotizacionOficial(data ?? []), [data]);
+
+  const [cotizando, setCotizando] = useState(false);
+  const autoRef = useRef(false);
+
+  const actualizarDolar = async (silencioso = false) => {
+    setCotizando(true);
+    try {
+      const res = await fetch("/api/public/cotizacion-dolar");
+      const j = (await res.json()) as { ok: boolean; oficial?: { venta: number | null }; blue?: { venta: number | null }; error?: string };
+      if (!j.ok) throw new Error(j.error ?? "No se pudo obtener la cotización");
+      localStorage.setItem("fema_dolar_ts", String(Date.now()));
+      qc.invalidateQueries({ queryKey: ["fema_productos"] });
+      if (!silencioso) {
+        toast.success(
+          `Dólar actualizado (dolarhoy.com) — Oficial $${j.oficial?.venta ?? "—"} · Blue $${j.blue?.venta ?? "—"}`,
+        );
+      }
+    } catch (e) {
+      if (!silencioso) toast.error((e as Error).message);
+    } finally {
+      setCotizando(false);
+    }
+  };
+
+  useEffect(() => {
+    if (autoRef.current) return;
+    autoRef.current = true;
+    const ts = Number(localStorage.getItem("fema_dolar_ts") ?? 0);
+    if (Date.now() - ts > 60 * 60 * 1000) void actualizarDolar(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const rows = data ?? [];
@@ -184,6 +215,18 @@ function Page() {
         }}
         onDelete={onDelete}
         extraHeader={
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9"
+              disabled={cotizando}
+              onClick={() => void actualizarDolar()}
+              title="Toma el tipo de cambio vendedor de dolarhoy.com"
+            >
+              <RefreshCw className={`mr-1.5 h-4 w-4 ${cotizando ? "animate-spin" : ""}`} />
+              Actualizar dólar
+            </Button>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -192,6 +235,7 @@ function Page() {
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 w-56 pl-8 md:w-64"
             />
+          </div>
           </div>
         }
         columns={[
