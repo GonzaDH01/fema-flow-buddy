@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Printer, FileDown, FileText, Search, X } from "lucide-react";
+import { Plus, Trash2, Pencil, Printer, FileDown, FileText, Search, X, Settings2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -60,15 +62,21 @@ type Presupuesto = {
   anio: number | null;
 };
 
-const SERVICIOS_FRECUENTES = [
-  { codigo: "00003", descripcion: "SERV. PICADO MAIZ/SORGO", iva: 10.5 },
-  { codigo: "00009", descripcion: "SERV EMBOLSADO CON BOLSA DE 10'", iva: 10.5 },
-  { codigo: "00010", descripcion: "SERV EMBOLSADO CON BOLSA DE 9'", iva: 10.5 },
-  { codigo: "00005", descripcion: "SERV. PICADO ALFALFA", iva: 10.5 },
-  { codigo: "00020", descripcion: "TRASLADO / FLETE", iva: 21 },
-  { codigo: "00030", descripcion: "CRACKER", iva: 21 },
-  { codigo: "00031", descripcion: "INOCULANTE", iva: 21 },
-];
+type ProductoServicio = {
+  id: string;
+  nombre: string;
+  categoria: string | null;
+  unidad_medida: string | null;
+  precio: number | null;
+  precio_venta: number | null;
+};
+
+const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
+
+function ivaSugerido(nombre: string): number {
+  const n = (nombre ?? "").toUpperCase();
+  return n.includes("PICADO") || n.includes("EMBOLSADO") ? 10.5 : 21;
+}
 
 const EMPTY_ITEM: Item = { codigo: "", descripcion: "", cantidad: 1, precio_unitario: 0, alicuota_iva: 21, subtotal: 0 };
 
@@ -273,6 +281,43 @@ function PresupuestoForm({
   const [consideraciones, setConsideraciones] = useState(initial?.consideraciones ?? "");
   const [items, setItems] = useState<Item[]>([]);
   const [saving, setSaving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerFilter, setPickerFilter] = useState("");
+  const [seleccion, setSeleccion] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem(FRECUENTES_KEY) ?? "[]") as string[]; } catch { return []; }
+  });
+
+  const { data: productos } = useQuery({
+    queryKey: ["fema_productos_presupuesto"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("fema_productos")
+        .select("id,nombre,categoria,unidad_medida,precio,precio_venta")
+        .order("nombre");
+      return (data ?? []) as ProductoServicio[];
+    },
+  });
+
+  const toggleFrecuente = (id: string) => {
+    setSeleccion((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try { window.localStorage.setItem(FRECUENTES_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const frecuentes = useMemo(
+    () => (productos ?? []).filter((p) => seleccion.includes(p.id)),
+    [productos, seleccion],
+  );
+
+  const productosFiltrados = useMemo(() => {
+    const q = pickerFilter.trim().toLowerCase();
+    const rows = productos ?? [];
+    if (!q) return rows;
+    return rows.filter((p) => `${p.nombre} ${p.categoria ?? ""}`.toLowerCase().includes(q));
+  }, [productos, pickerFilter]);
 
   useEffect(() => {
     if (!initial) { setItems([]); return; }
@@ -442,15 +487,69 @@ function PresupuestoForm({
             </div>
 
             <div className="mt-4">
-              <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Servicios frecuentes</p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground">Servicios frecuentes</p>
+                <Button size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
+                  <Settings2 className="mr-1.5 h-4 w-4" /> Elegir servicios
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {SERVICIOS_FRECUENTES.map((s) => (
-                  <Button key={s.codigo} size="sm" variant="outline" onClick={() => addItem({ codigo: s.codigo, descripcion: s.descripcion, alicuota_iva: s.iva })}>
-                    + {s.descripcion}
+                {frecuentes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Elegí los servicios del módulo Productos que querés tener a mano.
+                  </p>
+                ) : frecuentes.map((p) => (
+                  <Button
+                    key={p.id}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addItem({
+                      codigo: "",
+                      descripcion: p.nombre,
+                      precio_unitario: Number(p.precio_venta ?? p.precio ?? 0),
+                      alicuota_iva: ivaSugerido(p.nombre),
+                      cantidad: 1,
+                      subtotal: Number(p.precio_venta ?? p.precio ?? 0),
+                    })}
+                  >
+                    + {p.nombre}
                   </Button>
                 ))}
               </div>
             </div>
+
+            <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Servicios frecuentes</DialogTitle>
+                </DialogHeader>
+                <Input
+                  placeholder="Buscar en productos y servicios..."
+                  value={pickerFilter}
+                  onChange={(e) => setPickerFilter(e.target.value)}
+                />
+                <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
+                  {productosFiltrados.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">No hay productos cargados.</p>
+                  ) : productosFiltrados.map((p) => (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md border p-2 text-sm">
+                      <Checkbox
+                        checked={seleccion.includes(p.id)}
+                        onCheckedChange={() => toggleFrecuente(p.id)}
+                      />
+                      <span className="flex-1">
+                        {p.nombre}
+                        {p.categoria ? <span className="ml-2 text-xs text-muted-foreground">{p.categoria}</span> : null}
+                      </span>
+                      <span className="text-muted-foreground">{formatPesos(Number(p.precio_venta ?? p.precio ?? 0))}</span>
+                    </label>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setPickerOpen(false)}>Listo</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <div className="mt-6 grid grid-cols-1 gap-y-1 text-sm md:grid-cols-[1fr_auto] md:gap-x-8">
               <div className="text-right text-muted-foreground">T. Neto:</div>
