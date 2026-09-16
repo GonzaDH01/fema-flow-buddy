@@ -73,9 +73,9 @@ type ProductoServicio = {
 
 const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
 
-function ivaSugerido(nombre: string): number {
-  const n = (nombre ?? "").toUpperCase();
-  return n.includes("PICADO") || n.includes("EMBOLSADO") ? 10.5 : 21;
+function ivaSugerido(_nombre: string): number {
+  // Los servicios se presupuestan siempre con IVA 21%; se cambia manualmente si corresponde.
+  return 21;
 }
 
 const EMPTY_ITEM: Item = { codigo: "", descripcion: "", cantidad: 1, precio_unitario: 0, alicuota_iva: 21, subtotal: 0 };
