@@ -1818,6 +1818,7 @@ export type Database = {
       }
       fema_planilla_equipos: {
         Row: {
+          activo_id: string | null
           chofer: string | null
           created_at: string
           dominio: string | null
@@ -1834,6 +1835,7 @@ export type Database = {
           viajes: number
         }
         Insert: {
+          activo_id?: string | null
           chofer?: string | null
           created_at?: string
           dominio?: string | null
@@ -1850,6 +1852,7 @@ export type Database = {
           viajes?: number
         }
         Update: {
+          activo_id?: string | null
           chofer?: string | null
           created_at?: string
           dominio?: string | null
@@ -1866,6 +1869,13 @@ export type Database = {
           viajes?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "fema_planilla_equipos_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fema_planilla_equipos_equipo_id_fkey"
             columns: ["equipo_id"]
