@@ -903,7 +903,7 @@ function Page() {
         </div>
       )}
 
-      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" ? "hidden" : ""}`}>
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
         <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
