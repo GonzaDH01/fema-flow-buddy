@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cotizacionOficial, precioEnPesos } from "@/lib/cotizacion";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -69,6 +70,7 @@ type ProductoServicio = {
   unidad_medida: string | null;
   precio: number | null;
   precio_venta: number | null;
+  moneda?: string | null;
 };
 
 const FRECUENTES_KEY = "fema_presup_servicios_frecuentes";
@@ -293,11 +295,14 @@ function PresupuestoForm({
     queryFn: async () => {
       const { data } = await supabase
         .from("fema_productos")
-        .select("id,nombre,categoria,unidad_medida,precio,precio_venta")
+        .select("id,nombre,categoria,unidad_medida,precio,precio_venta,moneda")
         .order("nombre");
       return (data ?? []) as ProductoServicio[];
     },
   });
+
+  const dolar = useMemo(() => cotizacionOficial(productos ?? []), [productos]);
+  const precioPesos = (p: ProductoServicio) => precioEnPesos(p as any, dolar);
 
   const toggleFrecuente = (id: string) => {
     setSeleccion((prev) => {
@@ -506,10 +511,10 @@ function PresupuestoForm({
                     onClick={() => addItem({
                       codigo: "",
                       descripcion: p.nombre,
-                      precio_unitario: Number(p.precio_venta ?? p.precio ?? 0),
+                      precio_unitario: precioPesos(p),
                       alicuota_iva: ivaSugerido(p.nombre),
                       cantidad: 1,
-                      subtotal: Number(p.precio_venta ?? p.precio ?? 0),
+                      subtotal: precioPesos(p),
                     })}
                   >
                     + {p.nombre}
@@ -541,7 +546,10 @@ function PresupuestoForm({
                         {p.nombre}
                         {p.categoria ? <span className="ml-2 text-xs text-muted-foreground">{p.categoria}</span> : null}
                       </span>
-                      <span className="text-muted-foreground">{formatPesos(Number(p.precio_venta ?? p.precio ?? 0))}</span>
+                      <span className="text-muted-foreground">
+                        {formatPesos(precioPesos(p))}
+                        {p.moneda === "USD" ? <span className="ml-1 text-xs">(US$ {Number(p.precio_venta ?? p.precio ?? 0).toLocaleString("es-AR")})</span> : null}
+                      </span>
                     </label>
                   ))}
                 </div>

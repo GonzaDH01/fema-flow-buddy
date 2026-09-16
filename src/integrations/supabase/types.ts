@@ -2101,6 +2101,7 @@ export type Database = {
           codigo: string | null
           created_at: string
           id: string
+          moneda: string
           nombre: string
           observaciones: string | null
           precio: number | null
@@ -2117,6 +2118,7 @@ export type Database = {
           codigo?: string | null
           created_at?: string
           id?: string
+          moneda?: string
           nombre: string
           observaciones?: string | null
           precio?: number | null
@@ -2133,6 +2135,7 @@ export type Database = {
           codigo?: string | null
           created_at?: string
           id?: string
+          moneda?: string
           nombre?: string
           observaciones?: string | null
           precio?: number | null
