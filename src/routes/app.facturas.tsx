@@ -844,10 +844,11 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
   year: number;
 }) {
   const inferIva = (r: Row | null): typeof TIPOS_IVA[number] => {
+    // Los comprobantes de servicio se emiten por defecto con IVA 21%; se cambia manualmente si corresponde.
     if (!r) return "21%";
     if ((r.iva_21 ?? 0) > 0) return "21%";
     if ((r.iva_105 ?? 0) > 0) return "10.5%";
-    return r.tipo === "A" ? "21%" : "0%";
+    return "21%";
   };
 
   // Derivar ha, mts, precios y cultivo desde el estimado precargado
