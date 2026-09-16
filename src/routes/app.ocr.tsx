@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search, Truck } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search, Truck, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +41,27 @@ type OCRResult = {
   producto_combustible?: string | null; moneda?: string;
 };
 
-type DocKind = "compra" | "venta" | "remito";
+type DocKind = "compra" | "venta" | "remito" | "planilla";
 type Modo = "nuevo" | "adjuntar";
+
+/** Datos leídos de una planilla diaria de picado y embolsado (papel). */
+type PlanillaOCR = {
+  fecha?: string | null;
+  cliente?: string | null;
+  establecimiento?: string | null;
+  lote?: string | null;
+  zona?: string | null;
+  cultivo?: string | null;
+  bolsero?: string | null;
+  bolsas?: (number | string | null)[] | null;
+  observaciones?: string | null;
+  equipos?: Array<{
+    equipo?: string | null; chofer?: string | null; dominio?: string | null;
+    viajes?: number | string | null; metros?: number | string | null; es_tercero?: boolean;
+  }> | null;
+};
+
+const CANT_BOLSAS_OCR = 7;
 
 const num = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -261,6 +280,7 @@ function Page() {
   const [dupe, setDupe] = useState<{ id: string; numero: string | null; total: number | null; fecha: string | null; tercero: string | null; tieneImagen: boolean } | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string>("");
   const [remitoTipo, setRemitoTipo] = useState<"compra" | "venta">("compra");
+  const [planilla, setPlanilla] = useState<PlanillaOCR | null>(null);
   // Combustible: define si los litros entran al tanque de suministro de la empresa
   // o si son cargas de vehículos particulares (no suman stock).
   const [sumaTanque, setSumaTanque] = useState(true);
@@ -369,10 +389,82 @@ function Page() {
 
   const limpiar = () => {
     setResult(null);
+    setPlanilla(null);
     setPreview(null);
     setB64(null);
     setMime(null);
     setDestinoId(null);
+  };
+
+  /** Guarda la planilla de bolsero leída en el módulo Planilla Bolsero. */
+  const guardarPlanilla = async () => {
+    if (!planilla || !user) return toast.error("Sin datos o sesión");
+    setSaving(true);
+    try {
+      let imagen_path: string | null = null;
+      if (b64 && mime) {
+        try {
+          const ext = mime.split("/")[1] ?? "jpg";
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const { error } = await supabase.storage.from("planillas-img").upload(path, bytes, { contentType: mime, upsert: false });
+          if (!error) imagen_path = path;
+        } catch { /* no bloquear el guardado */ }
+      }
+      const fecha = planilla.fecha ?? new Date().toISOString().slice(0, 10);
+      const bolsas = Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => Number(num(String(planilla.bolsas?.[i] ?? 0)) ?? 0));
+      const equipos = (planilla.equipos ?? []).filter((e) => (e.equipo ?? "").trim());
+      const totalViajes = equipos.reduce((a, e) => a + Number(num(String(e.viajes ?? 0)) ?? 0), 0);
+      const totalMetros = bolsas.reduce((a, b) => a + b, 0);
+
+      const { data: cab, error } = await supabase
+        .from("fema_planillas_bolsero")
+        .insert({
+          user_id: user.id,
+          fecha,
+          cliente_nombre: planilla.cliente ?? null,
+          establecimiento: planilla.establecimiento ?? null,
+          lote: planilla.lote ?? null,
+          zona: planilla.zona ?? null,
+          cultivo: planilla.cultivo ?? null,
+          bolsero_nombre: planilla.bolsero ?? null,
+          observaciones: planilla.observaciones ?? null,
+          imagen_path,
+          bolsas,
+          total_viajes: totalViajes,
+          total_metros: totalMetros,
+          anio: Number(fecha.slice(0, 4)),
+          mes: Number(fecha.slice(5, 7)),
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      if (equipos.length) {
+        const filas = equipos.map((e, i) => ({
+          user_id: user.id,
+          planilla_id: cab!.id,
+          equipo_nombre: (e.equipo ?? "").trim(),
+          chofer: e.chofer ?? null,
+          dominio: e.dominio ?? null,
+          es_tercero: !!e.es_tercero,
+          viajes: Number(num(String(e.viajes ?? 0)) ?? 0),
+          metros_bolsa: Number(num(String(e.metros ?? 0)) ?? 0),
+          orden: i,
+        }));
+        const { error: e2 } = await supabase.from("fema_planilla_equipos").insert(filas);
+        if (e2) throw e2;
+      }
+
+      toast.success("Planilla guardada en Planilla Bolsero");
+      limpiar();
+      qc.invalidateQueries({ queryKey: ["fema_planillas_bolsero"] });
+      qc.invalidateQueries({ queryKey: ["fema_planilla_equipos"] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar la planilla");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const adjuntar = async (idForzado?: string) => {
@@ -429,6 +521,7 @@ function Page() {
     if (!b64 || !mime) return;
     setLoading(true);
     setResult(null);
+    setPlanilla(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -437,6 +530,26 @@ function Page() {
         setLoading(false);
         return;
       }
+
+      if (kind === "planilla") {
+        if (!mime.startsWith("image/")) {
+          toast.error("Para la planilla subí una foto (JPG o PNG), no un PDF.");
+          setLoading(false);
+          return;
+        }
+        const res = await fetch("/api/public/ocr-planilla", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image: b64, mimeType: mime }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "No se pudo leer la planilla");
+        setPlanilla((json.data ?? {}) as PlanillaOCR);
+        toast.success("Planilla leída: revisá los datos antes de guardar");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/public/ocr-factura", {
         method: "POST",
         headers: {
@@ -753,13 +866,23 @@ function Page() {
           >
             <Truck className="mr-1.5 h-4 w-4" /> Remito
           </Button>
+          <Button
+            type="button"
+            variant={kind === "planilla" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setKind("planilla"); setModo("nuevo"); setDestinoId(null); }}
+          >
+            <ClipboardList className="mr-1.5 h-4 w-4" /> Planilla bolsero
+          </Button>
         </div>
         <p className="ml-auto text-xs text-muted-foreground">
           {kind === "compra"
             ? "Se cargará en Compras"
             : kind === "venta"
               ? "Se cargará en Facturas (ventas)"
-              : "Se cargará en Imágenes → Remitos, con número interno correlativo"}
+              : kind === "remito"
+                ? "Se cargará en Imágenes → Remitos, con número interno correlativo"
+                : "Se cargará en Planilla Bolsero con los viajes y metros leídos"}
         </p>
       </div>
 
@@ -780,7 +903,7 @@ function Page() {
         </div>
       )}
 
-      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" ? "hidden" : ""}`}>
+      <div className={`mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 ${kind === "remito" || kind === "planilla" ? "hidden" : ""}`}>
         <Label className="text-sm font-medium">¿Qué querés hacer?</Label>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant={modo === "nuevo" ? "default" : "outline"} onClick={() => { setModo("nuevo"); setDestinoId(null); }}>
@@ -915,7 +1038,110 @@ function Page() {
               </Badge>
             )}
           </div>
-          {!result ? (
+          {kind === "planilla" ? (
+            !planilla ? (
+              <p className="grid h-64 place-items-center text-sm text-muted-foreground">
+                Subí la foto de la planilla y presioná Analizar.
+              </p>
+            ) : (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fecha</Label>
+                    <Input type="date" value={planilla.fecha ?? ""} onChange={(e) => setPlanilla({ ...planilla, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
+                  </div>
+                  <EditableOCRField label="Cliente" value={planilla.cliente ?? ""} onChange={(v) => setPlanilla({ ...planilla, cliente: v })} />
+                  <EditableOCRField label="Establecimiento" value={planilla.establecimiento ?? ""} onChange={(v) => setPlanilla({ ...planilla, establecimiento: v })} />
+                  <EditableOCRField label="Lote" value={planilla.lote ?? ""} onChange={(v) => setPlanilla({ ...planilla, lote: v })} />
+                  <EditableOCRField label="Zona / Localidad" value={planilla.zona ?? ""} onChange={(v) => setPlanilla({ ...planilla, zona: v })} />
+                  <EditableOCRField label="Cultivo" value={planilla.cultivo ?? ""} onChange={(v) => setPlanilla({ ...planilla, cultivo: v })} />
+                  <EditableOCRField label="Bolsero" value={planilla.bolsero ?? ""} onChange={(v) => setPlanilla({ ...planilla, bolsero: v })} />
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Metros por bolsa (1 a {CANT_BOLSAS_OCR})</Label>
+                  <div className="mt-1 grid grid-cols-7 gap-2">
+                    {Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => (
+                      <Input
+                        key={i}
+                        inputMode="decimal"
+                        value={String(planilla.bolsas?.[i] ?? "")}
+                        onChange={(e) => {
+                          const arr = Array.from({ length: CANT_BOLSAS_OCR }, (_, j) => planilla.bolsas?.[j] ?? "");
+                          arr[i] = e.target.value;
+                          setPlanilla({ ...planilla, bolsas: arr });
+                        }}
+                        className="h-8 px-1 text-center text-sm"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Equipos y viajes</Label>
+                  <div className="mt-1 space-y-2">
+                    {(planilla.equipos ?? []).map((eq, i) => (
+                      <div key={i} className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-2">
+                        <Input
+                          value={eq.equipo ?? ""}
+                          placeholder="Equipo"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, equipo: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-4 h-8 text-sm"
+                        />
+                        <Input
+                          value={eq.chofer ?? ""}
+                          placeholder="Chofer"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, chofer: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-4 h-8 text-sm"
+                        />
+                        <Input
+                          inputMode="numeric"
+                          value={String(eq.viajes ?? "")}
+                          placeholder="Viajes"
+                          onChange={(e) => {
+                            const arr = [...(planilla.equipos ?? [])];
+                            arr[i] = { ...eq, viajes: e.target.value };
+                            setPlanilla({ ...planilla, equipos: arr });
+                          }}
+                          className="col-span-2 h-8 text-center text-sm"
+                        />
+                        <span className="col-span-2 text-[11px] text-muted-foreground">
+                          {eq.es_tercero ? "Tercero" : "Propio"}
+                        </span>
+                      </div>
+                    ))}
+                    {!(planilla.equipos ?? []).length && (
+                      <p className="text-xs text-muted-foreground">No se detectaron equipos con viajes en la foto.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Observaciones</Label>
+                  <textarea
+                    value={planilla.observaciones ?? ""}
+                    onChange={(e) => setPlanilla({ ...planilla, observaciones: e.target.value })}
+                    className="mt-1 h-20 w-full rounded-md border border-input bg-background p-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={guardarPlanilla} disabled={saving}>
+                    {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                    Guardar en Planilla Bolsero
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : !result ? (
             <p className="grid h-64 place-items-center text-sm text-muted-foreground">
               Subí una factura y presioná Analizar.
             </p>
