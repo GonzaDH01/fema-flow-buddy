@@ -347,6 +347,9 @@ function Page() {
         <TabsContent value="remitos" className="mt-4">
           <RemitosPanel />
         </TabsContent>
+        <TabsContent value="planillas" className="mt-4">
+          <PlanillasPanel />
+        </TabsContent>
         <TabsContent value="control" className="mt-4">
           <ControlPanel />
         </TabsContent>
