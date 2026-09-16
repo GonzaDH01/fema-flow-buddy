@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Inventario } from "@/components/inventario";
-import { cotizacionOficial, precioEnPesos } from "@/lib/cotizacion";
+import { cotizacionOficial, precioEnPesos, precioBase } from "@/lib/cotizacion";
 
 export const Route = createFileRoute("/app/productos")({ component: Page });
 
@@ -254,11 +254,11 @@ function Page() {
             cell: (r) =>
               r.moneda === "USD" ? (
                 <span className="flex flex-col">
-                  <span>US$ {Number(r.precio_venta ?? r.precio ?? 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                  <span>US$ {precioBase(r).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
                   <span className="text-xs text-muted-foreground">≈ {money(precioEnPesos(r, dolar))}</span>
                 </span>
               ) : (
-                money(r.precio_venta ?? r.precio)
+                money(precioBase(r) || null)
               ),
           },
           {
@@ -494,7 +494,7 @@ function FormDialog({ onSubmit, initial, sugerirCodigo, dolar }: {
         {f.watch("moneda") === "USD" && (
           <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
             {dolar > 0
-              ? `Se convierte al dólar oficial del catálogo ($ ${dolar.toLocaleString("es-AR")}): equivale a ${money(Number(f.watch("precio_venta") || 0) * dolar)}`
+              ? `Se convierte al dólar oficial del catálogo ($ ${dolar.toLocaleString("es-AR")}): equivale a ${money((Number(f.watch("precio_venta") || 0) || Number(f.watch("precio_compra") || 0)) * dolar)}`
               : "Cargá el producto “Dólar oficial” en la categoría Cotizaciones para convertir a pesos."}
           </p>
         )}

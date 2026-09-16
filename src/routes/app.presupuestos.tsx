@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cotizacionOficial, precioEnPesos } from "@/lib/cotizacion";
+import { cotizacionOficial, precioEnPesos, precioBase } from "@/lib/cotizacion";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -70,6 +70,7 @@ type ProductoServicio = {
   unidad_medida: string | null;
   precio: number | null;
   precio_venta: number | null;
+  precio_compra?: number | null;
   codigo?: string | null;
   moneda?: string | null;
 };
@@ -550,7 +551,7 @@ function PresupuestoForm({
                       </span>
                       <span className="text-muted-foreground">
                         {formatPesos(precioPesos(p))}
-                        {p.moneda === "USD" ? <span className="ml-1 text-xs">(US$ {Number(p.precio_venta ?? p.precio ?? 0).toLocaleString("es-AR")})</span> : null}
+                        {p.moneda === "USD" ? <span className="ml-1 text-xs">(US$ {precioBase(p).toLocaleString("es-AR")})</span> : null}
                       </span>
                     </label>
                   ))}
