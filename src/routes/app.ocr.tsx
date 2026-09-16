@@ -412,9 +412,9 @@ function Page() {
         } catch { /* no bloquear el guardado */ }
       }
       const fecha = planilla.fecha ?? new Date().toISOString().slice(0, 10);
-      const bolsas = Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => Number(num(planilla.bolsas?.[i]) ?? 0));
+      const bolsas = Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => Number(num(String(planilla.bolsas?.[i] ?? 0)) ?? 0));
       const equipos = (planilla.equipos ?? []).filter((e) => (e.equipo ?? "").trim());
-      const totalViajes = equipos.reduce((a, e) => a + Number(num(e.viajes) ?? 0), 0);
+      const totalViajes = equipos.reduce((a, e) => a + Number(num(String(e.viajes ?? 0)) ?? 0), 0);
       const totalMetros = bolsas.reduce((a, b) => a + b, 0);
 
       const { data: cab, error } = await supabase
@@ -448,8 +448,8 @@ function Page() {
           chofer: e.chofer ?? null,
           dominio: e.dominio ?? null,
           es_tercero: !!e.es_tercero,
-          viajes: Number(num(e.viajes) ?? 0),
-          metros_bolsa: Number(num(e.metros) ?? 0),
+          viajes: Number(num(String(e.viajes ?? 0)) ?? 0),
+          metros_bolsa: Number(num(String(e.metros ?? 0)) ?? 0),
           orden: i,
         }));
         const { error: e2 } = await supabase.from("fema_planilla_equipos").insert(filas);
