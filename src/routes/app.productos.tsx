@@ -381,7 +381,13 @@ function FormDialog({ onSubmit, initial, sugerirCodigo }: {
             </Select>
           </FormField>
           <FormField label="Categoría">
-            <Select value={f.watch("categoria")} onValueChange={(v) => f.setValue("categoria", v as any)}>
+            <Select
+              value={f.watch("categoria")}
+              onValueChange={(v) => {
+                f.setValue("categoria", v as any);
+                if (!initial) f.setValue("codigo", sugerirCodigo(v));
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
