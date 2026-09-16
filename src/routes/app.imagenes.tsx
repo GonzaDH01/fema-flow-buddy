@@ -6,7 +6,7 @@ import JSZip from "jszip";
 import { usePaginacion, Paginacion } from "@/components/paginacion";
 import {
   Image as ImageIcon, Download, Trash2, ShoppingCart, Receipt, FileImage, Loader2,
-  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off, Truck,
+  ShieldCheck, AlertTriangle, CheckCircle2, Link2Off, Truck, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
