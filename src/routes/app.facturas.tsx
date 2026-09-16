@@ -969,7 +969,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,precio_venta,moneda,stock")
+        .select("id,nombre,unidad_medida,precio,precio_venta,precio_compra,moneda,stock")
         .order("nombre");
       if (error) throw error;
       return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; moneda: string | null; stock: number }[];

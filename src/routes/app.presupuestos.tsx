@@ -296,7 +296,7 @@ function PresupuestoForm({
     queryFn: async () => {
       const { data } = await supabase
         .from("fema_productos")
-        .select("id,codigo,nombre,categoria,unidad_medida,precio,precio_venta,moneda")
+        .select("id,codigo,nombre,categoria,unidad_medida,precio,precio_venta,precio_compra,moneda")
         .order("nombre");
       return (data ?? []) as ProductoServicio[];
     },

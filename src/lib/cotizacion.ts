@@ -6,6 +6,7 @@ export type ProductoPrecio = {
   categoria?: string | null;
   precio?: number | null;
   precio_venta?: number | null;
+  precio_compra?: number | null;
   moneda?: string | null;
 };
 
@@ -20,9 +21,18 @@ export function cotizacionOficial(productos: ProductoPrecio[] | undefined | null
   return Number(p?.precio_venta ?? p?.precio ?? 0) || 0;
 }
 
+/** Precio base del producto en su moneda: venta, o precio, o compra. */
+export function precioBase(p: ProductoPrecio): number {
+  return (
+    (Number(p.precio_venta ?? 0) || 0) ||
+    (Number(p.precio ?? 0) || 0) ||
+    (Number(p.precio_compra ?? 0) || 0)
+  );
+}
+
 /** Precio de venta del producto expresado siempre en pesos. */
 export function precioEnPesos(p: ProductoPrecio, dolar: number): number {
-  const base = Number(p.precio_venta ?? p.precio ?? 0) || 0;
+  const base = precioBase(p);
   if ((p.moneda ?? "ARS") === "USD") return dolar > 0 ? base * dolar : base;
   return base;
 }
