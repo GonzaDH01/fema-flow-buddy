@@ -41,8 +41,27 @@ type OCRResult = {
   producto_combustible?: string | null; moneda?: string;
 };
 
-type DocKind = "compra" | "venta" | "remito";
+type DocKind = "compra" | "venta" | "remito" | "planilla";
 type Modo = "nuevo" | "adjuntar";
+
+/** Datos leídos de una planilla diaria de picado y embolsado (papel). */
+type PlanillaOCR = {
+  fecha?: string | null;
+  cliente?: string | null;
+  establecimiento?: string | null;
+  lote?: string | null;
+  zona?: string | null;
+  cultivo?: string | null;
+  bolsero?: string | null;
+  bolsas?: (number | string | null)[] | null;
+  observaciones?: string | null;
+  equipos?: Array<{
+    equipo?: string | null; chofer?: string | null; dominio?: string | null;
+    viajes?: number | string | null; metros?: number | string | null; es_tercero?: boolean;
+  }> | null;
+};
+
+const CANT_BOLSAS_OCR = 7;
 
 const num = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
