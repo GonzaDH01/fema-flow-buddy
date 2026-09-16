@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search, Truck } from "lucide-react";
+import { ScanLine, UploadCloud, Loader2, FileImage, Save, ShoppingCart, Receipt, Camera, Paperclip, Search, Truck, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
