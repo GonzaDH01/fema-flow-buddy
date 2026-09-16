@@ -445,6 +445,14 @@ function Page() {
       if (errEst) toast.error(`Estimación: ${errEst.message}`);
       qc.invalidateQueries({ queryKey: ["fema_estimaciones_facturas"] });
     }
+    // Si venía de un presupuesto → queda marcado como Facturado
+    if (!edit && prefillPresup) {
+      const { error: errP } = await supabase.from("fema_presupuestos")
+        .update({ estado: "Facturado" }).eq("id", prefillPresup.presupuesto.id);
+      if (errP) toast.error(`Presupuesto: ${errP.message}`);
+      qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+      qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+    }
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
