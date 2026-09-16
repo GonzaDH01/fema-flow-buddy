@@ -882,11 +882,13 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
       fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
-      cliente_id: initial?.cliente_id ?? prefill?.group.cliente_id ?? "",
-      trabajo: initial?.trabajo ?? prefill?.group.descripcionBase ?? "",
+      cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefill?.group.cliente_id ?? "",
+      trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefill?.group.descripcionBase ?? "",
       categoria: initial?.categoria ?? "",
       cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
-      iva_pct: inferIva(initial),
+      iva_pct: prefillPresup
+        ? (Number(prefillPresup.presupuesto.iva_105 ?? 0) > 0 && Number(prefillPresup.presupuesto.iva_21 ?? 0) === 0 ? "10.5%" : "21%")
+        : inferIva(initial),
       hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
       precio_ha: Number(initial?.precio_ha ?? estimDerived?.pHa ?? 0),
       metros_bolsa: Number(initial?.metros_bolsa ?? estimDerived?.mt ?? 0),
@@ -895,7 +897,15 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
-      items: [],
+      items: prefillPresup
+        ? prefillPresup.items.map((it) => ({
+            producto_id: "",
+            descripcion: it.codigo ? `${it.codigo} — ${it.descripcion}` : it.descripcion,
+            unidad: "",
+            cantidad: Number(it.cantidad),
+            precio_unitario: Number(it.precio_unitario),
+          }))
+        : [],
       plan_cuotas: prefill
         ? prefill.group.cuotas.map((c) => ({
             vencimiento: c.vencimiento,
