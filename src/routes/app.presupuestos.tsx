@@ -70,6 +70,7 @@ type ProductoServicio = {
   unidad_medida: string | null;
   precio: number | null;
   precio_venta: number | null;
+  codigo?: string | null;
   moneda?: string | null;
 };
 
@@ -295,7 +296,7 @@ function PresupuestoForm({
     queryFn: async () => {
       const { data } = await supabase
         .from("fema_productos")
-        .select("id,nombre,categoria,unidad_medida,precio,precio_venta,moneda")
+        .select("id,codigo,nombre,categoria,unidad_medida,precio,precio_venta,moneda")
         .order("nombre");
       return (data ?? []) as ProductoServicio[];
     },
@@ -509,7 +510,7 @@ function PresupuestoForm({
                     size="sm"
                     variant="outline"
                     onClick={() => addItem({
-                      codigo: "",
+                      codigo: p.codigo ?? "",
                       descripcion: p.nombre,
                       precio_unitario: precioPesos(p),
                       alicuota_iva: ivaSugerido(p.nombre),
@@ -517,7 +518,7 @@ function PresupuestoForm({
                       subtotal: precioPesos(p),
                     })}
                   >
-                    + {p.nombre}
+                    + {p.codigo ? `${p.codigo} · ` : ""}{p.nombre}
                   </Button>
                 ))}
               </div>
@@ -543,6 +544,7 @@ function PresupuestoForm({
                         onCheckedChange={() => toggleFrecuente(p.id)}
                       />
                       <span className="flex-1">
+                        {p.codigo ? <span className="mr-2 font-mono text-xs text-muted-foreground">{p.codigo}</span> : null}
                         {p.nombre}
                         {p.categoria ? <span className="ml-2 text-xs text-muted-foreground">{p.categoria}</span> : null}
                       </span>
