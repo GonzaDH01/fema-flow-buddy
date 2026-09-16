@@ -1114,7 +1114,7 @@ function Page() {
               </p>
             ) : (
               <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs text-muted-foreground">Fecha</Label>
                     <Input type="date" value={planilla.fecha ?? ""} onChange={(e) => setPlanilla({ ...planilla, fecha: e.target.value })} className="mt-1 h-8 text-sm" />
@@ -1129,7 +1129,7 @@ function Page() {
 
                 <div>
                   <Label className="text-xs text-muted-foreground">Metros por bolsa (1 a {CANT_BOLSAS_OCR})</Label>
-                  <div className="mt-1 grid grid-cols-7 gap-2">
+                  <div className="mt-1 grid grid-cols-4 gap-2 sm:grid-cols-7">
                     {Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => (
                       <Input
                         key={i}
