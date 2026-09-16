@@ -2098,6 +2098,7 @@ export type Database = {
       fema_productos: {
         Row: {
           categoria: string
+          codigo: string | null
           created_at: string
           id: string
           nombre: string
@@ -2113,6 +2114,7 @@ export type Database = {
         }
         Insert: {
           categoria: string
+          codigo?: string | null
           created_at?: string
           id?: string
           nombre: string
@@ -2128,6 +2130,7 @@ export type Database = {
         }
         Update: {
           categoria?: string
+          codigo?: string | null
           created_at?: string
           id?: string
           nombre?: string
