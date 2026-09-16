@@ -21,6 +21,7 @@ import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/compon
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { CuponesPagoTab } from "@/components/empleados-cupones";
+import { LiquidadorTab } from "@/components/empleados-liquidador";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
