@@ -32,7 +32,9 @@ const MODULOS: { key: string; label: string; desc: string; uso: string }[] = [
   { key: "medios", label: "Medios de Pago", desc: "Echeqs en cartera y emitidos, transferencias, bancos y fondos de inversión.", uso: "Registrá cobros y pagos, marcá echeqs cobrados/cedidos y mové dinero entre caja y fondos." },
   { key: "ocr", label: "OCR Facturas", desc: "Lectura automática de comprobantes desde imagen o cámara del celular.", uso: "Elegí si es compra o venta, sacá la foto y confirmá los datos; detecta duplicados." },
   { key: "imagenes", label: "Imágenes", desc: "Archivo de imágenes de comprobantes de compras y ventas.", uso: "Descargá por rango de fechas en ZIP y liberá espacio; la pestaña Control detecta faltantes." },
+  { key: "planillas", label: "Planilla Bolsero", desc: "Planillas diarias de picado y embolsado: bolsas, viajes por equipo propio y contratistas.", uso: "Cargá la planilla (a mano o leyendo la foto), imprimí la planilla en blanco y consultá el reporte de viajes." },
   { key: "auditoria", label: "Auditoría", desc: "Reportes contables, libros de IVA compras/ventas y export ARCA.", uso: "Elegí el período y exportá los libros o reportes que necesite el contador." },
+  { key: "exportaciones", label: "Exportaciones masivas", desc: "Descarga de datos del sistema en Excel por módulo y período.", uso: "Elegí los módulos y el año, y generá el Excel para el contador o para respaldo." },
   { key: "usuarios", label: "Usuarios (admin)", desc: "Aprobación de usuarios y asignación de permisos por módulo.", uso: "Aprobá al usuario nuevo y tildá solo los módulos que debe utilizar." },
 ];
 
