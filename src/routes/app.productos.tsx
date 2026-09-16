@@ -78,8 +78,8 @@ function Page() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
-        .order("created_at", { ascending: false });
+        .select("id,codigo,nombre,unidad_medida,precio,precio_compra,precio_venta,stock,stock_minimo,categoria,observaciones")
+        .order("codigo", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as Row[];
     },
@@ -91,6 +91,7 @@ function Page() {
     const q = search.toLowerCase();
     return rows.filter(
       (r) =>
+        (r.codigo ?? "").toLowerCase().includes(q) ||
         (r.nombre ?? "").toLowerCase().includes(q) ||
         (r.unidad_medida ?? "").toLowerCase().includes(q) ||
         (r.categoria ?? "").toLowerCase().includes(q),
