@@ -17,6 +17,37 @@ import { referenciaCompra } from "@/components/combustible-compras";
 
 export const Route = createFileRoute("/app/ocr")({ component: Page });
 
+/** Comprime cualquier foto (celular incluido) a JPEG liviano para el OCR. */
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("No se pudo abrir la imagen. Probá con JPG o PNG."));
+    el.src = dataUrl;
+  });
+  const MAX = 2200;
+  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  let calidad = 0.85;
+  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  while (base64.length > 3_800_000 && calidad > 0.35) {
+    calidad -= 0.15;
+    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+  }
+  return { base64, mimeType: "image/jpeg" };
+}
+
 type OCRResult = {
   tipo?: string; letra?: string | null; numero?: string | null;
   fecha?: string | null; emisor?: string | null; receptor?: string | null;
@@ -493,16 +524,42 @@ function Page() {
   const onDrop = useCallback((files: File[]) => {
     const file = files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return toast.error("Archivo máximo 5 MB.");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPreview(dataUrl);
-      setMime(file.type);
-      setB64(dataUrl.split(",")[1]);
-      setResult(null);
-    };
-    reader.readAsDataURL(file);
+    const esPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const esImagen = file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+    if (!esPdf && !esImagen) return toast.error("Subí una foto (JPG, PNG, WebP) o un PDF.");
+    if (file.size > 25 * 1024 * 1024) return toast.error("El archivo es muy pesado (máx 25 MB).");
+
+    void (async () => {
+      try {
+        if (esImagen) {
+          const { base64, mimeType } = await comprimirParaOcr(file);
+          if (!base64) throw new Error("No se pudo procesar la imagen");
+          setPreview(`data:${mimeType};base64,${base64}`);
+          setMime(mimeType);
+          setB64(base64);
+          setResult(null);
+          setPlanilla(null);
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error("El PDF supera los 5 MB. Sacale una foto o reducilo.");
+          return;
+        }
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result));
+          r.onerror = () => reject(new Error("No se pudo leer el archivo"));
+          r.readAsDataURL(file);
+        });
+        setPreview(dataUrl);
+        setMime("application/pdf");
+        setB64(dataUrl.split(",")[1] ?? "");
+        setResult(null);
+        setPlanilla(null);
+      } catch (e: any) {
+        toast.error(e?.message ?? "No se pudo cargar el archivo");
+      }
+    })();
   }, []);
 
   const onCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -513,8 +570,9 @@ function Page() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp"], "application/pdf": [".pdf"] },
-    maxFiles: 1,
+    noClick: true,
+    noKeyboard: true,
+    multiple: false,
   });
 
   const analizar = async () => {
@@ -992,15 +1050,20 @@ function Page() {
             <input {...getInputProps()} />
             <UploadCloud className="h-10 w-10 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá o hacé clic para subir (máx 5 MB)"}
+              {isDragActive ? "Soltá el archivo aquí" : "Arrastrá la foto acá o usá los botones de abajo"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP, PDF</p>
+            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, WebP o PDF · las fotos se achican solas</p>
           </div>
 
-          {isMobile && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
+              <Paperclip className="h-5 w-5" />
+              Elegir archivo
+              <input type="file" className="hidden" onChange={onCameraCapture} />
+            </label>
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-sm font-medium hover:bg-muted/30">
               <Camera className="h-5 w-5" />
-              Tomar foto con la cámara
+              {isMobile ? "Tomar foto" : "Usar cámara"}
               <input
                 type="file"
                 accept="image/*"
@@ -1009,7 +1072,7 @@ function Page() {
                 onChange={onCameraCapture}
               />
             </label>
-          )}
+          </div>
 
           {preview && (
             <div className="rounded-xl border border-border bg-card p-3">
