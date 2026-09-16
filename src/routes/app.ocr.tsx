@@ -664,9 +664,24 @@ function Page() {
           litros: result.litros ?? 0,
           producto: result.producto_combustible ?? null,
           imagen_path,
-        });
+        }).select("id").single();
         if (error) throw error;
         toast.success("Factura de compra guardada");
+        const litrosComb = Number(result.litros ?? 0);
+        if (esCombustible && sumaTanque && litrosComb > 0) {
+          const res = await ingresarCombustibleAlTanque({
+            userId: user.id,
+            litros: litrosComb,
+            precioLitro: precioPorLitro(litrosComb, result.neto ?? null, result.total ?? null),
+            fecha: base.fecha,
+            referencia: referenciaCompra(base.numero, creadaC?.id ?? ""),
+            proveedor: result.emisor ?? null,
+          });
+          if (res.ok) toast.success(`${litrosComb.toLocaleString("es-AR")} lt sumados al tanque de la empresa`);
+          else toast.warning(res.motivo ?? "No se pudo sumar al tanque");
+          qc.invalidateQueries({ queryKey: ["fema_productos"] });
+          qc.invalidateQueries({ queryKey: ["fema_tanque"] });
+        }
       } else {
         const { error } = await supabase.from("fema_facturas_venta").insert({
           ...base,
