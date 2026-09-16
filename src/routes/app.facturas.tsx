@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+import { cotizacionOficial, precioEnPesos } from "@/lib/cotizacion";
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
@@ -119,7 +120,7 @@ type PresupRow = {
 };
 type PresupItem = {
   codigo: string | null; descripcion: string; cantidad: number;
-  precio_unitario: number; alicuota_iva: number;
+  precio_unitario: number; alicuota_iva: number; producto_id?: string | null;
 };
 type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[] };
 
@@ -196,9 +197,19 @@ function Page() {
       .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
       .eq("presupuesto_id", p.id).order("orden");
     if (error) { toast.error(error.message); return; }
+    const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre");
+    const porCodigo = new Map((prods ?? []).map((x: any) => [(x.codigo ?? "").toUpperCase(), x.id as string]));
+    const porNombre = new Map((prods ?? []).map((x: any) => [String(x.nombre).toLowerCase(), x.id as string]));
+    const items = (its ?? []).map((it: any) => ({
+      ...it,
+      producto_id:
+        porCodigo.get(String(it.codigo ?? "").toUpperCase()) ??
+        porNombre.get(String(it.descripcion ?? "").toLowerCase()) ??
+        null,
+    })) as PresupItem[];
     setEdit(null);
     setPrefill(null);
-    setPrefillPresup({ presupuesto: p, items: (its ?? []) as PresupItem[] });
+    setPrefillPresup({ presupuesto: p, items });
     setOpen(true);
   };
 
@@ -415,6 +426,35 @@ function Page() {
           })),
         );
         if (errIt) toast.error(`Ítems: ${errIt.message}`);
+        // Descontar stock de los productos facturados (solo al crear la factura)
+        if (!edit) {
+          const usados = itemsList.filter((it) => it.producto_id && Number(it.cantidad || 0) > 0);
+          if (usados.length > 0) {
+            const { data: prods } = await supabase
+              .from("fema_productos")
+              .select("id,nombre,stock,categoria")
+              .in("id", usados.map((it) => it.producto_id as string));
+            for (const prod of prods ?? []) {
+              if (prod.categoria === "Servicios" || prod.categoria === "Cotizaciones") continue;
+              const cant = usados
+                .filter((it) => it.producto_id === prod.id)
+                .reduce((a, it) => a + Number(it.cantidad || 0), 0);
+              if (cant <= 0) continue;
+              const nuevo = Number(prod.stock ?? 0) - cant;
+              await supabase.from("fema_stock_mov").insert({
+                user_id: user!.id,
+                producto_id: prod.id,
+                tipo: "salida",
+                cantidad: cant,
+                motivo: `Factura ${v.numero ?? ""}`.trim(),
+                stock_resultante: nuevo,
+              });
+              await supabase.from("fema_productos").update({ stock: nuevo }).eq("id", prod.id);
+            }
+            qc.invalidateQueries({ queryKey: ["fema_productos"] });
+            qc.invalidateQueries({ queryKey: ["fema_productos_min"] });
+          }
+        }
       }
       qc.invalidateQueries({ queryKey: ["fema_venta_items"] });
     }
@@ -898,7 +938,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       observaciones: initial?.observaciones ?? "",
       items: prefillPresup
         ? prefillPresup.items.map((it) => ({
-            producto_id: "",
+            producto_id: it.producto_id ?? "",
             descripcion: it.codigo ? `${it.codigo} — ${it.descripcion}` : it.descripcion,
             unidad: "",
             cantidad: Number(it.cantidad),
@@ -929,13 +969,15 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_productos")
-        .select("id,nombre,unidad_medida,precio,precio_venta,stock")
+        .select("id,nombre,unidad_medida,precio,precio_venta,moneda,stock")
         .order("nombre");
       if (error) throw error;
-      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; stock: number }[];
+      return data as { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; moneda: string | null; stock: number }[];
     },
   });
-  const precioDe = (p: { precio: number | null; precio_venta: number | null }) => Number(p.precio_venta ?? p.precio ?? 0);
+  const dolar = cotizacionOficial(productos ?? []);
+  const precioDe = (p: { precio: number | null; precio_venta: number | null; moneda?: string | null }) =>
+    precioEnPesos(p, dolar);
   const porUnidad = (u: string) => (productos ?? []).filter((p) => p.unidad_medida === u);
 
   // Ítems ya guardados al editar una factura
@@ -999,7 +1041,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
     if (!q) return rows;
     return rows.filter((p) => p.nombre.toLowerCase().includes(q));
   }, [productos, pickerFilter]);
-  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null }) =>
+  const agregarFrecuente = (p: { id: string; nombre: string; unidad_medida: string; precio: number | null; precio_venta: number | null; moneda?: string | null }) =>
     setItems([...items, { producto_id: p.id, descripcion: p.nombre, unidad: p.unidad_medida, cantidad: 1, precio_unitario: precioDe(p) }]);
 
   // Plan controls
