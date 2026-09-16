@@ -889,16 +889,29 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wide">Foto de la planilla en papel</div>
               <input
                 ref={fileRef} type="file" accept="image/*" className="sr-only"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setArchivo(f); e.target.value = ""; }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  setArchivo(f);
+                  void leerFoto(f);
+                }}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-                  <ImagePlus className="mr-2 h-4 w-4" /> {previewUrl ? "Cambiar imagen" : "Subir foto"}
+                <Button type="button" variant="outline" disabled={leyendo} onClick={() => fileRef.current?.click()}>
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {leyendo ? "Leyendo..." : previewUrl ? "Cambiar imagen" : "Subir foto"}
                 </Button>
+                {archivo && !leyendo && (
+                  <Button type="button" variant="ghost" onClick={() => void leerFoto(archivo)}>Volver a leer</Button>
+                )}
                 {previewUrl && (
                   <Button type="button" variant="ghost" onClick={() => { setArchivo(null); setImagenPath(null); }}>Quitar</Button>
                 )}
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Al subir la foto se leen solos los datos escritos y se completan los campos. Revisalos y guardá la planilla.
+              </p>
               {previewUrl && <img src={previewUrl} alt="Planilla de trabajo" className="mt-3 max-h-60 w-full rounded-md object-contain" />}
             </div>
             <div className="rounded-md border p-3">
