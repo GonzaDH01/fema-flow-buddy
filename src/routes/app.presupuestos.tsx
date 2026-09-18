@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,8 @@ function nextNumero(prev: string | null | undefined): string {
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"listado" | "nuevo">("listado");
@@ -212,26 +215,32 @@ function Page() {
                           <Button size="icon" variant="ghost" title="Imprimir" onClick={() => printPresupuesto(p.id)}>
                             <Printer className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" title="Editar" onClick={() => handleEdit(p)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
+                          {p.estado === "Facturado" && !esAdmin ? (
+                            <span className="px-2 text-xs text-muted-foreground">Bloqueado</span>
+                          ) : (
+                            <>
+                              <Button size="icon" variant="ghost" title="Editar" onClick={() => handleEdit(p)}>
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>¿Eliminar presupuesto {p.numero}?</AlertDialogTitle>
-                                <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => onDelete(p)}>Eliminar</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar presupuesto {p.numero}?</AlertDialogTitle>
+                                    <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(p)}>Eliminar</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

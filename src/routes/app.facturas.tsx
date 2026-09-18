@@ -6,9 +6,10 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatNumero, formatFecha, MESES_LARGOS } from "@/lib/format";
@@ -127,15 +128,29 @@ type PresupDerived = {
 };
 type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
 
+type PlanillaRow = {
+  id: string; fecha: string; cliente_id: string | null; cliente_nombre: string | null;
+  bolsero_nombre: string | null; cultivo: string | null; establecimiento: string | null;
+  lote: string | null; zona: string | null; total_metros: number; total_viajes: number;
+  estado: string | null; factura_venta_id: string | null;
+};
+type PrefillPlanilla = {
+  planilla: PlanillaRow;
+  derived: { metros_bolsa: number; precio_metro: number; cultivo: string; trabajo: string };
+};
+
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
   const [prefillPresup, setPrefillPresup] = useState<PrefillPresup | null>(null);
+  const [prefillPlanilla, setPrefillPlanilla] = useState<PrefillPlanilla | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
@@ -187,7 +202,70 @@ function Page() {
     },
   });
 
+
+  // Planillas de bolsero: se pueden facturar directo, sin presupuesto previo
+  const { data: planillas } = useQuery({
+    queryKey: ["fema_planillas_facturas", year],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_planillas_bolsero")
+        .select("id,fecha,cliente_id,cliente_nombre,bolsero_nombre,cultivo,establecimiento,lote,zona,total_metros,total_viajes,estado,factura_venta_id")
+        .eq("anio", year)
+        .order("fecha", { ascending: false });
+      if (error) throw error;
+      return data as PlanillaRow[];
+    },
+  });
+
+  const facturarPlanilla = async (p: PlanillaRow) => {
+    if (p.estado === "Facturado" && !esAdmin) {
+      toast.error("La planilla ya fue facturada y está bloqueada");
+      return;
+    }
+    // Precio por metro sugerido: servicio de embolsado del catálogo
+    const { data: prods } = await supabase.from("fema_productos")
+      .select("precio_venta,precio,unidad_medida").eq("unidad_medida", "Metro").limit(1);
+    const precioMetro = Number((prods?.[0] as any)?.precio_venta ?? (prods?.[0] as any)?.precio ?? 0);
+    const detalle = [
+      "Embolsado",
+      p.cultivo ?? "",
+      p.establecimiento ? `Est. ${p.establecimiento}` : "",
+      p.lote ? `Lote ${p.lote}` : "",
+      p.bolsero_nombre ? `Bolsero ${p.bolsero_nombre}` : "",
+    ].filter(Boolean).join(" · ");
+    setEdit(null);
+    setPrefill(null);
+    setPrefillPresup(null);
+    setPrefillPlanilla({
+      planilla: p,
+      derived: {
+        metros_bolsa: Number(p.total_metros ?? 0),
+        precio_metro: precioMetro,
+        cultivo: p.cultivo ?? "Otro",
+        trabajo: detalle,
+      },
+    });
+    setOpen(true);
+  };
+
+  const desbloquearPlanilla = async (p: PlanillaRow) => {
+    const { error } = await (supabase as any).from("fema_planillas_bolsero")
+      .update({ estado: "Pendiente", factura_venta_id: null }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Planilla desbloqueada");
+    qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+  };
+
+  const desbloquearPresup = async (p: PresupRow) => {
+    const { error } = await supabase.from("fema_presupuestos").update({ estado: "Aprobado" }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Presupuesto desbloqueado");
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+  };
+
   const aprobarPresup = async (p: PresupRow) => {
+    if (p.estado === "Facturado") { toast.error("El presupuesto ya fue facturado y está bloqueado"); return; }
     const nuevo = p.estado === "Aprobado" ? "Pendiente" : "Aprobado";
     const { error } = await supabase.from("fema_presupuestos").update({ estado: nuevo }).eq("id", p.id);
     if (error) { toast.error(error.message); return; }
@@ -195,6 +273,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
     qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
   };
+
 
   const facturarPresup = async (p: PresupRow) => {
     const { data: its, error } = await supabase.from("fema_presupuesto_items")
@@ -351,13 +430,16 @@ function Page() {
 
   const pag = usePaginacion(filtered, 50);
 
-  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); };
+  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); setPrefillPlanilla(null); };
 
   const facturarEstim = (g: EstimGroup) => {
     setEdit(null);
+    setPrefillPresup(null);
+    setPrefillPlanilla(null);
     setPrefill({ group: g });
     setOpen(true);
   };
+
 
   const eliminarEstim = async (g: EstimGroup) => {
     const { error } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
@@ -539,6 +621,14 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
       qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
     }
+    // Si venía de una planilla de bolsero → queda facturada y bloqueada
+    if (!edit && prefillPlanilla) {
+      const { error: errPl } = await (supabase as any).from("fema_planillas_bolsero")
+        .update({ estado: "Facturado", factura_venta_id: facturaId }).eq("id", prefillPlanilla.planilla.id);
+      if (errPl) toast.error(`Planilla: ${errPl.message}`);
+      qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+      qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+    }
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
@@ -637,7 +727,10 @@ function Page() {
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
               <TabsTrigger value="estimados">Estimados ({estimGroups.length + estimComprobantes.length})</TabsTrigger>
-              <TabsTrigger value="presupuestos">Presupuestos ({(presupuestos ?? []).length})</TabsTrigger>
+              <TabsTrigger value="presupuestos">
+                Pendientes ({(presupuestos ?? []).filter((p) => p.estado !== "Facturado").length
+                  + (planillas ?? []).filter((p) => p.estado !== "Facturado").length})
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           <Input
@@ -649,6 +742,11 @@ function Page() {
         </div>
 
         {tab === "presupuestos" ? (
+          <>
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-sm font-semibold">Presupuestos</h3>
+            <p className="text-xs text-muted-foreground">Aprobalos y facturalos. Una vez facturado queda bloqueado.</p>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -673,40 +771,106 @@ function Page() {
                   <TableCell className="text-right font-semibold">{formatPesos(Number(p.total ?? 0))}</TableCell>
                   <TableCell>
                     {p.estado === "Facturado"
-                      ? <Badge className="border-0 bg-primary/15 text-primary">● Facturado</Badge>
+                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturado</Badge>
                       : p.estado === "Aprobado"
                         ? <Badge className="border-0 bg-accent/15 text-accent">✓ Aprobado</Badge>
                         : <Badge variant="outline">{p.estado ?? "Pendiente"}</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      {p.estado !== "Facturado" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => aprobarPresup(p)}
-                        >
-                          {p.estado === "Aprobado"
-                            ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
-                            : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
-                        </Button>
+                      {p.estado === "Facturado" ? (
+                        esAdmin ? (
+                          <Button size="sm" variant="outline" className="h-8" title="Solo administrador" onClick={() => desbloquearPresup(p)}>
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Desbloquear
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Bloqueado</span>
+                        )
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => aprobarPresup(p)}>
+                            {p.estado === "Aprobado"
+                              ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
+                              : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            disabled={p.estado !== "Aprobado"}
+                            title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
+                            onClick={() => facturarPresup(p)}
+                          >
+                            <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                          </Button>
+                        </>
                       )}
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={p.estado !== "Aprobado"}
-                        title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
-                        onClick={() => facturarPresup(p)}
-                      >
-                        <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
+          <div className="border-y border-border px-4 py-3">
+            <h3 className="text-sm font-semibold">Planillas de bolsero</h3>
+            <p className="text-xs text-muted-foreground">Se pueden facturar directo, sin presupuesto previo. Una vez facturadas quedan bloqueadas.</p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Establecimiento / Lote</TableHead>
+                <TableHead>Cultivo</TableHead>
+                <TableHead className="text-right">Viajes</TableHead>
+                <TableHead className="text-right">Metros</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-56 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(planillas ?? []).length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay planillas cargadas</TableCell></TableRow>
+              ) : (planillas ?? []).map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{formatFecha(p.fecha)}</TableCell>
+                  <TableCell className="font-medium">
+                    {p.cliente_nombre ?? (p.cliente_id ? clientesMap[p.cliente_id] ?? "—" : "—")}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {[p.establecimiento, p.lote].filter(Boolean).join(" · ") || p.zona || "—"}
+                  </TableCell>
+                  <TableCell>{p.cultivo ?? "—"}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(p.total_viajes ?? 0))}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(p.total_metros ?? 0))}</TableCell>
+                  <TableCell>
+                    {p.estado === "Facturado"
+                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturada</Badge>
+                      : <Badge variant="outline">Pendiente</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {p.estado === "Facturado" ? (
+                        esAdmin ? (
+                          <Button size="sm" variant="outline" className="h-8" title="Solo administrador" onClick={() => desbloquearPlanilla(p)}>
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Desbloquear
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Bloqueada</span>
+                        )
+                      ) : (
+                        <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
+                          <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          </>
+
         ) : tab === "estimados" ? (
           <>
           {estimComprobantes.length > 0 && (
@@ -914,11 +1078,12 @@ function Page() {
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         {open && (
           <FormDialog
-            key={prefillPresup?.presupuesto.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
+            key={prefillPresup?.presupuesto.id ?? prefillPlanilla?.planilla.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
             onSubmit={onSubmit}
             initial={edit}
             prefill={prefill}
             prefillPresup={prefillPresup}
+            prefillPlanilla={prefillPlanilla}
             clientes={clientes ?? []}
             year={year}
           />
@@ -985,11 +1150,12 @@ function SummaryTable({ title, col1, rows }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year }: {
+function FormDialog({ onSubmit, initial, prefill, prefillPresup, prefillPlanilla, clientes, year }: {
   onSubmit: (v: FormVals) => Promise<void>;
   initial: Row | null;
   prefill: PrefillEstim | null;
   prefillPresup?: PrefillPresup | null;
+  prefillPlanilla?: PrefillPlanilla | null;
   clientes: { id: string; nombre: string }[];
   year: number;
 }) {
@@ -1032,16 +1198,16 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       tipo_comprobante: (initial?.tipo_comprobante as typeof TIPOS_COMPROBANTE[number]) ?? "Factura",
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
-      cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefill?.group.cliente_id ?? "",
-      trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefill?.group.descripcionBase ?? "",
-      categoria: initial?.categoria ?? "",
-      cultivo: initial?.cultivo ?? prefillPresup?.derived.cultivo ?? estimDerived?.cultivo ?? "Maíz",
+      fecha: initial?.fecha ?? prefillPlanilla?.planilla.fecha ?? new Date().toISOString().slice(0, 10),
+      cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefillPlanilla?.planilla.cliente_id ?? prefill?.group.cliente_id ?? "",
+      trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefillPlanilla?.derived.trabajo ?? prefill?.group.descripcionBase ?? "",
+      categoria: initial?.categoria ?? (prefillPlanilla ? "Embolsado" : ""),
+      cultivo: initial?.cultivo ?? prefillPresup?.derived.cultivo ?? prefillPlanilla?.derived.cultivo ?? estimDerived?.cultivo ?? "Maíz",
       iva_pct: "21%",
       hectareas: Number(initial?.hectareas ?? prefillPresup?.derived.hectareas ?? estimDerived?.ha ?? 0),
       precio_ha: Number(initial?.precio_ha ?? prefillPresup?.derived.precio_ha ?? estimDerived?.pHa ?? 0),
-      metros_bolsa: Number(initial?.metros_bolsa ?? prefillPresup?.derived.metros_bolsa ?? estimDerived?.mt ?? 0),
-      precio_metro: Number(initial?.precio_metro ?? prefillPresup?.derived.precio_metro ?? estimDerived?.pMt ?? 0),
+      metros_bolsa: Number(initial?.metros_bolsa ?? prefillPresup?.derived.metros_bolsa ?? prefillPlanilla?.derived.metros_bolsa ?? estimDerived?.mt ?? 0),
+      precio_metro: Number(initial?.precio_metro ?? prefillPresup?.derived.precio_metro ?? prefillPlanilla?.derived.precio_metro ?? estimDerived?.pMt ?? 0),
 
       estado: initial?.estado ?? "pendiente",
       fecha_cobro: initial?.fecha_cobro ?? "",

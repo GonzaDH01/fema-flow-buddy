@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { formatNumero, formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ type Planilla = {
   cliente_id: string | null; cliente_nombre: string | null; establecimiento: string | null; lote: string | null;
   zona: string | null; cultivo: string | null; imagen_path: string | null; observaciones: string | null;
   bolsas: number[] | null; total_viajes: number; total_metros: number; anio: number | null; mes: number | null;
+  estado?: string | null; factura_venta_id?: string | null;
 };
 type PlanillaEquipo = {
   id: string; planilla_id: string; equipo_id: string | null; activo_id: string | null; equipo_nombre: string;
@@ -125,6 +127,8 @@ function ConteoViajes({ valor, onChange }: { valor: number; onChange: (v: number
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -376,12 +380,18 @@ function Page() {
                         <Button variant="ghost" size="icon" title="Imprimir" onClick={() => imprimirConEquipos(p)}>
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => eliminar(p)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {p.estado === "Facturado" && !esAdmin ? (
+                          <span className="px-2 text-xs text-muted-foreground">Facturada</span>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => eliminar(p)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
