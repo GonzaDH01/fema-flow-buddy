@@ -742,6 +742,11 @@ function Page() {
         </div>
 
         {tab === "presupuestos" ? (
+          <>
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-sm font-semibold">Presupuestos</h3>
+            <p className="text-xs text-muted-foreground">Aprobalos y facturalos. Una vez facturado queda bloqueado.</p>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -766,40 +771,106 @@ function Page() {
                   <TableCell className="text-right font-semibold">{formatPesos(Number(p.total ?? 0))}</TableCell>
                   <TableCell>
                     {p.estado === "Facturado"
-                      ? <Badge className="border-0 bg-primary/15 text-primary">● Facturado</Badge>
+                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturado</Badge>
                       : p.estado === "Aprobado"
                         ? <Badge className="border-0 bg-accent/15 text-accent">✓ Aprobado</Badge>
                         : <Badge variant="outline">{p.estado ?? "Pendiente"}</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      {p.estado !== "Facturado" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => aprobarPresup(p)}
-                        >
-                          {p.estado === "Aprobado"
-                            ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
-                            : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
-                        </Button>
+                      {p.estado === "Facturado" ? (
+                        esAdmin ? (
+                          <Button size="sm" variant="outline" className="h-8" title="Solo administrador" onClick={() => desbloquearPresup(p)}>
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Desbloquear
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Bloqueado</span>
+                        )
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => aprobarPresup(p)}>
+                            {p.estado === "Aprobado"
+                              ? <><RotateCcw className="mr-1 h-3.5 w-3.5" /> Desaprobar</>
+                              : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprobar</>}
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            disabled={p.estado !== "Aprobado"}
+                            title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
+                            onClick={() => facturarPresup(p)}
+                          >
+                            <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                          </Button>
+                        </>
                       )}
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={p.estado !== "Aprobado"}
-                        title={p.estado === "Aprobado" ? "Facturar presupuesto" : "Aprobalo antes de facturar"}
-                        onClick={() => facturarPresup(p)}
-                      >
-                        <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
+          <div className="border-y border-border px-4 py-3">
+            <h3 className="text-sm font-semibold">Planillas de bolsero</h3>
+            <p className="text-xs text-muted-foreground">Se pueden facturar directo, sin presupuesto previo. Una vez facturadas quedan bloqueadas.</p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Establecimiento / Lote</TableHead>
+                <TableHead>Cultivo</TableHead>
+                <TableHead className="text-right">Viajes</TableHead>
+                <TableHead className="text-right">Metros</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-56 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(planillas ?? []).length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay planillas cargadas</TableCell></TableRow>
+              ) : (planillas ?? []).map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{formatFecha(p.fecha)}</TableCell>
+                  <TableCell className="font-medium">
+                    {p.cliente_nombre ?? (p.cliente_id ? clientesMap[p.cliente_id] ?? "—" : "—")}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {[p.establecimiento, p.lote].filter(Boolean).join(" · ") || p.zona || "—"}
+                  </TableCell>
+                  <TableCell>{p.cultivo ?? "—"}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(p.total_viajes ?? 0))}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(p.total_metros ?? 0))}</TableCell>
+                  <TableCell>
+                    {p.estado === "Facturado"
+                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturada</Badge>
+                      : <Badge variant="outline">Pendiente</Badge>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {p.estado === "Facturado" ? (
+                        esAdmin ? (
+                          <Button size="sm" variant="outline" className="h-8" title="Solo administrador" onClick={() => desbloquearPlanilla(p)}>
+                            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Desbloquear
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Bloqueada</span>
+                        )
+                      ) : (
+                        <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
+                          <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          </>
+
         ) : tab === "estimados" ? (
           <>
           {estimComprobantes.length > 0 && (
