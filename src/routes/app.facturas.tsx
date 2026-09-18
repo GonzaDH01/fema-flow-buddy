@@ -892,9 +892,18 @@ function Page() {
                           <span className="text-xs text-muted-foreground">Bloqueada</span>
                         )
                       ) : (
-                        <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
-                          <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
-                        </Button>
+                        <>
+                          <Button
+                            size="sm" variant="outline" className="h-8"
+                            title="Asociar a una factura ya emitida"
+                            onClick={() => { setAsociar(p); setAsociarFacturaId(""); }}
+                          >
+                            <Link2 className="mr-1 h-3.5 w-3.5" /> Asociar
+                          </Button>
+                          <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
+                            <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
