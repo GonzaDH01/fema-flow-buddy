@@ -122,7 +122,11 @@ type PresupItem = {
   codigo: string | null; descripcion: string; cantidad: number;
   precio_unitario: number; alicuota_iva: number; producto_id?: string | null;
 };
-type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[] };
+type PresupDerived = {
+  hectareas: number; precio_ha: number; metros_bolsa: number; precio_metro: number; cultivo: string;
+};
+type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
+
 
 function Page() {
   const { user } = useAuth();
@@ -197,20 +201,55 @@ function Page() {
       .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
       .eq("presupuesto_id", p.id).order("orden");
     if (error) { toast.error(error.message); return; }
-    const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre");
+    const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre,unidad_medida");
     const porCodigo = new Map((prods ?? []).map((x: any) => [(x.codigo ?? "").toUpperCase(), x.id as string]));
     const porNombre = new Map((prods ?? []).map((x: any) => [String(x.nombre).toLowerCase(), x.id as string]));
-    const items = (its ?? []).map((it: any) => ({
+    const unidadDe = new Map((prods ?? []).map((x: any) => [x.id as string, String(x.unidad_medida ?? "")]));
+    const todos = (its ?? []).map((it: any) => ({
       ...it,
       producto_id:
         porCodigo.get(String(it.codigo ?? "").toUpperCase()) ??
         porNombre.get(String(it.descripcion ?? "").toLowerCase()) ??
         null,
     })) as PresupItem[];
+
+    // Los servicios por hectárea y por metro alimentan el control de campaña;
+    // el resto (insumos, traslados) queda como ítems adicionales.
+    const esUnidad = (it: PresupItem, u: string) => {
+      const un = it.producto_id ? unidadDe.get(it.producto_id) : undefined;
+      if (un) return un === u;
+      const d = String(it.descripcion ?? "").toLowerCase();
+      if (u === "Hectarea") return /picado|recolector|\bha\b/.test(d);
+      if (u === "Metro") return /embolsad/.test(d);
+      return false;
+    };
+    const itemsHa = todos.filter((it) => esUnidad(it, "Hectarea"));
+    const itemsMt = todos.filter((it) => esUnidad(it, "Metro"));
+    const items = todos.filter((it) => !itemsHa.includes(it) && !itemsMt.includes(it));
+    const agregar = (list: PresupItem[]) => {
+      const cant = list.reduce((a, it) => a + Number(it.cantidad || 0), 0);
+      const imp = list.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+      return { cant, precio: cant > 0 ? +(imp / cant).toFixed(2) : 0 };
+    };
+    const ha = agregar(itemsHa);
+    const mt = agregar(itemsMt);
+    const textoTodo = `${p.descripcion ?? ""} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
+    const cultivo = CULTIVOS.find((c) => textoTodo.includes(c.toLowerCase()))
+      ?? (textoTodo.includes("maiz") ? "Maíz" : undefined);
+
     setEdit(null);
     setPrefill(null);
-    setPrefillPresup({ presupuesto: p, items });
+    setPrefillPresup({
+      presupuesto: p,
+      items,
+      derived: {
+        hectareas: ha.cant, precio_ha: ha.precio,
+        metros_bolsa: mt.cant, precio_metro: mt.precio,
+        cultivo: cultivo ?? "Otro",
+      },
+    });
     setOpen(true);
+
   };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
@@ -997,12 +1036,13 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, clientes, year 
       cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefill?.group.cliente_id ?? "",
       trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefill?.group.descripcionBase ?? "",
       categoria: initial?.categoria ?? "",
-      cultivo: initial?.cultivo ?? estimDerived?.cultivo ?? "Maíz",
+      cultivo: initial?.cultivo ?? prefillPresup?.derived.cultivo ?? estimDerived?.cultivo ?? "Maíz",
       iva_pct: "21%",
-      hectareas: Number(initial?.hectareas ?? estimDerived?.ha ?? 0),
-      precio_ha: Number(initial?.precio_ha ?? estimDerived?.pHa ?? 0),
-      metros_bolsa: Number(initial?.metros_bolsa ?? estimDerived?.mt ?? 0),
-      precio_metro: Number(initial?.precio_metro ?? estimDerived?.pMt ?? 0),
+      hectareas: Number(initial?.hectareas ?? prefillPresup?.derived.hectareas ?? estimDerived?.ha ?? 0),
+      precio_ha: Number(initial?.precio_ha ?? prefillPresup?.derived.precio_ha ?? estimDerived?.pHa ?? 0),
+      metros_bolsa: Number(initial?.metros_bolsa ?? prefillPresup?.derived.metros_bolsa ?? estimDerived?.mt ?? 0),
+      precio_metro: Number(initial?.precio_metro ?? prefillPresup?.derived.precio_metro ?? estimDerived?.pMt ?? 0),
+
       estado: initial?.estado ?? "pendiente",
       fecha_cobro: initial?.fecha_cobro ?? "",
       forma_cobro: initial?.forma_cobro ?? "Transferencia",
