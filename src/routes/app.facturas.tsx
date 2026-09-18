@@ -430,13 +430,16 @@ function Page() {
 
   const pag = usePaginacion(filtered, 50);
 
-  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); };
+  const close = () => { setOpen(false); setEdit(null); setPrefill(null); setPrefillPresup(null); setPrefillPlanilla(null); };
 
   const facturarEstim = (g: EstimGroup) => {
     setEdit(null);
+    setPrefillPresup(null);
+    setPrefillPlanilla(null);
     setPrefill({ group: g });
     setOpen(true);
   };
+
 
   const eliminarEstim = async (g: EstimGroup) => {
     const { error } = await supabase.from("fema_estimaciones").delete().in("id", g.ids);
