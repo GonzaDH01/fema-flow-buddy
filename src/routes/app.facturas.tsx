@@ -201,20 +201,55 @@ function Page() {
       .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
       .eq("presupuesto_id", p.id).order("orden");
     if (error) { toast.error(error.message); return; }
-    const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre");
+    const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre,unidad_medida");
     const porCodigo = new Map((prods ?? []).map((x: any) => [(x.codigo ?? "").toUpperCase(), x.id as string]));
     const porNombre = new Map((prods ?? []).map((x: any) => [String(x.nombre).toLowerCase(), x.id as string]));
-    const items = (its ?? []).map((it: any) => ({
+    const unidadDe = new Map((prods ?? []).map((x: any) => [x.id as string, String(x.unidad_medida ?? "")]));
+    const todos = (its ?? []).map((it: any) => ({
       ...it,
       producto_id:
         porCodigo.get(String(it.codigo ?? "").toUpperCase()) ??
         porNombre.get(String(it.descripcion ?? "").toLowerCase()) ??
         null,
     })) as PresupItem[];
+
+    // Los servicios por hectárea y por metro alimentan el control de campaña;
+    // el resto (insumos, traslados) queda como ítems adicionales.
+    const esUnidad = (it: PresupItem, u: string) => {
+      const un = it.producto_id ? unidadDe.get(it.producto_id) : undefined;
+      if (un) return un === u;
+      const d = String(it.descripcion ?? "").toLowerCase();
+      if (u === "Hectarea") return /picado|recolector|\bha\b/.test(d);
+      if (u === "Metro") return /embolsad/.test(d);
+      return false;
+    };
+    const itemsHa = todos.filter((it) => esUnidad(it, "Hectarea"));
+    const itemsMt = todos.filter((it) => esUnidad(it, "Metro"));
+    const items = todos.filter((it) => !itemsHa.includes(it) && !itemsMt.includes(it));
+    const agregar = (list: PresupItem[]) => {
+      const cant = list.reduce((a, it) => a + Number(it.cantidad || 0), 0);
+      const imp = list.reduce((a, it) => a + Number(it.cantidad || 0) * Number(it.precio_unitario || 0), 0);
+      return { cant, precio: cant > 0 ? +(imp / cant).toFixed(2) : 0 };
+    };
+    const ha = agregar(itemsHa);
+    const mt = agregar(itemsMt);
+    const textoTodo = `${p.descripcion ?? ""} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
+    const cultivo = CULTIVOS.find((c) => textoTodo.includes(c.toLowerCase()))
+      ?? (textoTodo.includes("maiz") ? "Maíz" : undefined);
+
     setEdit(null);
     setPrefill(null);
-    setPrefillPresup({ presupuesto: p, items });
+    setPrefillPresup({
+      presupuesto: p,
+      items,
+      derived: {
+        hectareas: ha.cant, precio_ha: ha.precio,
+        metros_bolsa: mt.cant, precio_metro: mt.precio,
+        cultivo: cultivo ?? "Otro",
+      },
+    });
     setOpen(true);
+
   };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
