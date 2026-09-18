@@ -247,6 +247,13 @@ function Page() {
     [data],
   );
 
+  // Comprobantes guardados como "Estimado" dentro de facturas de venta
+  const estimComprobantes = useMemo(
+    () => (data ?? []).filter((r) => r.tipo_comprobante === "Estimado"),
+    [data],
+  );
+
+
   // KPIs
   const kpis = useMemo(() => {
     const totalHas = rows.reduce((a, r) => a + Number(r.hectareas ?? 0), 0);
