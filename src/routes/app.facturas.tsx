@@ -128,15 +128,29 @@ type PresupDerived = {
 };
 type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
 
+type PlanillaRow = {
+  id: string; fecha: string; cliente_id: string | null; cliente_nombre: string | null;
+  bolsero_nombre: string | null; cultivo: string | null; establecimiento: string | null;
+  lote: string | null; zona: string | null; total_metros: number; total_viajes: number;
+  estado: string | null; factura_venta_id: string | null;
+};
+type PrefillPlanilla = {
+  planilla: PlanillaRow;
+  derived: { metros_bolsa: number; precio_metro: number; cultivo: string; trabajo: string };
+};
+
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
   const [prefill, setPrefill] = useState<PrefillEstim | null>(null);
   const [prefillPresup, setPrefillPresup] = useState<PrefillPresup | null>(null);
+  const [prefillPlanilla, setPrefillPlanilla] = useState<PrefillPlanilla | null>(null);
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
