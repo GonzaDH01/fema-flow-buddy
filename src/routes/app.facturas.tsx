@@ -154,6 +154,8 @@ function Page() {
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
+  const [asociar, setAsociar] = useState<PlanillaRow | null>(null);
+  const [asociarFacturaId, setAsociarFacturaId] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
