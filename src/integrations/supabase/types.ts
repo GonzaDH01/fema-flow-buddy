@@ -2140,6 +2140,8 @@ export type Database = {
           created_at: string
           cultivo: string | null
           establecimiento: string | null
+          estado: string
+          factura_venta_id: string | null
           fecha: string
           id: string
           imagen_path: string | null
@@ -2162,6 +2164,8 @@ export type Database = {
           created_at?: string
           cultivo?: string | null
           establecimiento?: string | null
+          estado?: string
+          factura_venta_id?: string | null
           fecha?: string
           id?: string
           imagen_path?: string | null
@@ -2184,6 +2188,8 @@ export type Database = {
           created_at?: string
           cultivo?: string | null
           establecimiento?: string | null
+          estado?: string
+          factura_venta_id?: string | null
           fecha?: string
           id?: string
           imagen_path?: string | null
@@ -2210,6 +2216,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fema_clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_planillas_bolsero_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_venta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_planillas_bolsero_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_venta"
+            referencedColumns: ["factura_id"]
           },
         ]
       }
