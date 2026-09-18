@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/public/ocr-pagare")({
           const content = payload?.choices?.[0]?.message?.content;
           if (!content) return json(500, { error: "Respuesta vacía del modelo." });
           const data = parseModelJson(String(content));
-          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." });); }
+          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." });
           return json(200, { data });
         } catch (e) {
           return json(500, { error: e instanceof Error ? e.message : "Error interno" });

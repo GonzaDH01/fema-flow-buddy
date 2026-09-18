@@ -103,8 +103,7 @@ export const Route = createFileRoute("/api/public/ocr-planilla")({
           if (!content) return json(500, { error: "Respuesta vacía del lector." });
 
           const data = parseModelJson(String(content));
-          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." }););
-          }
+          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." });
           return json(200, { data });
         } catch (e: any) {
           return json(500, { error: e?.message ?? "Error interno" });
