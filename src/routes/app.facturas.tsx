@@ -122,7 +122,11 @@ type PresupItem = {
   codigo: string | null; descripcion: string; cantidad: number;
   precio_unitario: number; alicuota_iva: number; producto_id?: string | null;
 };
-type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[] };
+type PresupDerived = {
+  hectareas: number; precio_ha: number; metros_bolsa: number; precio_metro: number; cultivo: string;
+};
+type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
+
 
 function Page() {
   const { user } = useAuth();
