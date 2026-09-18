@@ -1142,6 +1142,39 @@ function Page() {
           />
         )}
       </Dialog>
+
+      <Dialog open={!!asociar} onOpenChange={(v) => { if (!v) { setAsociar(null); setAsociarFacturaId(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Asociar planilla a una factura</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Elegí la factura ya emitida (propia o generada desde un presupuesto). La planilla queda facturada y bloqueada.
+            </p>
+            <Select value={asociarFacturaId} onValueChange={setAsociarFacturaId}>
+              <SelectTrigger><SelectValue placeholder="Seleccioná la factura" /></SelectTrigger>
+              <SelectContent>
+                {(data ?? [])
+                  .filter((f) => f.tipo_comprobante !== "Estimado")
+                  .filter((f) => !asociar?.cliente_id || f.cliente_id === asociar.cliente_id)
+                  .map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {formatFecha(f.fecha)} · {f.tipo}-{f.numero ?? "s/n"} · {(f.cliente_id ? clientesMap[f.cliente_id] : null) ?? "Sin cliente"} · {formatPesos(Number(f.total ?? 0))}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {asociar?.cliente_id && (
+              <p className="text-xs text-muted-foreground">
+                Se muestran las facturas del cliente de la planilla.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAsociar(null); setAsociarFacturaId(""); }}>Cancelar</Button>
+            <Button onClick={asociarPlanilla}>Asociar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
