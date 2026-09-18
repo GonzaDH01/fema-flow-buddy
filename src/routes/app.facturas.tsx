@@ -1078,11 +1078,12 @@ function Page() {
       <Dialog open={open} onOpenChange={(v) => v ? setOpen(true) : close()}>
         {open && (
           <FormDialog
-            key={prefillPresup?.presupuesto.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
+            key={prefillPresup?.presupuesto.id ?? prefillPlanilla?.planilla.id ?? prefill?.group.ids.join(",") ?? edit?.id ?? "new"}
             onSubmit={onSubmit}
             initial={edit}
             prefill={prefill}
             prefillPresup={prefillPresup}
+            prefillPlanilla={prefillPlanilla}
             clientes={clientes ?? []}
             year={year}
           />
