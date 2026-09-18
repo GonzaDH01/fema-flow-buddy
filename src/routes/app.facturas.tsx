@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2, Lock, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/profile-context";
@@ -154,6 +154,8 @@ function Page() {
   const [tab, setTab] = useState<"todas" | "pendiente" | "cobrada" | "estimados" | "presupuestos">("todas");
   const [search, setSearch] = useState("");
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
+  const [asociar, setAsociar] = useState<PlanillaRow | null>(null);
+  const [asociarFacturaId, setAsociarFacturaId] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -245,6 +247,37 @@ function Page() {
       },
     });
     setOpen(true);
+  };
+
+  // Asociar una planilla a una factura ya emitida (propia o surgida de un presupuesto facturado)
+  const asociarPlanilla = async () => {
+    const p = asociar;
+    if (!p) return;
+    if (p.estado === "Facturado" && !esAdmin) {
+      toast.error("La planilla ya fue facturada y está bloqueada");
+      return;
+    }
+    if (!asociarFacturaId) { toast.error("Elegí la factura a asociar"); return; }
+    const fac = (data ?? []).find((f) => f.id === asociarFacturaId);
+    const { error } = await (supabase as any).from("fema_planillas_bolsero")
+      .update({ estado: "Facturado", factura_venta_id: asociarFacturaId }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    // Si la factura no tiene metros ni cultivo cargados, los completa con los de la planilla
+    if (fac) {
+      const patch: Record<string, unknown> = {};
+      if (!Number(fac.metros_bolsa ?? 0) && Number(p.total_metros ?? 0) > 0) patch.metros_bolsa = Number(p.total_metros);
+      if (!fac.cultivo && p.cultivo) patch.cultivo = p.cultivo;
+      if (Object.keys(patch).length) {
+        await supabase.from("fema_facturas_venta").update(patch as any).eq("id", fac.id);
+        qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+      }
+    }
+    toast.success("Planilla asociada a la factura");
+    setAsociar(null);
+    setAsociarFacturaId("");
+    qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
   const desbloquearPlanilla = async (p: PlanillaRow) => {
@@ -859,9 +892,18 @@ function Page() {
                           <span className="text-xs text-muted-foreground">Bloqueada</span>
                         )
                       ) : (
-                        <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
-                          <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
-                        </Button>
+                        <>
+                          <Button
+                            size="sm" variant="outline" className="h-8"
+                            title="Asociar a una factura ya emitida"
+                            onClick={() => { setAsociar(p); setAsociarFacturaId(""); }}
+                          >
+                            <Link2 className="mr-1 h-3.5 w-3.5" /> Asociar
+                          </Button>
+                          <Button size="sm" className="h-8" onClick={() => facturarPlanilla(p)}>
+                            <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -1099,6 +1141,39 @@ function Page() {
             onSave={guardarEstim}
           />
         )}
+      </Dialog>
+
+      <Dialog open={!!asociar} onOpenChange={(v) => { if (!v) { setAsociar(null); setAsociarFacturaId(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Asociar planilla a una factura</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Elegí la factura ya emitida (propia o generada desde un presupuesto). La planilla queda facturada y bloqueada.
+            </p>
+            <Select value={asociarFacturaId} onValueChange={setAsociarFacturaId}>
+              <SelectTrigger><SelectValue placeholder="Seleccioná la factura" /></SelectTrigger>
+              <SelectContent>
+                {(data ?? [])
+                  .filter((f) => f.tipo_comprobante !== "Estimado")
+                  .filter((f) => !asociar?.cliente_id || f.cliente_id === asociar.cliente_id)
+                  .map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {formatFecha(f.fecha)} · {f.tipo}-{f.numero ?? "s/n"} · {(f.cliente_id ? clientesMap[f.cliente_id] : null) ?? "Sin cliente"} · {formatPesos(Number(f.total ?? 0))}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {asociar?.cliente_id && (
+              <p className="text-xs text-muted-foreground">
+                Se muestran las facturas del cliente de la planilla.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAsociar(null); setAsociarFacturaId(""); }}>Cancelar</Button>
+            <Button onClick={asociarPlanilla}>Asociar</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );
