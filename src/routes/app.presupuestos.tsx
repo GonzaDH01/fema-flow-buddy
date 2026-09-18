@@ -94,6 +94,8 @@ function nextNumero(prev: string | null | undefined): string {
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"listado" | "nuevo">("listado");
