@@ -597,7 +597,7 @@ function Page() {
               <TabsTrigger value="todas">Todas</TabsTrigger>
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
-              <TabsTrigger value="estimados">Estimados ({estimGroups.length})</TabsTrigger>
+              <TabsTrigger value="estimados">Estimados ({estimGroups.length + estimComprobantes.length})</TabsTrigger>
               <TabsTrigger value="presupuestos">Presupuestos ({(presupuestos ?? []).length})</TabsTrigger>
             </TabsList>
           </Tabs>
