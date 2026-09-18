@@ -811,6 +811,243 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_doc_compra_archivos: {
+        Row: {
+          created_at: string
+          cuota_id: string | null
+          doc_id: string
+          es_documento: boolean
+          id: string
+          nombre_archivo: string | null
+          orden: number
+          path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuota_id?: string | null
+          doc_id: string
+          es_documento?: boolean
+          id?: string
+          nombre_archivo?: string | null
+          orden?: number
+          path: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          cuota_id?: string | null
+          doc_id?: string
+          es_documento?: boolean
+          id?: string
+          nombre_archivo?: string | null
+          orden?: number
+          path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_doc_compra_archivos_cuota_id_fkey"
+            columns: ["cuota_id"]
+            isOneToOne: false
+            referencedRelation: "fema_doc_compra_cuotas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compra_archivos_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "fema_doc_compras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_doc_compra_cuotas: {
+        Row: {
+          created_at: string
+          cuenta_id: string | null
+          doc_id: string
+          estado: string
+          fecha_pago: string | null
+          fecha_vencimiento: string
+          forma_pago: string | null
+          id: string
+          imagen_path: string | null
+          moneda: string
+          monto: number
+          movimiento_pago_id: string | null
+          numero_cuota: number
+          numero_pagare: string | null
+          observaciones: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuenta_id?: string | null
+          doc_id: string
+          estado?: string
+          fecha_pago?: string | null
+          fecha_vencimiento: string
+          forma_pago?: string | null
+          id?: string
+          imagen_path?: string | null
+          moneda?: string
+          monto?: number
+          movimiento_pago_id?: string | null
+          numero_cuota?: number
+          numero_pagare?: string | null
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          cuenta_id?: string | null
+          doc_id?: string
+          estado?: string
+          fecha_pago?: string | null
+          fecha_vencimiento?: string
+          forma_pago?: string | null
+          id?: string
+          imagen_path?: string | null
+          moneda?: string
+          monto?: number
+          movimiento_pago_id?: string | null
+          numero_cuota?: number
+          numero_pagare?: string | null
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_doc_compra_cuotas_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compra_cuotas_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "fema_doc_compras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compra_cuotas_movimiento_pago_id_fkey"
+            columns: ["movimiento_pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_doc_compras: {
+        Row: {
+          activo_id: string | null
+          anio: number | null
+          bien_descripcion: string
+          cantidad_cuotas: number
+          cotizacion_usd: number | null
+          created_at: string
+          entrega: number
+          estado: string
+          factura_compra_id: string | null
+          fecha: string
+          forma_pago: string | null
+          id: string
+          mes: number | null
+          moneda: string
+          monto_total: number
+          numero: string | null
+          observaciones: string | null
+          proveedor_id: string | null
+          proveedor_nombre: string | null
+          tipo_documento: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activo_id?: string | null
+          anio?: number | null
+          bien_descripcion: string
+          cantidad_cuotas?: number
+          cotizacion_usd?: number | null
+          created_at?: string
+          entrega?: number
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          forma_pago?: string | null
+          id?: string
+          mes?: number | null
+          moneda?: string
+          monto_total?: number
+          numero?: string | null
+          observaciones?: string | null
+          proveedor_id?: string | null
+          proveedor_nombre?: string | null
+          tipo_documento?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          activo_id?: string | null
+          anio?: number | null
+          bien_descripcion?: string
+          cantidad_cuotas?: number
+          cotizacion_usd?: number | null
+          created_at?: string
+          entrega?: number
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          forma_pago?: string | null
+          id?: string
+          mes?: number | null
+          moneda?: string
+          monto_total?: number
+          numero?: string | null
+          observaciones?: string | null
+          proveedor_id?: string | null
+          proveedor_nombre?: string | null
+          tipo_documento?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_doc_compras_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compras_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compras_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compras_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "fema_proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_empleado_carnets: {
         Row: {
           autoridad: string | null
