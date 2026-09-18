@@ -727,7 +727,10 @@ function Page() {
               <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
               <TabsTrigger value="cobrada">Cobradas</TabsTrigger>
               <TabsTrigger value="estimados">Estimados ({estimGroups.length + estimComprobantes.length})</TabsTrigger>
-              <TabsTrigger value="presupuestos">Presupuestos ({(presupuestos ?? []).length})</TabsTrigger>
+              <TabsTrigger value="presupuestos">
+                Pendientes ({(presupuestos ?? []).filter((p) => p.estado !== "Facturado").length
+                  + (planillas ?? []).filter((p) => p.estado !== "Facturado").length})
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           <Input
