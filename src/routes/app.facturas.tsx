@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, CheckCircle2, RotateCcw, Receipt, Settings2, Lock, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/profile-context";
