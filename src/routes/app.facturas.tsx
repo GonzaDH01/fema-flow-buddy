@@ -785,6 +785,8 @@ function Page() {
               ))}
             </TableBody>
           </Table>
+          </>
+
         ) : (
         <Table>
           <TableHeader>
