@@ -33,7 +33,7 @@ function useAlertas() {
     enabled: !!user,
     queryFn: async (): Promise<Alerta[]> => {
       const hoy = hoyISO();
-      const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf] = await Promise.all([
+      const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf, docCuotas] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
@@ -44,6 +44,8 @@ function useAlertas() {
         supabase.from("fema_clientes").select("id,nombre"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
         supabase.from("fema_gastos_fijos_mov").select("id,anio,mes,monto,pagado,gasto_fijo_id"),
+        (supabase as any).from("fema_doc_compra_cuotas")
+          .select("id,numero_cuota,fecha_vencimiento,monto,moneda,estado,doc:fema_doc_compras(bien_descripcion,proveedor_nombre)"),
       ]);
 
       const out: Alerta[] = [];
@@ -161,6 +163,26 @@ function useAlertas() {
               ? `Venció el ${formatFecha(c.fecha_vencimiento)} (${-d} días).`
               : `Vence en ${d} día(s) — ${formatFecha(c.fecha_vencimiento)}.`,
             monto: n(c.monto), fecha: c.fecha_vencimiento, to: "/app/creditos",
+          });
+        }
+      }
+
+      // 5 bis. Cuotas de documentos de compra a plazo (pagarés / boletos)
+      for (const c of ((docCuotas.data ?? []) as any[])) {
+        if ((c.estado ?? "") === "pagada") continue;
+        const d = diasHasta(c.fecha_vencimiento);
+        if (d === null) continue;
+        if (d < 0 || d <= 15) {
+          const bien = c.doc?.bien_descripcion ?? "documento de compra";
+          out.push({
+            id: `doccuota-${c.id}`,
+            severidad: d < 0 ? severidadPorAtraso(-d) : d <= 7 ? "alta" : "media",
+            categoria: "Documentos de compra",
+            titulo: `Cuota ${c.numero_cuota} ${d < 0 ? "vencida" : "por vencer"} — ${bien}`,
+            detalle: d < 0
+              ? `Venció el ${formatFecha(c.fecha_vencimiento)} (${-d} días).`
+              : `Vence en ${d} día(s) — ${formatFecha(c.fecha_vencimiento)}${c.moneda === "USD" ? " (en dólares)" : ""}.`,
+            monto: n(c.monto), fecha: c.fecha_vencimiento, to: "/app/documentos",
           });
         }
       }
