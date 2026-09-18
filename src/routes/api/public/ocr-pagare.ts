@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { parseModelJson } from "@/lib/ocr-parse.server";
 
 const HEADERS = { "Content-Type": "application/json" };
 
@@ -70,7 +71,7 @@ export const Route = createFileRoute("/api/public/ocr-pagare")({
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
               model: "google/gemini-2.5-flash",
-              max_tokens: 900,
+              max_tokens: 8000,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
@@ -92,8 +93,8 @@ export const Route = createFileRoute("/api/public/ocr-pagare")({
           const payload = await ai.json();
           const content = payload?.choices?.[0]?.message?.content;
           if (!content) return json(500, { error: "Respuesta vacía del modelo." });
-          let data: unknown;
-          try { data = JSON.parse(content); } catch { return json(500, { error: "Respuesta no es JSON válido." }); }
+          const data = parseModelJson(String(content));
+          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." });
           return json(200, { data });
         } catch (e) {
           return json(500, { error: e instanceof Error ? e.message : "Error interno" });
