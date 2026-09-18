@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { parseModelJson } from "@/lib/ocr-parse.server";
 
 const HEADERS = { "Content-Type": "application/json" };
 
@@ -101,11 +102,8 @@ export const Route = createFileRoute("/api/public/ocr-planilla")({
           const content = payload?.choices?.[0]?.message?.content;
           if (!content) return json(500, { error: "Respuesta vacía del lector." });
 
-          let data: any;
-          try {
-            data = JSON.parse(content);
-          } catch {
-            return json(500, { error: "Respuesta no válida del lector." });
+          const data = parseModelJson(String(content));
+          if (!data) return json(502, { error: "No se pudo leer el documento. Probá con una foto más nítida o un PDF de una sola página." }););
           }
           return json(200, { data });
         } catch (e: any) {
