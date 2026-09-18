@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { formatNumero, formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
