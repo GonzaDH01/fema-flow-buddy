@@ -66,6 +66,7 @@ type Planilla = {
   cliente_id: string | null; cliente_nombre: string | null; establecimiento: string | null; lote: string | null;
   zona: string | null; cultivo: string | null; imagen_path: string | null; observaciones: string | null;
   bolsas: number[] | null; total_viajes: number; total_metros: number; anio: number | null; mes: number | null;
+  estado?: string | null; factura_venta_id?: string | null;
 };
 type PlanillaEquipo = {
   id: string; planilla_id: string; equipo_id: string | null; activo_id: string | null; equipo_nombre: string;
