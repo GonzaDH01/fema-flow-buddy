@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile-context";
 import { useYear } from "@/lib/year-context";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
