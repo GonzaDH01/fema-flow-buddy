@@ -146,7 +146,7 @@ export const Route = createFileRoute("/api/public/ocr-factura")({
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
               model: "google/gemini-2.5-flash",
-              max_tokens: 1000,
+              max_tokens: 8000,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
