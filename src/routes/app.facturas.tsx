@@ -202,7 +202,70 @@ function Page() {
     },
   });
 
+
+  // Planillas de bolsero: se pueden facturar directo, sin presupuesto previo
+  const { data: planillas } = useQuery({
+    queryKey: ["fema_planillas_facturas", year],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_planillas_bolsero")
+        .select("id,fecha,cliente_id,cliente_nombre,bolsero_nombre,cultivo,establecimiento,lote,zona,total_metros,total_viajes,estado,factura_venta_id")
+        .eq("anio", year)
+        .order("fecha", { ascending: false });
+      if (error) throw error;
+      return data as PlanillaRow[];
+    },
+  });
+
+  const facturarPlanilla = async (p: PlanillaRow) => {
+    if (p.estado === "Facturado" && !esAdmin) {
+      toast.error("La planilla ya fue facturada y está bloqueada");
+      return;
+    }
+    // Precio por metro sugerido: servicio de embolsado del catálogo
+    const { data: prods } = await supabase.from("fema_productos")
+      .select("precio_venta,precio,unidad_medida").eq("unidad_medida", "Metro").limit(1);
+    const precioMetro = Number((prods?.[0] as any)?.precio_venta ?? (prods?.[0] as any)?.precio ?? 0);
+    const detalle = [
+      "Embolsado",
+      p.cultivo ?? "",
+      p.establecimiento ? `Est. ${p.establecimiento}` : "",
+      p.lote ? `Lote ${p.lote}` : "",
+      p.bolsero_nombre ? `Bolsero ${p.bolsero_nombre}` : "",
+    ].filter(Boolean).join(" · ");
+    setEdit(null);
+    setPrefill(null);
+    setPrefillPresup(null);
+    setPrefillPlanilla({
+      planilla: p,
+      derived: {
+        metros_bolsa: Number(p.total_metros ?? 0),
+        precio_metro: precioMetro,
+        cultivo: p.cultivo ?? "Otro",
+        trabajo: detalle,
+      },
+    });
+    setOpen(true);
+  };
+
+  const desbloquearPlanilla = async (p: PlanillaRow) => {
+    const { error } = await (supabase as any).from("fema_planillas_bolsero")
+      .update({ estado: "Pendiente", factura_venta_id: null }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Planilla desbloqueada");
+    qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+  };
+
+  const desbloquearPresup = async (p: PresupRow) => {
+    const { error } = await supabase.from("fema_presupuestos").update({ estado: "Aprobado" }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Presupuesto desbloqueado");
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
+  };
+
   const aprobarPresup = async (p: PresupRow) => {
+    if (p.estado === "Facturado") { toast.error("El presupuesto ya fue facturado y está bloqueado"); return; }
     const nuevo = p.estado === "Aprobado" ? "Pendiente" : "Aprobado";
     const { error } = await supabase.from("fema_presupuestos").update({ estado: nuevo }).eq("id", p.id);
     if (error) { toast.error(error.message); return; }
@@ -210,6 +273,7 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
     qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
   };
+
 
   const facturarPresup = async (p: PresupRow) => {
     const { data: its, error } = await supabase.from("fema_presupuesto_items")
