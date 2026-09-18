@@ -669,7 +669,69 @@ function Page() {
             </TableBody>
           </Table>
         ) : tab === "estimados" ? (
+          <>
+          {estimComprobantes.length > 0 && (
+            <div className="border-b border-border">
+              <div className="px-4 py-3">
+                <h3 className="text-sm font-semibold">Comprobantes estimados</h3>
+                <p className="text-xs text-muted-foreground">Trabajos cargados como estimado. Editalos o pasalos a factura real.</p>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Trabajo</TableHead>
+                    <TableHead className="text-right">Hectáreas</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="w-56 text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {estimComprobantes.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.cliente_id ? clientesMap[r.cliente_id] ?? "—" : "—"}</TableCell>
+                      <TableCell>{formatFecha(r.fecha)}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.trabajo ?? "—"}</TableCell>
+                      <TableCell className="text-right">{Number(r.hectareas ?? 0) || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPesos(Number(r.total ?? 0))}</TableCell>
+                      <TableCell><Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">Estimado</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => { setPrefill(null); setPrefillPresup(null); setEdit(r); setOpen(true); }}>
+                            <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                          </Button>
+                          <Button size="sm" className="h-8" onClick={() => { setPrefill(null); setPrefillPresup(null); setEdit({ ...r, tipo_comprobante: "Factura" }); setOpen(true); }}>
+                            <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar estimado?</AlertDialogTitle>
+                                <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(r)}>Eliminar</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
           <Table>
+
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
