@@ -126,6 +126,8 @@ function ConteoViajes({ valor, onChange }: { valor: number; onChange: (v: number
 
 function Page() {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const esAdmin = !!profile?.isAdmin;
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
