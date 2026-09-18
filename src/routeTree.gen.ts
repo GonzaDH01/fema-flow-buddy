@@ -41,6 +41,7 @@ import { Route as ApiPublicCotizacionDolarRouteImport } from './routes/api/publi
 import { Route as ApiPublicOcrCarnetRouteImport } from './routes/api/public/ocr-carnet'
 import { Route as ApiPublicOcrDniRouteImport } from './routes/api/public/ocr-dni'
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
+import { Route as ApiPublicOcrPagareRouteImport } from './routes/api/public/ocr-pagare'
 import { Route as ApiPublicOcrPlanillaRouteImport } from './routes/api/public/ocr-planilla'
 
 const IndexRoute = IndexRouteImport.update({
@@ -204,6 +205,11 @@ const ApiPublicOcrFacturaRoute = ApiPublicOcrFacturaRouteImport.update({
   path: '/api/public/ocr-factura',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOcrPagareRoute = ApiPublicOcrPagareRouteImport.update({
+  id: '/api/public/ocr-pagare',
+  path: '/api/public/ocr-pagare',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicOcrPlanillaRoute = ApiPublicOcrPlanillaRouteImport.update({
   id: '/api/public/ocr-planilla',
   path: '/api/public/ocr-planilla',
@@ -243,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
+  '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
 }
 export interface FileRoutesByTo {
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
+  '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
 }
 export interface FileRoutesById {
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/api/public/ocr-carnet': typeof ApiPublicOcrCarnetRoute
   '/api/public/ocr-dni': typeof ApiPublicOcrDniRoute
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
+  '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
 }
 export interface FileRouteTypes {
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
+    | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -384,6 +394,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
+    | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
   id:
     | '__root__'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-carnet'
     | '/api/public/ocr-dni'
     | '/api/public/ocr-factura'
+    | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
   fileRoutesById: FileRoutesById
 }
@@ -431,6 +443,7 @@ export interface RootRouteChildren {
   ApiPublicOcrCarnetRoute: typeof ApiPublicOcrCarnetRoute
   ApiPublicOcrDniRoute: typeof ApiPublicOcrDniRoute
   ApiPublicOcrFacturaRoute: typeof ApiPublicOcrFacturaRoute
+  ApiPublicOcrPagareRoute: typeof ApiPublicOcrPagareRoute
   ApiPublicOcrPlanillaRoute: typeof ApiPublicOcrPlanillaRoute
 }
 
@@ -660,6 +673,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicOcrFacturaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/ocr-pagare': {
+      id: '/api/public/ocr-pagare'
+      path: '/api/public/ocr-pagare'
+      fullPath: '/api/public/ocr-pagare'
+      preLoaderRoute: typeof ApiPublicOcrPagareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ocr-planilla': {
       id: '/api/public/ocr-planilla'
       path: '/api/public/ocr-planilla'
@@ -735,6 +755,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicOcrCarnetRoute: ApiPublicOcrCarnetRoute,
   ApiPublicOcrDniRoute: ApiPublicOcrDniRoute,
   ApiPublicOcrFacturaRoute: ApiPublicOcrFacturaRoute,
+  ApiPublicOcrPagareRoute: ApiPublicOcrPagareRoute,
   ApiPublicOcrPlanillaRoute: ApiPublicOcrPlanillaRoute,
 }
 export const routeTree = rootRouteImport
