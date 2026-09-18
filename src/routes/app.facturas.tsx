@@ -621,6 +621,14 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
       qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
     }
+    // Si venía de una planilla de bolsero → queda facturada y bloqueada
+    if (!edit && prefillPlanilla) {
+      const { error: errPl } = await (supabase as any).from("fema_planillas_bolsero")
+        .update({ estado: "Facturado", factura_venta_id: facturaId }).eq("id", prefillPlanilla.planilla.id);
+      if (errPl) toast.error(`Planilla: ${errPl.message}`);
+      qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+      qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+    }
     qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
