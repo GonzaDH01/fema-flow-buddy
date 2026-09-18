@@ -247,6 +247,37 @@ function Page() {
     setOpen(true);
   };
 
+  // Asociar una planilla a una factura ya emitida (propia o surgida de un presupuesto facturado)
+  const asociarPlanilla = async () => {
+    const p = asociar;
+    if (!p) return;
+    if (p.estado === "Facturado" && !esAdmin) {
+      toast.error("La planilla ya fue facturada y está bloqueada");
+      return;
+    }
+    if (!asociarFacturaId) { toast.error("Elegí la factura a asociar"); return; }
+    const fac = (data ?? []).find((f) => f.id === asociarFacturaId);
+    const { error } = await (supabase as any).from("fema_planillas_bolsero")
+      .update({ estado: "Facturado", factura_venta_id: asociarFacturaId }).eq("id", p.id);
+    if (error) { toast.error(error.message); return; }
+    // Si la factura no tiene metros ni cultivo cargados, los completa con los de la planilla
+    if (fac) {
+      const patch: Record<string, unknown> = {};
+      if (!Number(fac.metros_bolsa ?? 0) && Number(p.total_metros ?? 0) > 0) patch.metros_bolsa = Number(p.total_metros);
+      if (!fac.cultivo && p.cultivo) patch.cultivo = p.cultivo;
+      if (Object.keys(patch).length) {
+        await supabase.from("fema_facturas_venta").update(patch as any).eq("id", fac.id);
+        qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
+      }
+    }
+    toast.success("Planilla asociada a la factura");
+    setAsociar(null);
+    setAsociarFacturaId("");
+    qc.invalidateQueries({ queryKey: ["fema_planillas_facturas"] });
+    qc.invalidateQueries({ queryKey: ["fema_planillas"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
   const desbloquearPlanilla = async (p: PlanillaRow) => {
     const { error } = await (supabase as any).from("fema_planillas_bolsero")
       .update({ estado: "Pendiente", factura_venta_id: null }).eq("id", p.id);
