@@ -377,12 +377,18 @@ function Page() {
                         <Button variant="ghost" size="icon" title="Imprimir" onClick={() => imprimirConEquipos(p)}>
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => eliminar(p)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {p.estado === "Facturado" && !esAdmin ? (
+                          <span className="px-2 text-xs text-muted-foreground">Facturada</span>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => { setEdit(p); setOpen(true); }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => eliminar(p)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
