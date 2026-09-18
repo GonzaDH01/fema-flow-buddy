@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { esComprobanteInformativo } from "@/lib/finanzas";
 import { proyectar, primerDeficit, type Flujo, type Semana } from "@/lib/tesoreria";
+import { cotizacionOficial } from "@/lib/cotizacion";
 
 export const Route = createFileRoute("/app/tesoreria")({ component: Page });
 
@@ -29,7 +30,7 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
     enabled: !!user,
     queryFn: async () => {
       const hoy = new Date().toISOString().slice(0, 10);
-      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli, ctas] = await Promise.all([
+      const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli, ctas, docCuotas, prods] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),
         supabase.from("fema_creditos_cuotas").select("id,numero_cuota,fecha_vencimiento,monto,estado,credito_id"),
@@ -42,7 +43,12 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
         supabase.from("fema_cuentas_bancarias").select("id,banco,alias,tipo_cuenta,saldo,activa"),
+        (supabase as any).from("fema_doc_compra_cuotas")
+          .select("id,numero_cuota,fecha_vencimiento,monto,moneda,estado,doc:fema_doc_compras(bien_descripcion,proveedor_nombre)"),
+        supabase.from("fema_productos").select("nombre,categoria,precio,precio_venta,precio_compra,moneda"),
       ]);
+
+      const dolarOf = cotizacionOficial((prods.data ?? []) as any[]);
 
       const cuentas = ((ctas.data ?? []) as any[]).filter((c) => c.activa !== false);
       const saldoBanco = cuentas.reduce((s, c) => s + n(c.saldo), 0);
@@ -72,6 +78,18 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
           concepto: `Cuota ${c.numero_cuota} de crédito`,
           origen: "Créditos",
           monto: -n(c.monto),
+        });
+      }
+
+      // Cuotas de documentos de compra a plazo (pagarés / boletos)
+      for (const c of (docCuotas.data ?? []) as any[]) {
+        if ((c.estado ?? "") === "pagada" || !c.fecha_vencimiento) continue;
+        const monto = (c.moneda === "USD" ? n(c.monto) * (dolarOf || 0) : n(c.monto)) || n(c.monto);
+        flujos.push({
+          fecha: c.fecha_vencimiento,
+          concepto: `Cuota ${c.numero_cuota} — ${c.doc?.bien_descripcion ?? "documento de compra"}${c.doc?.proveedor_nombre ? ` (${c.doc.proveedor_nombre})` : ""}`,
+          origen: "Documentos de compra",
+          monto: -monto,
         });
       }
 

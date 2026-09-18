@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
 import { formatPesos, MESES } from "@/lib/format";
 import { esComprobanteInformativo } from "@/lib/finanzas";
+import { cotizacionOficial } from "@/lib/cotizacion";
 
 export const Route = createFileRoute("/app/cashflow")({ component: Page });
 
@@ -30,7 +31,7 @@ function placeAt(mes: number, total: number) {
 }
 
 async function loadCashflow(userId: string, anio: number) {
-  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred, cajaMov] = await Promise.all([
+  const [ventas, compras, sueldos, impuestos, combustible, movs, imputaciones, estimaciones, gFijos, gFijosMov, cuotasCred, cajaMov, cuotasDoc, prodsCot] = await Promise.all([
     supabase.from("fema_facturas_venta")
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
@@ -64,7 +65,13 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_caja_mov" as any)
       .select("fecha,cuenta_id,tipo,monto,concepto,saldo_resultante,cuenta:fema_cuentas_bancarias(banco,alias)")
       .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
+    supabase.from("fema_doc_compra_cuotas" as any)
+      .select("numero_cuota,fecha_vencimiento,monto,moneda,estado,doc:fema_doc_compras(bien_descripcion,proveedor_nombre,tipo_documento,cantidad_cuotas)")
+      .gte("fecha_vencimiento", `${anio}-01-01`).lte("fecha_vencimiento", `${anio}-12-31`),
+    supabase.from("fema_productos").select("nombre,categoria,precio,precio_venta,precio_compra,moneda"),
   ]);
+
+  const dolarCot = cotizacionOficial((prodsCot.data ?? []) as any[]);
 
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
   const movsByFV = new Map<string, any[]>();
@@ -376,6 +383,37 @@ async function loadCashflow(userId: string, anio: number) {
     // Si todas las cuotas del año están pagadas, va a pagados; si no, pendientes
     const allPag = g.values.every((v, i) => v === 0 || g.pagado[i]);
     const row: Row = { label: g.label, sub: g.sub, badge: "Cuota crédito", cat: "Créditos / financiación", values: g.values, tooltips: g.tooltips, sign: "-" };
+    if (allPag) egPagados.push(row); else egPendientes.push(row);
+  }
+
+  // Cuotas de documentos de compra a plazo (pagarés / boletos)
+  const docGroups = new Map<string, { label: string; sub?: string; values: number[]; tooltips: (string | undefined)[]; pagado: boolean[] }>();
+  for (const q of (cuotasDoc.data ?? []) as any[]) {
+    const mes = Number((q.fecha_vencimiento ?? "").slice(5, 7));
+    if (mes < 1 || mes > 12) continue;
+    const bien = q.doc?.bien_descripcion ?? "Documento de compra";
+    const acreedor = q.doc?.proveedor_nombre ?? "";
+    const key = `${bien}||${acreedor}`;
+    let g = docGroups.get(key);
+    if (!g) {
+      g = {
+        label: bien,
+        sub: `${q.doc?.tipo_documento ?? "Documento"}${acreedor ? ` · ${acreedor}` : ""}`,
+        values: empty12(),
+        tooltips: empty12().map(() => undefined),
+        pagado: Array(12).fill(false),
+      };
+      docGroups.set(key, g);
+    }
+    const monto = q.moneda === "USD" ? Number(q.monto) * (dolarCot || 0) || Number(q.monto) : Number(q.monto);
+    g.values[mes - 1] += monto;
+    const tip = `Cuota ${q.numero_cuota}/${q.doc?.cantidad_cuotas ?? "?"}: ${formatPesos(monto)} (${q.estado})`;
+    g.tooltips[mes - 1] = g.tooltips[mes - 1] ? `${g.tooltips[mes - 1]}\n${tip}` : tip;
+    if (q.estado === "pagada") g.pagado[mes - 1] = true;
+  }
+  for (const g of docGroups.values()) {
+    const allPag = g.values.every((v, i) => v === 0 || g.pagado[i]);
+    const row: Row = { label: g.label, sub: g.sub, badge: "Cuota documento", cat: "Documentos de compra", values: g.values, tooltips: g.tooltips, sign: "-" };
     if (allPag) egPagados.push(row); else egPendientes.push(row);
   }
 

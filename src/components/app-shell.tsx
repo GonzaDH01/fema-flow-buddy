@@ -70,6 +70,7 @@ const sections: { title: string; items: NavItem[] }[] = [
       { to: "/app/proveedores", label: "Proveedores", icon: Truck, key: "proveedores" },
       { to: "/app/franco", label: "Franco", icon: Wallet, key: "franco" },
       { to: "/app/creditos", label: "Créditos / Financ.", icon: Banknote, key: "creditos" },
+      { to: "/app/documentos", label: "Documentos Compras", icon: FileText, key: "documentos" },
     ],
   },
   {
@@ -118,6 +119,7 @@ const titleByPath: Record<string, string> = {
   "/app/proveedores": "Proveedores",
   "/app/franco": "Franco — gastos con tarjeta personal",
   "/app/creditos": "Créditos / Financiación",
+  "/app/documentos": "Documentos de Compras a Plazo",
   "/app/empleados": "Empleados",
   "/app/impuestos": "Impuestos",
   "/app/presupuestos": "Presupuestos",
