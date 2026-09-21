@@ -922,9 +922,9 @@ function NuevaHoraDialog() {
 // ============ REPORTE ============
 function ReporteTab() {
   const { year } = useYear();
-  const { data: sueldos } = useQuery({
-    queryKey: ["fema_sueldos", year],
-    queryFn: async () => (await supabase.from("fema_sueldos").select("*")).data as Sueldo[] ?? [],
+  const { data: pagos } = useQuery({
+    queryKey: ["fema_pagos_empleado", year],
+    queryFn: async () => (await supabase.from("fema_pagos_empleado").select("*")).data as PagoEmpleado[] ?? [],
   });
   const { data: horas } = useQuery({
     queryKey: ["fema_horas", year],
@@ -935,21 +935,30 @@ function ReporteTab() {
     queryFn: async () => (await supabase.from("fema_empleados").select("*")).data as Empleado[] ?? [],
   });
 
-  const sueY = (sueldos ?? []).filter((s) => (s.anio ?? year) === year);
+  const pagY = (pagos ?? []).filter((p) => (p.anio ?? new Date(p.fecha).getFullYear()) === year);
   const horY = (horas ?? []).filter((h) => (h.anio ?? new Date(h.fecha).getFullYear()) === year);
-  const totalLiq = sueY.reduce((a, s) => a + Number(s.total), 0);
-  const pagado = sueY.filter((s) => s.estado === "Pagado").reduce((a, s) => a + Number(s.total), 0);
+  const totalLiq = pagY.reduce((a, p) => a + Number(p.monto), 0);
+  const pagado = pagY.filter((p) => p.estado === "pagado").reduce((a, p) => a + Number(p.monto), 0);
   const pendiente = totalLiq - pagado;
   const totalHoras = horY.reduce((a, h) => a + Number(h.horas), 0);
   const activos = (empleados ?? []).filter((e) => e.activo).length;
 
   const porEmpleado = useMemo(() => {
-    const map = new Map<string, { nombre: string; horas: number; total: number }>();
-    (empleados ?? []).forEach((e) => map.set(e.id, { nombre: e.nombre, horas: 0, total: 0 }));
+    const map = new Map<string, { nombre: string; horas: number; sueldo: number; adelanto: number; extra: number; total: number }>();
+    (empleados ?? []).forEach((e) => map.set(e.id, { nombre: e.nombre, horas: 0, sueldo: 0, adelanto: 0, extra: 0, total: 0 }));
     horY.forEach((h) => { if (h.empleado_id) { const e = map.get(h.empleado_id); if (e) e.horas += Number(h.horas); } });
-    sueY.forEach((s) => { if (s.empleado_id) { const e = map.get(s.empleado_id); if (e) e.total += Number(s.total); } });
+    pagY.forEach((p) => {
+      if (!p.empleado_id) return;
+      const e = map.get(p.empleado_id);
+      if (!e) return;
+      const m = Number(p.monto);
+      e.total += m;
+      if (p.tipo_pago === "adelanto") e.adelanto += m;
+      else if (p.tipo_pago === "extra") e.extra += m;
+      else e.sueldo += m;
+    });
     return Array.from(map.values()).filter((r) => r.horas > 0 || r.total > 0);
-  }, [empleados, horY, sueY]);
+  }, [empleados, horY, pagY]);
 
   return (
     <div className="space-y-4">
