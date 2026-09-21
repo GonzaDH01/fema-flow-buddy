@@ -72,24 +72,29 @@ function useEmpleadosMin() {
   });
 }
 
-/** Facturas de compra de mano de obra / honorarios, para asociar al pago. */
-function useFacturasEmpleado() {
+export type FacturaCompraMin = {
+  id: string; fecha: string; numero: string | null; total: number;
+  estado: string | null; categoria: string | null; empleado_id: string | null;
+  descripcion: string | null; proveedor_id: string | null;
+  fema_proveedores: { nombre: string } | null;
+};
+
+/** Todas las facturas de compra (con proveedor y detalle) para asociar al pago. */
+function useFacturasCompraAsociar() {
   return useQuery({
-    queryKey: ["facturas_empleado"],
+    queryKey: ["facturas_compra_asociar"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_facturas_compra")
-        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion")
-        .in("categoria", ["Mano_de_Obra", "Honorarios"])
-        .order("fecha", { ascending: false });
+        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion,proveedor_id,fema_proveedores(nombre)")
+        .order("fecha", { ascending: false })
+        .limit(500);
       if (error) throw error;
-      return (data ?? []) as {
-        id: string; fecha: string; numero: string | null; total: number;
-        estado: string | null; categoria: string | null; empleado_id: string | null; descripcion: string | null;
-      }[];
+      return (data ?? []) as unknown as FacturaCompraMin[];
     },
   });
 }
+
 
 function rangoPeriodo(anio: number, mes: number, tramo: string) {
   const ultimo = new Date(anio, mes, 0).getDate();
