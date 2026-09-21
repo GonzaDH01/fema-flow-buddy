@@ -111,7 +111,7 @@ async function loadKPIs(_userId: string, anio: number) {
 
   const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0) + cobradoSuelto;
   const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0) + carteraSuelta;
-  const totalSueldos = su.reduce((a, x) => a + Number(x.sueldo_bruto ?? 0) + Number(x.cargas_sociales ?? 0), 0);
+  const totalSueldos = su.reduce((a, x) => a + Number(x.monto ?? 0), 0);
   const totalImpuestos = im.reduce(
     (a, x) => a + Number(x.ingresos_brutos ?? 0) + Number(x.ganancias_estimadas ?? 0) +
       Math.max(0, Number(x.iva_debito ?? 0) - Number(x.iva_credito ?? 0)),
