@@ -210,6 +210,7 @@ export function NuevoPagoDialog() {
     toast.success(`${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
     qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
     setOpen(false);
     setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
   };
