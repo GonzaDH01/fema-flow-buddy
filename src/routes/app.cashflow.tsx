@@ -38,9 +38,9 @@ async function loadCashflow(userId: string, anio: number) {
     supabase.from("fema_facturas_compra")
       .select("id,mes,total,estado,numero,categoria,tipo_comprobante,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
-    supabase.from("fema_sueldos")
-      .select("periodo,sueldo_bruto,cargas_sociales,empleado:fema_empleados(nombre)")
-      .like("periodo", `${anio}-%`),
+    supabase.from("fema_pagos_empleado")
+      .select("fecha,mes,anio,monto,tipo_pago,empleado:fema_empleados(nombre)")
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_impuestos")
       .select("mes,periodo,iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
       .eq("anio", anio),
