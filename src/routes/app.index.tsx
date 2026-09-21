@@ -25,9 +25,9 @@ async function loadKPIs(_userId: string, anio: number) {
     supabase.from("fema_facturas_compra")
       .select("id,mes,total,estado,fecha,numero,categoria,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
-    supabase.from("fema_sueldos")
-      .select("sueldo_bruto,cargas_sociales,periodo")
-      .like("periodo", `${anio}-%`),
+    supabase.from("fema_pagos_empleado")
+      .select("monto,fecha")
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_impuestos")
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
       .eq("anio", anio),
