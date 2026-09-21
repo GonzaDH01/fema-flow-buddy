@@ -957,7 +957,21 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Al subir la foto se leen solos los datos escritos y se completan los campos. Revisalos y guardá la planilla.
               </p>
-              {previewUrl && <img src={previewUrl} alt="Planilla de trabajo" className="mt-3 max-h-60 w-full rounded-md object-contain" />}
+              {previewUrl && (
+                <button
+                  type="button"
+                  onClick={() => window.open(previewUrl, "_blank")}
+                  title="Abrir la foto en grande"
+                  className="mt-3 block w-full overflow-hidden rounded-md border bg-muted"
+                >
+                  <img
+                    src={previewUrl}
+                    alt="Planilla de trabajo"
+                    className="aspect-[4/3] w-full bg-background object-contain"
+                  />
+                  <span className="block py-1 text-center text-[11px] text-muted-foreground">Tocá la foto para verla en grande</span>
+                </button>
+              )}
             </div>
             <div className="rounded-md border p-3">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wide">Observaciones</div>
