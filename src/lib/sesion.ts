@@ -26,7 +26,7 @@ const esJwtVencido = (e: unknown) => {
  * Ejecuta una operación contra la base. Si falla por sesión vencida,
  * renueva el token y reintenta una sola vez de forma silenciosa.
  */
-export async function conSesion<T>(fn: () => Promise<T>): Promise<T> {
+export async function conSesion<T>(fn: () => PromiseLike<T>): Promise<T> {
   await asegurarSesion();
   const res = await fn();
   const err = (res as { error?: unknown } | null)?.error;
