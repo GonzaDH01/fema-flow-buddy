@@ -1942,6 +1942,7 @@ export type Database = {
           created_at: string
           empleado_id: string | null
           estado: string
+          factura_compra_id: string | null
           fecha: string
           forma_pago: string | null
           horas: number
@@ -1954,6 +1955,7 @@ export type Database = {
           periodo_hasta: string | null
           solicitud_id: string | null
           tareas: string | null
+          tipo_pago: string
           updated_at: string
           user_id: string
         }
@@ -1963,6 +1965,7 @@ export type Database = {
           created_at?: string
           empleado_id?: string | null
           estado?: string
+          factura_compra_id?: string | null
           fecha?: string
           forma_pago?: string | null
           horas?: number
@@ -1975,6 +1978,7 @@ export type Database = {
           periodo_hasta?: string | null
           solicitud_id?: string | null
           tareas?: string | null
+          tipo_pago?: string
           updated_at?: string
           user_id: string
         }
@@ -1984,6 +1988,7 @@ export type Database = {
           created_at?: string
           empleado_id?: string | null
           estado?: string
+          factura_compra_id?: string | null
           fecha?: string
           forma_pago?: string | null
           horas?: number
@@ -1996,6 +2001,7 @@ export type Database = {
           periodo_hasta?: string | null
           solicitud_id?: string | null
           tareas?: string | null
+          tipo_pago?: string
           updated_at?: string
           user_id?: string
         }
@@ -2013,6 +2019,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fema_empleados"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_pagos_empleado_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_pagos_empleado_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
           },
           {
             foreignKeyName: "fema_pagos_empleado_solicitud_id_fkey"
