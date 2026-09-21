@@ -56,6 +56,38 @@ async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType:
   return { base64, mimeType: "image/jpeg" };
 }
 
+/** Endereza la foto (respeta la orientación de la cámara) y la deja siempre horizontal. */
+async function normalizarHorizontal(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as any);
+    const vertical = bitmap.height > bitmap.width;
+    const MAX = 2400;
+    const w = vertical ? bitmap.height : bitmap.width;
+    const h = vertical ? bitmap.width : bitmap.height;
+    const escala = Math.min(1, MAX / Math.max(w, h));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * escala);
+    canvas.height = Math.round(h * escala);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    if (vertical) {
+      // Giro 90° en sentido horario para que la planilla quede apaisada.
+      ctx.translate(canvas.width, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(bitmap, 0, 0, canvas.height, canvas.width);
+    } else {
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    }
+    bitmap.close?.();
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
+    if (!blob) return file;
+    const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], nombre, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 const texto = (x: unknown) => (x != null && String(x).trim() ? String(x).trim() : "");
 const numero = (x: unknown) => {
   const n = Number(String(x ?? "").replace(",", "."));
@@ -903,8 +935,11 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
                   const f = e.target.files?.[0];
                   e.target.value = "";
                   if (!f) return;
-                  setArchivo(f);
-                  void leerFoto(f);
+                  void (async () => {
+                    const horizontal = await normalizarHorizontal(f);
+                    setArchivo(horizontal);
+                    void leerFoto(horizontal);
+                  })();
                 }}
               />
               <div className="flex flex-wrap items-center gap-2">
@@ -922,7 +957,21 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Al subir la foto se leen solos los datos escritos y se completan los campos. Revisalos y guardá la planilla.
               </p>
-              {previewUrl && <img src={previewUrl} alt="Planilla de trabajo" className="mt-3 max-h-60 w-full rounded-md object-contain" />}
+              {previewUrl && (
+                <button
+                  type="button"
+                  onClick={() => window.open(previewUrl, "_blank")}
+                  title="Abrir la foto en grande"
+                  className="mt-3 block w-full overflow-hidden rounded-md border bg-muted"
+                >
+                  <img
+                    src={previewUrl}
+                    alt="Planilla de trabajo"
+                    className="aspect-[4/3] w-full bg-background object-contain"
+                  />
+                  <span className="block py-1 text-center text-[11px] text-muted-foreground">Tocá la foto para verla en grande</span>
+                </button>
+              )}
             </div>
             <div className="rounded-md border p-3">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wide">Observaciones</div>
