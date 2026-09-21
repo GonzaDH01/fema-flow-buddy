@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog } from "@/components/empleados-pagos";
+import { PagosEmpleadoTab, FacturasEmpleadoTab, NuevoPagoDialog, type PagoEmpleado } from "@/components/empleados-pagos";
 import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { CuponesPagoTab } from "@/components/empleados-cupones";
@@ -50,11 +50,6 @@ type Empleado = {
   importe_periodo: number | null;
   banco: string | null; cbu: string | null; alias_cbu: string | null; titular_cuenta: string | null;
   tareas: string | null; maquinaria: string | null;
-};
-type Sueldo = {
-  id: string; empleado_id: string | null; periodo: string; rol: string | null;
-  mes: number | null; anio: number | null;
-  basico: number; adicional: number; total: number; estado: string;
 };
 type Hora = {
   id: string; empleado_id: string | null; fecha: string; horas: number;
@@ -96,7 +91,6 @@ function Page() {
         </TabsContent>
         <TabsContent value="historico" className="space-y-4">
           <FacturasEmpleadoTab />
-          <LiquidacionesTab />
           <CuponesPagoTab />
         </TabsContent>
 
@@ -113,7 +107,7 @@ function HeaderActions({ tab }: { tab: string }) {
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
       {tab === "pagos" && <NuevoPagoDialog />}
-      {tab === "historico" && <NuevaLiquidacionDialog />}
+      {tab === "historico" && <NuevoPagoDialog />}
       {tab === "personal" && <NuevoEmpleadoDialog />}
       {tab === "liquidar" && <NuevaHoraDialog />}
     </div>
@@ -123,224 +117,16 @@ function HeaderActions({ tab }: { tab: string }) {
 async function exportEmpleados() {
   const [emp, sue, hor] = await Promise.all([
     supabase.from("fema_empleados").select("*"),
-    supabase.from("fema_sueldos").select("*"),
+    supabase.from("fema_pagos_empleado").select("*"),
     supabase.from("fema_horas_trabajadas").select("*"),
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emp.data ?? []), "Personal");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sue.data ?? []), "Liquidaciones");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sue.data ?? []), "Pagos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hor.data ?? []), "Horas");
   XLSX.writeFile(wb, `FEMA_Empleados_${new Date().toISOString().split("T")[0]}.xlsx`);
 }
 
-// ============ LIQUIDACIONES ============
-function LiquidacionesTab() {
-  const qc = useQueryClient();
-  const { year } = useYear();
-  const [mes, setMes] = useState<string>("all");
-
-  const { data: sueldos } = useQuery({
-    queryKey: ["fema_sueldos", year],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("fema_sueldos").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Sueldo[];
-    },
-  });
-  const { data: empleados } = useQuery({
-    queryKey: ["fema_empleados_min"],
-    queryFn: async () => {
-      const { data } = await supabase.from("fema_empleados").select("id,nombre,funcion");
-      return (data ?? []) as { id: string; nombre: string; funcion: string | null }[];
-    },
-  });
-
-  const rows = useMemo(() => {
-    const list = (sueldos ?? []).filter((s) => (s.anio ?? year) === year);
-    if (mes === "all") return list;
-    return list.filter((s) => String(s.mes) === mes);
-  }, [sueldos, mes, year]);
-
-  const empMap = useMemo(
-    () => Object.fromEntries((empleados ?? []).map((e) => [e.id, e])),
-    [empleados],
-  );
-
-  const pagar = async (id: string) => {
-    const { error } = await supabase.from("fema_sueldos").update({ estado: "Pagado" }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Liquidación pagada");
-    qc.invalidateQueries({ queryKey: ["fema_sueldos"] });
-  };
-  const eliminar = async (id: string) => {
-    const { error } = await supabase.from("fema_sueldos").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["fema_sueldos"] });
-  };
-
-  return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="font-medium">Liquidaciones de sueldos</h3>
-        <Select value={mes} onValueChange={setMes}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los meses</SelectItem>
-            {MESES_LARGOS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Empleado</TableHead><TableHead>Rol</TableHead>
-            <TableHead>Mes</TableHead><TableHead>Período</TableHead>
-            <TableHead className="text-right">Básico</TableHead>
-            <TableHead className="text-right">Adicional</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead>Forma de pago</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sin liquidaciones</TableCell></TableRow>
-          )}
-          {rows.map((r) => {
-            const e = r.empleado_id ? empMap[r.empleado_id] : null;
-            return (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">{e?.nombre ?? "—"}</TableCell>
-                <TableCell>{r.rol ?? e?.funcion ?? "—"}</TableCell>
-                <TableCell>{r.mes ? MESES_LARGOS[r.mes - 1] : "—"}</TableCell>
-                <TableCell className="font-mono text-xs">{r.periodo}</TableCell>
-                <TableCell className="text-right">{formatPesos(r.basico)}</TableCell>
-                <TableCell className="text-right">{Number(r.adicional) > 0 ? formatPesos(r.adicional) : "—"}</TableCell>
-                <TableCell className="text-right font-semibold">{formatPesos(r.total)}</TableCell>
-                <TableCell>
-                  {r.estado === "Pagado"
-                    ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">● Pagado</Badge>
-                    : <Badge variant="outline" className="border-destructive text-destructive">● Pendiente</Badge>}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    {r.estado !== "Pagado" && (
-                      <Button size="sm" variant="outline" className="h-7 text-primary border-primary/40" onClick={() => pagar(r.id)}>
-                        <Check className="size-3 mr-1" /> Pagar
-                      </Button>
-                    )}
-                    <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function NuevaLiquidacionDialog() {
-  const { user } = useAuth();
-  const { year } = useYear();
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [empleadoId, setEmpleadoId] = useState("");
-  const [mes, setMes] = useState(String(new Date().getMonth() + 1));
-  const [basico, setBasico] = useState("0");
-  const [adicional, setAdicional] = useState("0");
-  const [estado, setEstado] = useState("Pendiente");
-
-  const { data: empleados } = useQuery({
-    queryKey: ["fema_empleados_min"],
-    queryFn: async () => {
-      const { data } = await supabase.from("fema_empleados").select("id,nombre,funcion,sueldo_bruto");
-      return (data ?? []) as { id: string; nombre: string; funcion: string | null; sueldo_bruto: number }[];
-    },
-  });
-
-  const emp = empleados?.find((e) => e.id === empleadoId);
-  const total = Number(basico) + Number(adicional);
-
-  const onSubmit = async () => {
-    if (!empleadoId) return toast.error("Seleccionar empleado");
-    const m = Number(mes);
-    const payload = {
-      user_id: user!.id, empleado_id: empleadoId,
-      periodo: `${year}-${String(m).padStart(2, "0")}`,
-      mes: m, anio: year, rol: emp?.funcion ?? null,
-      basico: Number(basico), adicional: Number(adicional),
-      total, estado, sueldo_bruto: total,
-    };
-    const { error } = await supabase.from("fema_sueldos").insert(payload);
-    if (error) return toast.error(error.message);
-    toast.success("Liquidación creada");
-    qc.invalidateQueries({ queryKey: ["fema_sueldos"] });
-    setOpen(false);
-    setEmpleadoId(""); setBasico("0"); setAdicional("0");
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="size-4 mr-1" /> Nueva liquidación</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Nueva liquidación</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Empleado</Label>
-            <Select value={empleadoId} onValueChange={(v) => {
-              setEmpleadoId(v);
-              const e = empleados?.find((x) => x.id === v);
-              if (e?.sueldo_bruto) setBasico(String(e.sueldo_bruto));
-            }}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar empleado..." /></SelectTrigger>
-              <SelectContent>
-                {(empleados ?? []).map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.nombre} {e.funcion ? `— ${e.funcion}` : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Mes</Label>
-              <Select value={mes} onValueChange={setMes}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MESES_LARGOS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={estado} onValueChange={setEstado}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Pendiente">Pendiente</SelectItem>
-                  <SelectItem value="Pagado">Pagado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Básico ($)</Label><Input type="number" value={basico} onChange={(e) => setBasico(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Adicional ($)</Label><Input type="number" value={adicional} onChange={(e) => setAdicional(e.target.value)} /></div>
-          </div>
-          <div className="flex justify-between items-center p-3 rounded-md bg-muted/40">
-            <span className="text-sm text-muted-foreground">Total</span>
-            <span className="font-semibold text-lg">{formatPesos(total)}</span>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={onSubmit}>Guardar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ============ PERSONAL ============
 function PersonalTab() {
@@ -922,9 +708,9 @@ function NuevaHoraDialog() {
 // ============ REPORTE ============
 function ReporteTab() {
   const { year } = useYear();
-  const { data: sueldos } = useQuery({
-    queryKey: ["fema_sueldos", year],
-    queryFn: async () => (await supabase.from("fema_sueldos").select("*")).data as Sueldo[] ?? [],
+  const { data: pagos } = useQuery({
+    queryKey: ["fema_pagos_empleado", year],
+    queryFn: async () => (await supabase.from("fema_pagos_empleado").select("*")).data as PagoEmpleado[] ?? [],
   });
   const { data: horas } = useQuery({
     queryKey: ["fema_horas", year],
@@ -935,21 +721,30 @@ function ReporteTab() {
     queryFn: async () => (await supabase.from("fema_empleados").select("*")).data as Empleado[] ?? [],
   });
 
-  const sueY = (sueldos ?? []).filter((s) => (s.anio ?? year) === year);
+  const pagY = (pagos ?? []).filter((p) => (p.anio ?? new Date(p.fecha).getFullYear()) === year);
   const horY = (horas ?? []).filter((h) => (h.anio ?? new Date(h.fecha).getFullYear()) === year);
-  const totalLiq = sueY.reduce((a, s) => a + Number(s.total), 0);
-  const pagado = sueY.filter((s) => s.estado === "Pagado").reduce((a, s) => a + Number(s.total), 0);
+  const totalLiq = pagY.reduce((a, p) => a + Number(p.monto), 0);
+  const pagado = pagY.filter((p) => p.estado === "pagado").reduce((a, p) => a + Number(p.monto), 0);
   const pendiente = totalLiq - pagado;
   const totalHoras = horY.reduce((a, h) => a + Number(h.horas), 0);
   const activos = (empleados ?? []).filter((e) => e.activo).length;
 
   const porEmpleado = useMemo(() => {
-    const map = new Map<string, { nombre: string; horas: number; total: number }>();
-    (empleados ?? []).forEach((e) => map.set(e.id, { nombre: e.nombre, horas: 0, total: 0 }));
+    const map = new Map<string, { nombre: string; horas: number; sueldo: number; adelanto: number; extra: number; total: number }>();
+    (empleados ?? []).forEach((e) => map.set(e.id, { nombre: e.nombre, horas: 0, sueldo: 0, adelanto: 0, extra: 0, total: 0 }));
     horY.forEach((h) => { if (h.empleado_id) { const e = map.get(h.empleado_id); if (e) e.horas += Number(h.horas); } });
-    sueY.forEach((s) => { if (s.empleado_id) { const e = map.get(s.empleado_id); if (e) e.total += Number(s.total); } });
+    pagY.forEach((p) => {
+      if (!p.empleado_id) return;
+      const e = map.get(p.empleado_id);
+      if (!e) return;
+      const m = Number(p.monto);
+      e.total += m;
+      if (p.tipo_pago === "adelanto") e.adelanto += m;
+      else if (p.tipo_pago === "extra") e.extra += m;
+      else e.sueldo += m;
+    });
     return Array.from(map.values()).filter((r) => r.horas > 0 || r.total > 0);
-  }, [empleados, horY, sueY]);
+  }, [empleados, horY, pagY]);
 
   return (
     <div className="space-y-4">
@@ -968,16 +763,22 @@ function ReporteTab() {
           <TableHeader><TableRow>
             <TableHead>Empleado</TableHead>
             <TableHead className="text-right">Horas trabajadas</TableHead>
-            <TableHead className="text-right">Total liquidado</TableHead>
+            <TableHead className="text-right">Sueldos</TableHead>
+            <TableHead className="text-right">Adelantos</TableHead>
+            <TableHead className="text-right">Extras</TableHead>
+            <TableHead className="text-right">Total abonado</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {porEmpleado.length === 0 && (
-              <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">Sin datos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sin datos</TableCell></TableRow>
             )}
             {porEmpleado.map((r) => (
               <TableRow key={r.nombre}>
                 <TableCell className="font-medium">{r.nombre}</TableCell>
                 <TableCell className="text-right font-mono">{r.horas.toFixed(1)}</TableCell>
+                <TableCell className="text-right">{r.sueldo > 0 ? formatPesos(r.sueldo) : "—"}</TableCell>
+                <TableCell className="text-right">{r.adelanto > 0 ? formatPesos(r.adelanto) : "—"}</TableCell>
+                <TableCell className="text-right">{r.extra > 0 ? formatPesos(r.extra) : "—"}</TableCell>
                 <TableCell className="text-right font-semibold">{formatPesos(r.total)}</TableCell>
               </TableRow>
             ))}

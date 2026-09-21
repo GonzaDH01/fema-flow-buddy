@@ -14,7 +14,7 @@ export const Route = createFileRoute("/app/")({ component: Dashboard });
 
 type FV = { mes: number; total: number; estado: string; fecha: string; numero: string | null; cliente: { nombre: string } | null };
 type FC = { mes: number; total: number; estado: string; fecha: string; numero: string | null; proveedor: { nombre: string } | null };
-type SU = { sueldo_bruto: number | null; cargas_sociales: number | null };
+type SU = { monto: number | null };
 type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brutos: number | null; ganancias_estimadas: number | null };
 
 async function loadKPIs(_userId: string, anio: number) {
@@ -25,9 +25,9 @@ async function loadKPIs(_userId: string, anio: number) {
     supabase.from("fema_facturas_compra")
       .select("id,mes,total,estado,fecha,numero,categoria,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
-    supabase.from("fema_sueldos")
-      .select("sueldo_bruto,cargas_sociales,periodo")
-      .like("periodo", `${anio}-%`),
+    supabase.from("fema_pagos_empleado")
+      .select("monto,fecha")
+      .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_impuestos")
       .select("iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
       .eq("anio", anio),
@@ -111,7 +111,7 @@ async function loadKPIs(_userId: string, anio: number) {
 
   const ingresosCobrados = ventasCobradas.reduce((a, x) => a + Number(x.total), 0) + cobradoSuelto;
   const porCobrar = ventasPendientes.reduce((a, x) => a + Number(x.total), 0) + carteraSuelta;
-  const totalSueldos = su.reduce((a, x) => a + Number(x.sueldo_bruto ?? 0) + Number(x.cargas_sociales ?? 0), 0);
+  const totalSueldos = su.reduce((a, x) => a + Number(x.monto ?? 0), 0);
   const totalImpuestos = im.reduce(
     (a, x) => a + Number(x.ingresos_brutos ?? 0) + Number(x.ganancias_estimadas ?? 0) +
       Math.max(0, Number(x.iva_debito ?? 0) - Number(x.iva_credito ?? 0)),
