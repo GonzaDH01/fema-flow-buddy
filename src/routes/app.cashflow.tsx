@@ -292,11 +292,12 @@ async function loadCashflow(userId: string, anio: number) {
     (pagada ? egPagados : egPendientes).push(r);
   }
 
+  const TIPO_PAGO_LABEL: Record<string, string> = { sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra" };
   for (const s of (sueldos.data ?? []) as any[]) {
-    const mes = Number((s.periodo ?? "").split("-")[1] ?? 0);
-    const total = Number(s.sueldo_bruto ?? 0) + Number(s.cargas_sociales ?? 0);
+    const mes = Number(s.mes ?? new Date(s.fecha).getMonth() + 1);
+    const total = Number(s.monto ?? 0);
     egPagados.push({
-      label: `${s.empleado?.nombre ?? "Empleado"} · Sueldo`,
+      label: `${s.empleado?.nombre ?? "Empleado"} · ${TIPO_PAGO_LABEL[s.tipo_pago] ?? "Sueldo"}`,
       cat: "Sueldos",
       values: placeAt(mes, total),
       sign: "-",
