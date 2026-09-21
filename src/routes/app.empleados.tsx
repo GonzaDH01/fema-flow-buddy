@@ -51,11 +51,6 @@ type Empleado = {
   banco: string | null; cbu: string | null; alias_cbu: string | null; titular_cuenta: string | null;
   tareas: string | null; maquinaria: string | null;
 };
-type Sueldo = {
-  id: string; empleado_id: string | null; periodo: string; rol: string | null;
-  mes: number | null; anio: number | null;
-  basico: number; adicional: number; total: number; estado: string;
-};
 type Hora = {
   id: string; empleado_id: string | null; fecha: string; horas: number;
   referencia: string | null; tarea: string | null; observaciones: string | null;
