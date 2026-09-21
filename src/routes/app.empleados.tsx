@@ -63,7 +63,7 @@ type Hora = {
 };
 
 function Page() {
-  const [tab, setTab] = useState("liquidar");
+  const [tab, setTab] = useState("pagos");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -75,8 +75,8 @@ function Page() {
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
+          <TabsTrigger value="pagos">Pagos y sueldos</TabsTrigger>
           <TabsTrigger value="liquidar">Liquidar pago</TabsTrigger>
-          <TabsTrigger value="pagos">Pagos</TabsTrigger>
           <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
@@ -97,6 +97,7 @@ function Page() {
         <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
         <TabsContent value="reporte"><ReporteTab /></TabsContent>
+
       </Tabs>
     </div>
   );
