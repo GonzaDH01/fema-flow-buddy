@@ -447,10 +447,29 @@ export function PagosEmpleadoTab() {
     qc.invalidateQueries({ queryKey: ["fema_solicitudes_empleado"] });
   };
 
-  const facturasDelPago = useMemo(
-    () => (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id),
-    [facturas, asociar],
-  );
+  const empNombreAsociar = asociar?.empleado_id ? (empMap[asociar.empleado_id] ?? "") : "";
+  const coincideEmpleado = (f: FacturaCompraMin) => {
+    if (asociar?.empleado_id && f.empleado_id === asociar.empleado_id) return true;
+    const prov = (f.fema_proveedores?.nombre ?? "").toLowerCase();
+    if (!prov || !empNombreAsociar) return false;
+    const palabras = empNombreAsociar.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    return palabras.some((w) => prov.includes(w));
+  };
+
+  const facturasDelPago = useMemo(() => {
+    let list = (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id);
+    if (soloMO) list = list.filter((f) => f.categoria === "Mano_de_Obra" || f.categoria === "Honorarios" || coincideEmpleado(f));
+    const q = busca.trim().toLowerCase();
+    if (q) {
+      list = list.filter((f) =>
+        [f.numero, f.descripcion, f.fema_proveedores?.nombre, f.categoria, String(f.total), f.fecha]
+          .some((x) => (x ?? "").toString().toLowerCase().includes(q)),
+      );
+    }
+    return [...list].sort((a, b) => Number(coincideEmpleado(b)) - Number(coincideEmpleado(a)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facturas, asociar, soloMO, busca, empNombreAsociar]);
+
 
   return (
     <div className="rounded-lg border bg-card">
