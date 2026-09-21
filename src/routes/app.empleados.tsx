@@ -127,7 +127,7 @@ async function exportEmpleados() {
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emp.data ?? []), "Personal");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sue.data ?? []), "Liquidaciones");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sue.data ?? []), "Pagos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hor.data ?? []), "Horas");
   XLSX.writeFile(wb, `FEMA_Empleados_${new Date().toISOString().split("T")[0]}.xlsx`);
 }
