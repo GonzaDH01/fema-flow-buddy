@@ -113,9 +113,9 @@ function HeaderActions({ tab }: { tab: string }) {
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
       {tab === "pagos" && <NuevoPagoDialog />}
-      {tab === "liquidaciones" && <NuevaLiquidacionDialog />}
+      {tab === "historico" && <NuevaLiquidacionDialog />}
       {tab === "personal" && <NuevoEmpleadoDialog />}
-      {tab === "horas" && <NuevaHoraDialog />}
+      {tab === "liquidar" && <NuevaHoraDialog />}
     </div>
   );
 }
