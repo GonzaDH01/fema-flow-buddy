@@ -76,27 +76,30 @@ function Page() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="pagos">Pagos y sueldos</TabsTrigger>
-          <TabsTrigger value="liquidar">Liquidar pago</TabsTrigger>
-          <TabsTrigger value="facturas">Facturas</TabsTrigger>
-          <TabsTrigger value="liquidaciones">Liquidaciones</TabsTrigger>
+          <TabsTrigger value="liquidar">Liquidador</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="horas">Semanas trabajadas</TabsTrigger>
-          <TabsTrigger value="cupones">Cupones de pago</TabsTrigger>
-          <TabsTrigger value="campana">Campaña / Bonos</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
+          <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
-        <TabsContent value="liquidar"><LiquidadorTab /></TabsContent>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
-        <TabsContent value="facturas"><FacturasEmpleadoTab /></TabsContent>
-        <TabsContent value="liquidaciones"><LiquidacionesTab /></TabsContent>
+        <TabsContent value="liquidar" className="space-y-4">
+          <LiquidadorTab />
+          <SemanasTrabajadasTab />
+          <HorasTab />
+        </TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
-        <TabsContent value="horas" className="space-y-4"><SemanasTrabajadasTab /><HorasTab /></TabsContent>
-        <TabsContent value="cupones"><CuponesPagoTab /></TabsContent>
-
-        <TabsContent value="campana"><CampanaTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
-        <TabsContent value="reporte"><ReporteTab /></TabsContent>
+        <TabsContent value="reporte" className="space-y-4">
+          <ReporteTab />
+          <CampanaTab />
+        </TabsContent>
+        <TabsContent value="historico" className="space-y-4">
+          <FacturasEmpleadoTab />
+          <LiquidacionesTab />
+          <CuponesPagoTab />
+        </TabsContent>
+
 
       </Tabs>
     </div>
@@ -110,9 +113,9 @@ function HeaderActions({ tab }: { tab: string }) {
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
       {tab === "pagos" && <NuevoPagoDialog />}
-      {tab === "liquidaciones" && <NuevaLiquidacionDialog />}
+      {tab === "historico" && <NuevaLiquidacionDialog />}
       {tab === "personal" && <NuevoEmpleadoDialog />}
-      {tab === "horas" && <NuevaHoraDialog />}
+      {tab === "liquidar" && <NuevaHoraDialog />}
     </div>
   );
 }
