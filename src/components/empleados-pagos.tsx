@@ -72,24 +72,29 @@ function useEmpleadosMin() {
   });
 }
 
-/** Facturas de compra de mano de obra / honorarios, para asociar al pago. */
-function useFacturasEmpleado() {
+export type FacturaCompraMin = {
+  id: string; fecha: string; numero: string | null; total: number;
+  estado: string | null; categoria: string | null; empleado_id: string | null;
+  descripcion: string | null; proveedor_id: string | null;
+  fema_proveedores: { nombre: string } | null;
+};
+
+/** Todas las facturas de compra (con proveedor y detalle) para asociar al pago. */
+function useFacturasCompraAsociar() {
   return useQuery({
-    queryKey: ["facturas_empleado"],
+    queryKey: ["facturas_compra_asociar"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_facturas_compra")
-        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion")
-        .in("categoria", ["Mano_de_Obra", "Honorarios"])
-        .order("fecha", { ascending: false });
+        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion,proveedor_id,fema_proveedores(nombre)")
+        .order("fecha", { ascending: false })
+        .limit(500);
       if (error) throw error;
-      return (data ?? []) as {
-        id: string; fecha: string; numero: string | null; total: number;
-        estado: string | null; categoria: string | null; empleado_id: string | null; descripcion: string | null;
-      }[];
+      return (data ?? []) as unknown as FacturaCompraMin[];
     },
   });
 }
+
 
 function rangoPeriodo(anio: number, mes: number, tramo: string) {
   const ultimo = new Date(anio, mes, 0).getDate();
@@ -154,7 +159,7 @@ export function NuevoPagoDialog() {
   });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
   const { data: empleados } = useEmpleadosMin();
-  const { data: facturas } = useFacturasEmpleado();
+  const { data: facturas } = useFacturasCompraAsociar();
 
   const emp = (empleados ?? []).find((e) => e.id === v.empleado_id);
   const facturasEmp = useMemo(
@@ -205,6 +210,7 @@ export function NuevoPagoDialog() {
     toast.success(`${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
     qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
     setOpen(false);
     setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
   };
@@ -345,6 +351,8 @@ export function PagosEmpleadoTab() {
   const [tipoF, setTipoF] = useState("all");
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [asociar, setAsociar] = useState<PagoEmpleado | null>(null);
+  const [busca, setBusca] = useState("");
+  const [soloMO, setSoloMO] = useState(true);
 
   const { data: pagos } = useQuery({
     queryKey: ["fema_pagos_empleado", year],
@@ -357,7 +365,7 @@ export function PagosEmpleadoTab() {
   });
   const { data: empleados } = useEmpleadosMin();
   const empMap = useMemo(() => Object.fromEntries((empleados ?? []).map((e) => [e.id, e.nombre])), [empleados]);
-  const { data: facturas } = useFacturasEmpleado();
+  const { data: facturas } = useFacturasCompraAsociar();
   const facMap = useMemo(() => Object.fromEntries((facturas ?? []).map((f) => [f.id, f])), [facturas]);
 
   const rows = useMemo(() => {
@@ -398,6 +406,7 @@ export function PagosEmpleadoTab() {
     setAsociar(null);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
     qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
   };
 
   const quitarFactura = async (p: PagoEmpleado) => {
@@ -442,10 +451,29 @@ export function PagosEmpleadoTab() {
     qc.invalidateQueries({ queryKey: ["fema_solicitudes_empleado"] });
   };
 
-  const facturasDelPago = useMemo(
-    () => (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id),
-    [facturas, asociar],
-  );
+  const empNombreAsociar = asociar?.empleado_id ? (empMap[asociar.empleado_id] ?? "") : "";
+  const coincideEmpleado = (f: FacturaCompraMin) => {
+    if (asociar?.empleado_id && f.empleado_id === asociar.empleado_id) return true;
+    const prov = (f.fema_proveedores?.nombre ?? "").toLowerCase();
+    if (!prov || !empNombreAsociar) return false;
+    const palabras = empNombreAsociar.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    return palabras.some((w) => prov.includes(w));
+  };
+
+  const facturasDelPago = useMemo(() => {
+    let list = (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id);
+    if (soloMO) list = list.filter((f) => f.categoria === "Mano_de_Obra" || f.categoria === "Honorarios" || coincideEmpleado(f));
+    const q = busca.trim().toLowerCase();
+    if (q) {
+      list = list.filter((f) =>
+        [f.numero, f.descripcion, f.fema_proveedores?.nombre, f.categoria, String(f.total), f.fecha]
+          .some((x) => (x ?? "").toString().toLowerCase().includes(q)),
+      );
+    }
+    return [...list].sort((a, b) => Number(coincideEmpleado(b)) - Number(coincideEmpleado(a)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facturas, asociar, soloMO, busca, empNombreAsociar]);
+
 
   return (
     <div className="rounded-lg border bg-card">
@@ -576,30 +604,58 @@ export function PagosEmpleadoTab() {
         </Table>
       </div>
 
-      <Dialog open={!!asociar} onOpenChange={(o) => !o && setAsociar(null)}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!asociar} onOpenChange={(o) => { if (!o) { setAsociar(null); setBusca(""); setSoloMO(true); } }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Asociar factura del empleado</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             Elegí la factura que emitió {asociar?.empleado_id ? empMap[asociar.empleado_id] : "el empleado"} por este pago
             {asociar ? ` de ${formatPesos(asociar.monto)}` : ""}.
           </p>
-          <div className="max-h-[320px] space-y-2 overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              autoFocus
+              placeholder="Buscar por número, proveedor, detalle o importe…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="min-w-[240px] flex-1"
+            />
+            <Select value={soloMO ? "mo" : "todas"} onValueChange={(x) => setSoloMO(x === "mo")}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mo">Mano de obra / Honorarios</SelectItem>
+                <SelectItem value="todas">Todas las compras</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">{facturasDelPago.length} factura(s) encontradas</p>
+          <div className="max-h-[360px] space-y-2 overflow-y-auto">
             {facturasDelPago.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No hay facturas de mano de obra cargadas. Cargala desde Compras o el lector de facturas.
+                No se encontraron facturas. Probá con «Todas las compras» o cargala desde Compras.
               </p>
             )}
             {facturasDelPago.map((f) => (
               <button
                 key={f.id}
                 onClick={() => asociarFactura(f.id)}
-                className="flex w-full items-center justify-between rounded-md border p-3 text-left text-sm hover:bg-muted/50"
+                className="flex w-full items-start justify-between gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted/50"
               >
-                <span>
-                  <span className="font-medium">{f.numero ?? "s/n"}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{formatFecha(f.fecha)}</span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{f.fema_proveedores?.nombre ?? "Sin proveedor"}</span>
+                    {coincideEmpleado(f) && (
+                      <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Coincide con el empleado</Badge>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {f.numero ?? "s/n"} · {formatFecha(f.fecha)}
+                    {f.categoria ? ` · ${String(f.categoria).replace(/_/g, " ")}` : ""}
+                  </span>
+                  {f.descripcion && (
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">{f.descripcion}</span>
+                  )}
                 </span>
-                <span className="font-semibold">{formatPesos(f.total)}</span>
+                <span className="shrink-0 font-semibold">{formatPesos(f.total)}</span>
               </button>
             ))}
           </div>
@@ -607,6 +663,7 @@ export function PagosEmpleadoTab() {
             <Button variant="outline" onClick={() => setAsociar(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
+
       </Dialog>
     </div>
   );
