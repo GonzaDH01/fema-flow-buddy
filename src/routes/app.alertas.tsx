@@ -14,6 +14,10 @@ import { esComprobanteInformativo } from "@/lib/finanzas";
 import {
   type Alerta, type Severidad, ordenarAlertas, severidadPorAtraso, diasHasta, hoyISO,
 } from "@/lib/alertas";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RecordatoriosPanel } from "@/components/recordatorios";
+import { MensajesPanel } from "@/components/mensajes-internos";
+
 
 export const Route = createFileRoute("/app/alertas")({ component: Page });
 
