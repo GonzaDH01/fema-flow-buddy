@@ -768,16 +768,22 @@ function ReporteTab() {
           <TableHeader><TableRow>
             <TableHead>Empleado</TableHead>
             <TableHead className="text-right">Horas trabajadas</TableHead>
-            <TableHead className="text-right">Total liquidado</TableHead>
+            <TableHead className="text-right">Sueldos</TableHead>
+            <TableHead className="text-right">Adelantos</TableHead>
+            <TableHead className="text-right">Extras</TableHead>
+            <TableHead className="text-right">Total abonado</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {porEmpleado.length === 0 && (
-              <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">Sin datos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sin datos</TableCell></TableRow>
             )}
             {porEmpleado.map((r) => (
               <TableRow key={r.nombre}>
                 <TableCell className="font-medium">{r.nombre}</TableCell>
                 <TableCell className="text-right font-mono">{r.horas.toFixed(1)}</TableCell>
+                <TableCell className="text-right">{r.sueldo > 0 ? formatPesos(r.sueldo) : "—"}</TableCell>
+                <TableCell className="text-right">{r.adelanto > 0 ? formatPesos(r.adelanto) : "—"}</TableCell>
+                <TableCell className="text-right">{r.extra > 0 ? formatPesos(r.extra) : "—"}</TableCell>
                 <TableCell className="text-right font-semibold">{formatPesos(r.total)}</TableCell>
               </TableRow>
             ))}
