@@ -37,7 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    return () => sub.subscription.unsubscribe();
+
+    // Mantener la sesión viva: revisar al volver a la pestaña y cada 10 minutos.
+    const onFocus = () => { if (document.visibilityState === "visible") void asegurarSesion(); };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(() => { void asegurarSesion(); }, 10 * 60 * 1000);
+
+    return () => {
+      sub.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const devMode = import.meta.env.DEV;
