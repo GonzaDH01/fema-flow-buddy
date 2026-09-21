@@ -17,6 +17,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import { exportarExcelCompleto, exportarSeleccion, type ModuloExport } from "@/lib/exportar-excel";
 import { BuscadorGlobal } from "@/components/buscador-global";
+import { CampanaAvisos } from "@/components/campana-avisos";
+
 
 type NavItem = { to: string; label: string; icon: any; exact?: boolean; key: string };
 
@@ -339,6 +341,8 @@ export function AppShell() {
           <h1 className="truncate text-sm font-semibold text-foreground md:text-base">{title}</h1>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2">
             <BuscadorGlobal />
+            {allowed("alertas") ? <CampanaAvisos /> : null}
+
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
               <SelectTrigger className="h-9 w-20 md:w-24">
                 <SelectValue />

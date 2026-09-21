@@ -1801,6 +1801,48 @@ export type Database = {
         }
         Relationships: []
       }
+      fema_mensajes: {
+        Row: {
+          autor_id: string | null
+          autor_nombre: string | null
+          created_at: string
+          destinatario_id: string | null
+          id: string
+          prioridad: string
+          resuelto: boolean
+          resuelto_at: string | null
+          resuelto_por: string | null
+          texto: string
+          updated_at: string
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nombre?: string | null
+          created_at?: string
+          destinatario_id?: string | null
+          id?: string
+          prioridad?: string
+          resuelto?: boolean
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          texto: string
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nombre?: string | null
+          created_at?: string
+          destinatario_id?: string | null
+          id?: string
+          prioridad?: string
+          resuelto?: boolean
+          resuelto_at?: string | null
+          resuelto_por?: string | null
+          texto?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fema_mov_fondos: {
         Row: {
           anio: number
@@ -2491,6 +2533,92 @@ export type Database = {
           telefono?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      fema_recordatorio_hechos: {
+        Row: {
+          anio: number
+          created_at: string
+          id: string
+          mes: number
+          nota: string | null
+          recordatorio_id: string
+          user_id: string | null
+        }
+        Insert: {
+          anio: number
+          created_at?: string
+          id?: string
+          mes: number
+          nota?: string | null
+          recordatorio_id: string
+          user_id?: string | null
+        }
+        Update: {
+          anio?: number
+          created_at?: string
+          id?: string
+          mes?: number
+          nota?: string | null
+          recordatorio_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_recordatorio_hechos_recordatorio_id_fkey"
+            columns: ["recordatorio_id"]
+            isOneToOne: false
+            referencedRelation: "fema_recordatorios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_recordatorios: {
+        Row: {
+          activo: boolean
+          categoria: string
+          created_at: string
+          detalle: string | null
+          dia_mes: number
+          es_sistema: boolean
+          fecha: string | null
+          id: string
+          mensual: boolean
+          prioridad: string
+          titulo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          categoria?: string
+          created_at?: string
+          detalle?: string | null
+          dia_mes?: number
+          es_sistema?: boolean
+          fecha?: string | null
+          id?: string
+          mensual?: boolean
+          prioridad?: string
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string
+          created_at?: string
+          detalle?: string | null
+          dia_mes?: number
+          es_sistema?: boolean
+          fecha?: string | null
+          id?: string
+          mensual?: boolean
+          prioridad?: string
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
