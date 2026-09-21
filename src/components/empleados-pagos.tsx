@@ -159,7 +159,7 @@ export function NuevoPagoDialog() {
   });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
   const { data: empleados } = useEmpleadosMin();
-  const { data: facturas } = useFacturasEmpleado();
+  const { data: facturas } = useFacturasCompraAsociar();
 
   const emp = (empleados ?? []).find((e) => e.id === v.empleado_id);
   const facturasEmp = useMemo(
