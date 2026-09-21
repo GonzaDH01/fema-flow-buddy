@@ -362,7 +362,7 @@ export function PagosEmpleadoTab() {
   });
   const { data: empleados } = useEmpleadosMin();
   const empMap = useMemo(() => Object.fromEntries((empleados ?? []).map((e) => [e.id, e.nombre])), [empleados]);
-  const { data: facturas } = useFacturasEmpleado();
+  const { data: facturas } = useFacturasCompraAsociar();
   const facMap = useMemo(() => Object.fromEntries((facturas ?? []).map((f) => [f.id, f])), [facturas]);
 
   const rows = useMemo(() => {
