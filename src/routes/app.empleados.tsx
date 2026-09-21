@@ -122,7 +122,7 @@ function HeaderActions({ tab }: { tab: string }) {
 async function exportEmpleados() {
   const [emp, sue, hor] = await Promise.all([
     supabase.from("fema_empleados").select("*"),
-    supabase.from("fema_sueldos").select("*"),
+    supabase.from("fema_pagos_empleado").select("*"),
     supabase.from("fema_horas_trabajadas").select("*"),
   ]);
   const wb = XLSX.utils.book_new();
