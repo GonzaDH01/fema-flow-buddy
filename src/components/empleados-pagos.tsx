@@ -602,30 +602,58 @@ export function PagosEmpleadoTab() {
         </Table>
       </div>
 
-      <Dialog open={!!asociar} onOpenChange={(o) => !o && setAsociar(null)}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!asociar} onOpenChange={(o) => { if (!o) { setAsociar(null); setBusca(""); setSoloMO(true); } }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Asociar factura del empleado</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             Elegí la factura que emitió {asociar?.empleado_id ? empMap[asociar.empleado_id] : "el empleado"} por este pago
             {asociar ? ` de ${formatPesos(asociar.monto)}` : ""}.
           </p>
-          <div className="max-h-[320px] space-y-2 overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              autoFocus
+              placeholder="Buscar por número, proveedor, detalle o importe…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="min-w-[240px] flex-1"
+            />
+            <Select value={soloMO ? "mo" : "todas"} onValueChange={(x) => setSoloMO(x === "mo")}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mo">Mano de obra / Honorarios</SelectItem>
+                <SelectItem value="todas">Todas las compras</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">{facturasDelPago.length} factura(s) encontradas</p>
+          <div className="max-h-[360px] space-y-2 overflow-y-auto">
             {facturasDelPago.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No hay facturas de mano de obra cargadas. Cargala desde Compras o el lector de facturas.
+                No se encontraron facturas. Probá con «Todas las compras» o cargala desde Compras.
               </p>
             )}
             {facturasDelPago.map((f) => (
               <button
                 key={f.id}
                 onClick={() => asociarFactura(f.id)}
-                className="flex w-full items-center justify-between rounded-md border p-3 text-left text-sm hover:bg-muted/50"
+                className="flex w-full items-start justify-between gap-3 rounded-md border p-3 text-left text-sm hover:bg-muted/50"
               >
-                <span>
-                  <span className="font-medium">{f.numero ?? "s/n"}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{formatFecha(f.fecha)}</span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{f.fema_proveedores?.nombre ?? "Sin proveedor"}</span>
+                    {coincideEmpleado(f) && (
+                      <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Coincide con el empleado</Badge>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {f.numero ?? "s/n"} · {formatFecha(f.fecha)}
+                    {f.categoria ? ` · ${String(f.categoria).replace(/_/g, " ")}` : ""}
+                  </span>
+                  {f.descripcion && (
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">{f.descripcion}</span>
+                  )}
                 </span>
-                <span className="font-semibold">{formatPesos(f.total)}</span>
+                <span className="shrink-0 font-semibold">{formatPesos(f.total)}</span>
               </button>
             ))}
           </div>
@@ -633,6 +661,7 @@ export function PagosEmpleadoTab() {
             <Button variant="outline" onClick={() => setAsociar(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
+
       </Dialog>
     </div>
   );
