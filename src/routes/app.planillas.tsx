@@ -935,8 +935,11 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
                   const f = e.target.files?.[0];
                   e.target.value = "";
                   if (!f) return;
-                  setArchivo(f);
-                  void leerFoto(f);
+                  void (async () => {
+                    const horizontal = await normalizarHorizontal(f);
+                    setArchivo(horizontal);
+                    void leerFoto(horizontal);
+                  })();
                 }}
               />
               <div className="flex flex-wrap items-center gap-2">
