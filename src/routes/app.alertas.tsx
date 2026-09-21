@@ -209,6 +209,31 @@ function useAlertas() {
 }
 
 function Page() {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Bell className="h-5 w-5 text-primary" /> Centro de alertas y mensajes
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Vencimientos del sistema, recordatorios de ARCA y mensajes internos del equipo.
+        </p>
+      </div>
+      <Tabs defaultValue="sistema">
+        <TabsList>
+          <TabsTrigger value="sistema">Alertas del sistema</TabsTrigger>
+          <TabsTrigger value="recordatorios">Recordatorios del mes</TabsTrigger>
+          <TabsTrigger value="mensajes">Mensajes internos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="sistema" className="mt-4"><AlertasSistema /></TabsContent>
+        <TabsContent value="recordatorios" className="mt-4"><RecordatoriosPanel /></TabsContent>
+        <TabsContent value="mensajes" className="mt-4"><MensajesPanel /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function AlertasSistema() {
   const { data, isLoading, refetch, isFetching } = useAlertas();
   const [cat, setCat] = useState<string>("todas");
   const alertas = data ?? [];
@@ -225,19 +250,12 @@ function Page() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Bell className="h-5 w-5 text-primary" /> Centro de alertas
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Todo lo que requiere una acción, ordenado por criticidad.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Actualizar
         </Button>
       </div>
+
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {(["critica", "alta", "media"] as Severidad[]).map((s) => (
