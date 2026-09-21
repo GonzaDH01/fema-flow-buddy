@@ -406,6 +406,7 @@ export function PagosEmpleadoTab() {
     setAsociar(null);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
     qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
   };
 
   const quitarFactura = async (p: PagoEmpleado) => {
