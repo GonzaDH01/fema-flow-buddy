@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { asegurarSesion } from "@/lib/sesion";
 
 const DEV_USER: User = {
   id: "00000000-0000-0000-0000-000000000001",
