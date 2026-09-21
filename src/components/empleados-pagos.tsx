@@ -22,6 +22,7 @@ export type PagoEmpleado = {
   modalidad: string; tareas: string | null; horas: number; monto: number;
   estado: string; forma_pago: string | null; observaciones: string | null;
   solicitud_id: string | null; anio: number | null; mes: number | null;
+  tipo_pago: string; factura_compra_id: string | null;
 };
 
 export type SolicitudFactura = {
@@ -31,8 +32,28 @@ export type SolicitudFactura = {
   observaciones: string | null;
 };
 
-const MODALIDADES = ["semanal", "quincenal", "mensual"];
-const FORMAS = ["Efectivo", "Transferencia", "Cheque", "Echeq", "Otro"];
+const FORMAS = ["Transferencia", "Efectivo", "Cheque", "Echeq", "Otro"];
+
+const TIPOS = [
+  { v: "sueldo", label: "Sueldo / Período" },
+  { v: "adelanto", label: "Adelanto" },
+  { v: "extra", label: "Extra / Bono" },
+];
+const TIPO_LABEL: Record<string, string> = {
+  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra",
+};
+
+const PERIODOS = [
+  { v: "mes", label: "Mes completo" },
+  { v: "q1", label: "1ª quincena" },
+  { v: "q2", label: "2ª quincena" },
+];
+
+type EmpleadoMin = {
+  id: string; nombre: string; tipo_contratacion: string | null;
+  sueldo_bruto: number; valor_hora: number; importe_periodo: number | null;
+  frecuencia_pago: string | null; banco: string | null; cbu: string | null; alias_cbu: string | null;
+};
 
 function useEmpleadosMin() {
   return useQuery({
@@ -40,55 +61,148 @@ function useEmpleadosMin() {
     queryFn: async () => {
       const { data } = await supabase
         .from("fema_empleados")
-        .select("id,nombre,tipo_contratacion,sueldo_bruto,valor_hora")
+        .select("id,nombre,tipo_contratacion,sueldo_bruto,valor_hora,importe_periodo,frecuencia_pago,banco,cbu,alias_cbu")
         .order("nombre");
+      return (data ?? []) as EmpleadoMin[];
+    },
+  });
+}
+
+/** Facturas de compra de mano de obra / honorarios, para asociar al pago. */
+function useFacturasEmpleado() {
+  return useQuery({
+    queryKey: ["facturas_empleado"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_facturas_compra")
+        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion")
+        .in("categoria", ["Mano_de_Obra", "Honorarios"])
+        .order("fecha", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as {
-        id: string; nombre: string; tipo_contratacion: string | null;
-        sueldo_bruto: number; valor_hora: number;
+        id: string; fecha: string; numero: string | null; total: number;
+        estado: string | null; categoria: string | null; empleado_id: string | null; descripcion: string | null;
       }[];
     },
   });
 }
 
-// ============ NUEVO PAGO ============
+function rangoPeriodo(anio: number, mes: number, tramo: string) {
+  const ultimo = new Date(anio, mes, 0).getDate();
+  const mm = String(mes).padStart(2, "0");
+  if (tramo === "q1") return { desde: `${anio}-${mm}-01`, hasta: `${anio}-${mm}-15` };
+  if (tramo === "q2") return { desde: `${anio}-${mm}-16`, hasta: `${anio}-${mm}-${ultimo}` };
+  return { desde: `${anio}-${mm}-01`, hasta: `${anio}-${mm}-${String(ultimo).padStart(2, "0")}` };
+}
+
+function imprimirRecibo(p: {
+  empleado: string; fecha: string; tipo: string; detalle: string;
+  periodo: string; monto: number; forma: string;
+}) {
+  const logo = absoluteAssetUrl(femaLogoUrl);
+  const wm = absoluteAssetUrl(femaWatermarkUrl);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Orden de pago ${p.empleado}</title>
+<style>${femaPrintCSS}</style></head><body>
+<div class="fema-page">
+  ${femaWatermarkHTML(wm)}
+  <div class="fema-content">
+    ${femaHeaderHTML("ORDEN DE PAGO", [
+      { label: "Fecha:", value: formatFecha(p.fecha) },
+      { label: "Concepto:", value: p.tipo },
+    ], logo)}
+    ${femaClientHTML([
+      { label: "Empleado:", value: p.empleado },
+      { label: "Período:", value: p.periodo || "—" },
+      { label: "Forma de pago:", value: p.forma || "—" },
+    ])}
+    <table class="fema">
+      <thead><tr><th>Detalle</th><th class="right">Importe</th></tr></thead>
+      <tbody><tr><td>${p.detalle || p.tipo}</td><td class="right">${formatPesos(p.monto)}</td></tr></tbody>
+    </table>
+    <div class="fema-spacer"></div>
+    <div class="fema-bottom">
+      <div class="fema-obs"><div class="t">OBSERVACIONES:</div>Pago registrado desde el módulo Empleados.</div>
+      <div class="fema-tot"><div class="row total"><span>Total abonado</span><span>${formatPesos(p.monto)}</span></div></div>
+    </div>
+    <div class="fema-sign"><div>Firma de la empresa</div><div>Firma del empleado</div></div>
+  </div>
+</div>
+</body></html>`;
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) return toast.error("El navegador bloqueó la ventana de impresión");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 300);
+}
+
+// ============ NUEVO PAGO (rápido) ============
 export function NuevoPagoDialog() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date();
+  const hoyIso = hoy.toISOString().slice(0, 10);
   const [v, setV] = useState({
-    empleado_id: "", fecha: hoy, modalidad: "semanal",
-    periodo_desde: hoy, periodo_hasta: hoy, horas: "0", monto: "0",
-    tareas: "", estado: "pagado", forma_pago: "Transferencia", observaciones: "",
+    empleado_id: "", tipo: "sueldo", fecha: hoyIso,
+    mes: String(hoy.getMonth() + 1), anio: String(hoy.getFullYear()), tramo: "mes",
+    monto: "", detalle: "", forma_pago: "Transferencia",
+    factura_id: "none",
   });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
   const { data: empleados } = useEmpleadosMin();
+  const { data: facturas } = useFacturasEmpleado();
+
+  const emp = (empleados ?? []).find((e) => e.id === v.empleado_id);
+  const facturasEmp = useMemo(
+    () => (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === v.empleado_id),
+    [facturas, v.empleado_id],
+  );
+
+  const elegirEmpleado = (id: string) => {
+    const e = (empleados ?? []).find((x) => x.id === id);
+    const base = Number(e?.importe_periodo ?? 0) || Number(e?.sueldo_bruto ?? 0);
+    setV((s) => ({
+      ...s,
+      empleado_id: id,
+      monto: s.tipo === "sueldo" && base > 0 ? String(base) : s.monto,
+      factura_id: "none",
+    }));
+  };
 
   const onSubmit = async () => {
     if (!v.empleado_id) return toast.error("Seleccioná un empleado");
-    if (Number(v.monto) <= 0) return toast.error("Ingresá el importe del pago");
-    const d = new Date(v.fecha);
+    const monto = Number(v.monto || 0);
+    if (monto <= 0) return toast.error("Ingresá el importe del pago");
+    const per = v.tipo === "sueldo"
+      ? rangoPeriodo(Number(v.anio), Number(v.mes), v.tramo)
+      : { desde: v.fecha, hasta: v.fecha };
+    const d = new Date(v.fecha + "T00:00:00");
     const { error } = await supabase.from("fema_pagos_empleado").insert({
       user_id: user!.id,
       empleado_id: v.empleado_id,
       fecha: v.fecha,
-      modalidad: v.modalidad,
-      periodo_desde: v.periodo_desde || null,
-      periodo_hasta: v.periodo_hasta || null,
-      horas: Number(v.horas || 0),
-      monto: Number(v.monto || 0),
-      tareas: v.tareas || null,
-      estado: v.estado,
+      tipo_pago: v.tipo,
+      modalidad: v.tipo === "sueldo" ? (v.tramo === "mes" ? "mensual" : "quincenal") : v.tipo,
+      periodo_desde: per.desde,
+      periodo_hasta: per.hasta,
+      horas: 0,
+      monto,
+      tareas: v.detalle || null,
+      estado: "pagado",
       forma_pago: v.forma_pago || null,
-      observaciones: v.observaciones || null,
+      factura_compra_id: v.factura_id === "none" ? null : v.factura_id,
       anio: d.getFullYear(),
       mes: d.getMonth() + 1,
     });
     if (error) return toast.error(error.message);
-    toast.success("Pago registrado");
+    if (v.factura_id !== "none") {
+      await supabase.from("fema_facturas_compra").update({ empleado_id: v.empleado_id }).eq("id", v.factura_id);
+    }
+    toast.success(`${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
     setOpen(false);
-    setV({ ...v, monto: "0", horas: "0", tareas: "", observaciones: "" });
+    setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
   };
 
   return (
@@ -98,18 +212,10 @@ export function NuevoPagoDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Registrar pago a empleado</DialogTitle></DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Empleado</Label>
-            <Select value={v.empleado_id} onValueChange={(x) => {
-              const e = empleados?.find((y) => y.id === x);
-              setV((s) => ({
-                ...s,
-                empleado_id: x,
-                modalidad: e?.tipo_contratacion === "Mensualizado" ? "mensual" : s.modalidad,
-                monto: e?.tipo_contratacion === "Mensualizado" && e.sueldo_bruto ? String(e.sueldo_bruto) : s.monto,
-              }));
-            }}>
+            <Select value={v.empleado_id} onValueChange={elegirEmpleado}>
               <SelectTrigger><SelectValue placeholder="Seleccionar empleado..." /></SelectTrigger>
               <SelectContent>
                 {(empleados ?? []).map((e) => (
@@ -119,42 +225,75 @@ export function NuevoPagoDialog() {
                 ))}
               </SelectContent>
             </Select>
+            {emp && (emp.cbu || emp.alias_cbu) && (
+              <p className="text-xs text-muted-foreground">
+                {emp.banco ? `${emp.banco} · ` : ""}{emp.alias_cbu ?? emp.cbu}
+              </p>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Modalidad</Label>
-              <Select value={v.modalidad} onValueChange={(x) => set("modalidad", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MODALIDADES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>Fecha de pago</Label><Input type="date" value={v.fecha} onChange={(e) => set("fecha", e.target.value)} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Período desde</Label><Input type="date" value={v.periodo_desde} onChange={(e) => set("periodo_desde", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Período hasta</Label><Input type="date" value={v.periodo_hasta} onChange={(e) => set("periodo_hasta", e.target.value)} /></div>
-          </div>
+
           <div className="space-y-1.5">
-            <Label>Detalle de tareas</Label>
-            <Textarea rows={3} value={v.tareas} onChange={(e) => set("tareas", e.target.value)} placeholder="Picado lote 4, traslado de máquina, mantenimiento..." />
+            <Label>Tipo de pago</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {TIPOS.map((t) => (
+                <Button
+                  key={t.v}
+                  type="button"
+                  variant={v.tipo === t.v ? "default" : "outline"}
+                  className="h-9 text-xs"
+                  onClick={() => setV((s) => ({
+                    ...s,
+                    tipo: t.v,
+                    monto: t.v === "sueldo" && emp
+                      ? String(Number(emp.importe_periodo ?? 0) || Number(emp.sueldo_bruto ?? 0) || "")
+                      : s.monto,
+                  }))}
+                >
+                  {t.label}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Horas</Label><Input type="number" step="0.5" value={v.horas} onChange={(e) => set("horas", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Importe ($)</Label><Input type="number" value={v.monto} onChange={(e) => set("monto", e.target.value)} /></div>
-          </div>
+
+          {v.tipo === "sueldo" && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Mes</Label>
+                <Select value={v.mes} onValueChange={(x) => set("mes", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MESES_LARGOS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Año</Label>
+                <Input value={v.anio} onChange={(e) => set("anio", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Período</Label>
+                <Select value={v.tramo} onValueChange={(x) => set("tramo", x)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PERIODOS.map((p) => <SelectItem key={p.v} value={p.v}>{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={v.estado} onValueChange={(x) => set("estado", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pendiente">Pendiente</SelectItem>
-                  <SelectItem value="pagado">Pagado</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Importe ($)</Label>
+              <Input type="number" step="0.01" value={v.monto} placeholder="0,00" onChange={(e) => set("monto", e.target.value)} />
             </div>
+            <div className="space-y-1.5">
+              <Label>Fecha de pago</Label>
+              <Input type="date" value={v.fecha} onChange={(e) => set("fecha", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Forma de pago</Label>
               <Select value={v.forma_pago} onValueChange={(x) => set("forma_pago", x)}>
@@ -162,12 +301,30 @@ export function NuevoPagoDialog() {
                 <SelectContent>{FORMAS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>Factura del empleado</Label>
+              <Select value={v.factura_id} onValueChange={(x) => set("factura_id", x)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Pendiente de factura</SelectItem>
+                  {facturasEmp.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {(f.numero ?? "s/n")} · {formatFecha(f.fecha)} · {formatPesos(f.total)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-1.5"><Label>Observaciones</Label><Input value={v.observaciones} onChange={(e) => set("observaciones", e.target.value)} /></div>
+
+          <div className="space-y-1.5">
+            <Label>Detalle (opcional)</Label>
+            <Textarea rows={2} value={v.detalle} onChange={(e) => set("detalle", e.target.value)} placeholder="Adelanto campaña, horas extra picado lote 4..." />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={onSubmit}>Guardar</Button>
+          <Button onClick={onSubmit}>Guardar pago</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -181,7 +338,9 @@ export function PagosEmpleadoTab() {
   const { year } = useYear();
   const [empF, setEmpF] = useState("all");
   const [mesF, setMesF] = useState("all");
+  const [tipoF, setTipoF] = useState("all");
   const [sel, setSel] = useState<Record<string, boolean>>({});
+  const [asociar, setAsociar] = useState<PagoEmpleado | null>(null);
 
   const { data: pagos } = useQuery({
     queryKey: ["fema_pagos_empleado", year],
@@ -194,13 +353,19 @@ export function PagosEmpleadoTab() {
   });
   const { data: empleados } = useEmpleadosMin();
   const empMap = useMemo(() => Object.fromEntries((empleados ?? []).map((e) => [e.id, e.nombre])), [empleados]);
+  const { data: facturas } = useFacturasEmpleado();
+  const facMap = useMemo(() => Object.fromEntries((facturas ?? []).map((f) => [f.id, f])), [facturas]);
 
   const rows = useMemo(() => {
     let list = (pagos ?? []).filter((p) => (p.anio ?? new Date(p.fecha).getFullYear()) === year);
     if (empF !== "all") list = list.filter((p) => p.empleado_id === empF);
     if (mesF !== "all") list = list.filter((p) => String(p.mes ?? new Date(p.fecha).getMonth() + 1) === mesF);
+    if (tipoF !== "all") list = list.filter((p) => (p.tipo_pago ?? "sueldo") === tipoF);
     return list;
-  }, [pagos, empF, mesF, year]);
+  }, [pagos, empF, mesF, tipoF, year]);
+
+  const totalRows = rows.reduce((a, r) => a + Number(r.monto), 0);
+  const sinFactura = rows.filter((r) => !r.factura_compra_id).length;
 
   const seleccionados = rows.filter((r) => sel[r.id] && !r.solicitud_id);
   const totalSel = seleccionados.reduce((a, r) => a + Number(r.monto), 0);
@@ -213,6 +378,27 @@ export function PagosEmpleadoTab() {
   };
   const eliminar = async (id: string) => {
     const { error } = await supabase.from("fema_pagos_empleado").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
+  };
+
+  const asociarFactura = async (facturaId: string) => {
+    if (!asociar) return;
+    const { error } = await supabase
+      .from("fema_pagos_empleado").update({ factura_compra_id: facturaId }).eq("id", asociar.id);
+    if (error) return toast.error(error.message);
+    if (asociar.empleado_id) {
+      await supabase.from("fema_facturas_compra").update({ empleado_id: asociar.empleado_id }).eq("id", facturaId);
+    }
+    toast.success("Factura asociada al pago");
+    setAsociar(null);
+    qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
+    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
+  };
+
+  const quitarFactura = async (p: PagoEmpleado) => {
+    const { error } = await supabase
+      .from("fema_pagos_empleado").update({ factura_compra_id: null }).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
   };
@@ -252,11 +438,29 @@ export function PagosEmpleadoTab() {
     qc.invalidateQueries({ queryKey: ["fema_solicitudes_empleado"] });
   };
 
+  const facturasDelPago = useMemo(
+    () => (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id),
+    [facturas, asociar],
+  );
+
   return (
     <div className="rounded-lg border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
-        <h3 className="font-medium">Pagos a empleados</h3>
+        <div>
+          <h3 className="font-medium">Pagos a empleados</h3>
+          <p className="text-xs text-muted-foreground">
+            Sueldos, adelantos y extras. Total del filtro: <b className="text-foreground">{formatPesos(totalRows)}</b>
+            {sinFactura > 0 && <> · {sinFactura} sin factura</>}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
+          <Select value={tipoF} onValueChange={setTipoF}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              {TIPOS.map((t) => <SelectItem key={t.v} value={t.v}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={empF} onValueChange={setEmpF}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -283,66 +487,127 @@ export function PagosEmpleadoTab() {
             <TableRow>
               <TableHead className="w-8" />
               <TableHead>Fecha</TableHead><TableHead>Empleado</TableHead>
-              <TableHead>Modalidad</TableHead><TableHead>Período</TableHead>
-              <TableHead>Tareas</TableHead>
-              <TableHead className="text-right">Horas</TableHead>
+              <TableHead>Tipo</TableHead><TableHead>Período / Detalle</TableHead>
               <TableHead className="text-right">Importe</TableHead>
+              <TableHead>Medio</TableHead>
               <TableHead>Estado</TableHead><TableHead>Factura</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
-              <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">Sin pagos registrados</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sin pagos registrados</TableCell></TableRow>
             )}
-            {rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={!!sel[r.id]}
-                    disabled={!!r.solicitud_id}
-                    onCheckedChange={(c) => setSel((s) => ({ ...s, [r.id]: !!c }))}
-                  />
-                </TableCell>
-                <TableCell>{formatFecha(r.fecha)}</TableCell>
-                <TableCell className="font-medium">{r.empleado_id ? empMap[r.empleado_id] ?? "—" : "—"}</TableCell>
-                <TableCell className="capitalize">{r.modalidad}</TableCell>
-                <TableCell className="text-xs">
-                  {r.periodo_desde ? `${formatFecha(r.periodo_desde)} → ${formatFecha(r.periodo_hasta)}` : "—"}
-                </TableCell>
-                <TableCell className="max-w-[240px] truncate text-xs text-muted-foreground">{r.tareas ?? "—"}</TableCell>
-                <TableCell className="text-right font-mono">{Number(r.horas) > 0 ? Number(r.horas).toFixed(1) : "—"}</TableCell>
-                <TableCell className="text-right font-semibold">{formatPesos(r.monto)}</TableCell>
-                <TableCell>
-                  {r.estado === "pagado"
-                    ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">● Pagado</Badge>
-                    : <Badge variant="outline" className="border-destructive text-destructive">● Pendiente</Badge>}
-                </TableCell>
-                <TableCell>
-                  {r.solicitud_id
-                    ? <Badge variant="secondary">Agrupado</Badge>
-                    : <span className="text-xs text-muted-foreground">Sin solicitar</span>}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    {r.estado !== "pagado" && (
-                      <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" onClick={() => marcarPagado(r.id)}>
-                        <Check className="size-3 mr-1" /> Pagar
+            {rows.map((r) => {
+              const tipo = r.tipo_pago ?? "sueldo";
+              const fac = r.factura_compra_id ? facMap[r.factura_compra_id] : null;
+              return (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={!!sel[r.id]}
+                      disabled={!!r.solicitud_id}
+                      onCheckedChange={(c) => setSel((s) => ({ ...s, [r.id]: !!c }))}
+                    />
+                  </TableCell>
+                  <TableCell>{formatFecha(r.fecha)}</TableCell>
+                  <TableCell className="font-medium">{r.empleado_id ? empMap[r.empleado_id] ?? "—" : "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={tipo === "sueldo" ? "secondary" : "outline"}>{TIPO_LABEL[tipo] ?? tipo}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[260px] text-xs text-muted-foreground">
+                    {r.periodo_desde && tipo === "sueldo"
+                      ? `${formatFecha(r.periodo_desde)} → ${formatFecha(r.periodo_hasta)}`
+                      : r.tareas ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(r.monto)}</TableCell>
+                  <TableCell className="text-xs">{r.forma_pago ?? "—"}</TableCell>
+                  <TableCell>
+                    {r.estado === "pagado"
+                      ? <Badge className="bg-primary/15 text-primary hover:bg-primary/15">● Pagado</Badge>
+                      : <Badge variant="outline" className="border-destructive text-destructive">● Pendiente</Badge>}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {fac ? (
+                      <button className="text-primary underline-offset-2 hover:underline" onClick={() => quitarFactura(r)}>
+                        {fac.numero ?? "s/n"} · {formatPesos(fac.total)}
+                      </button>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-7" onClick={() => setAsociar(r)}>
+                        <Link2 className="size-3 mr-1" /> Asociar
                       </Button>
                     )}
-                    <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
-                      <Trash2 className="size-3" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {r.estado !== "pagado" && (
+                        <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" onClick={() => marcarPagado(r.id)}>
+                          <Check className="size-3 mr-1" /> Pagar
+                        </Button>
+                      )}
+                      <Button
+                        size="icon" variant="outline" className="h-7 w-7"
+                        title="Imprimir orden de pago"
+                        onClick={() => imprimirRecibo({
+                          empleado: (r.empleado_id ? empMap[r.empleado_id] : "") ?? "—",
+                          fecha: r.fecha,
+                          tipo: TIPO_LABEL[r.tipo_pago ?? "sueldo"] ?? "Pago",
+                          detalle: r.tareas ?? "",
+                          periodo: r.periodo_desde ? `${formatFecha(r.periodo_desde)} al ${formatFecha(r.periodo_hasta)}` : "",
+                          monto: Number(r.monto),
+                          forma: r.forma_pago ?? "",
+                        })}
+                      >
+                        <Printer className="size-3" />
+                      </Button>
+                      <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!asociar} onOpenChange={(o) => !o && setAsociar(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Asociar factura del empleado</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Elegí la factura que emitió {asociar?.empleado_id ? empMap[asociar.empleado_id] : "el empleado"} por este pago
+            {asociar ? ` de ${formatPesos(asociar.monto)}` : ""}.
+          </p>
+          <div className="max-h-[320px] space-y-2 overflow-y-auto">
+            {facturasDelPago.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No hay facturas de mano de obra cargadas. Cargala desde Compras o el lector de facturas.
+              </p>
+            )}
+            {facturasDelPago.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => asociarFactura(f.id)}
+                className="flex w-full items-center justify-between rounded-md border p-3 text-left text-sm hover:bg-muted/50"
+              >
+                <span>
+                  <span className="font-medium">{f.numero ?? "s/n"}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{formatFecha(f.fecha)}</span>
+                </span>
+                <span className="font-semibold">{formatPesos(f.total)}</span>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAsociar(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 // ============ FACTURAS / SOLICITUDES ============
 export function FacturasEmpleadoTab() {
