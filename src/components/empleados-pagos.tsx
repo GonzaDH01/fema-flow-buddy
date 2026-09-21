@@ -350,6 +350,8 @@ export function PagosEmpleadoTab() {
   const [tipoF, setTipoF] = useState("all");
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [asociar, setAsociar] = useState<PagoEmpleado | null>(null);
+  const [busca, setBusca] = useState("");
+  const [soloMO, setSoloMO] = useState(true);
 
   const { data: pagos } = useQuery({
     queryKey: ["fema_pagos_empleado", year],
