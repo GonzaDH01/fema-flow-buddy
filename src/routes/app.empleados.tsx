@@ -97,7 +97,6 @@ function Page() {
         <TabsContent value="historico" className="space-y-4">
           <FacturasEmpleadoTab />
           <CuponesPagoTab />
-          <CuponesPagoTab />
         </TabsContent>
 
 
