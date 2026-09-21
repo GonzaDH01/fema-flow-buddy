@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { asegurarSesion } from "@/lib/sesion";
 
 const DEV_USER: User = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -36,7 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    return () => sub.subscription.unsubscribe();
+
+    // Mantener la sesión viva: revisar al volver a la pestaña y cada 10 minutos.
+    const onFocus = () => { if (document.visibilityState === "visible") void asegurarSesion(); };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(() => { void asegurarSesion(); }, 10 * 60 * 1000);
+
+    return () => {
+      sub.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const devMode = import.meta.env.DEV;

@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cotizacionOficial, precioEnPesos, precioBase } from "@/lib/cotizacion";
+import { conSesion } from "@/lib/sesion";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -390,14 +391,22 @@ function PresupuestoForm({
       observaciones, condicion_pago: condicionPago, consideraciones,
     };
 
+    const mensajeError = (m: string) =>
+      /jwt|token/i.test(m)
+        ? "Tu sesión había expirado. Volvé a iniciar sesión e intentá guardar de nuevo."
+        : m;
+
     let presupuestoId = initial?.id;
     if (initial) {
-      const { error } = await supabase.from("fema_presupuestos").update(payload).eq("id", initial.id);
-      if (error) { toast.error(error.message); setSaving(false); return; }
-      await supabase.from("fema_presupuesto_items").delete().eq("presupuesto_id", initial.id);
+      const { error } = await conSesion(() =>
+        supabase.from("fema_presupuestos").update(payload).eq("id", initial.id));
+      if (error) { toast.error(mensajeError(error.message)); setSaving(false); return; }
+      await conSesion(() =>
+        supabase.from("fema_presupuesto_items").delete().eq("presupuesto_id", initial.id));
     } else {
-      const { data, error } = await supabase.from("fema_presupuestos").insert(payload).select("id").single();
-      if (error || !data) { toast.error(error?.message ?? "Error"); setSaving(false); return; }
+      const { data, error } = await conSesion(() =>
+        supabase.from("fema_presupuestos").insert(payload).select("id").single());
+      if (error || !data) { toast.error(mensajeError(error?.message ?? "Error")); setSaving(false); return; }
       presupuestoId = data.id;
     }
 
@@ -407,8 +416,9 @@ function PresupuestoForm({
       alicuota_iva: it.alicuota_iva, subtotal: it.subtotal, orden: idx,
     }));
     if (itemsPayload.length > 0) {
-      const { error } = await supabase.from("fema_presupuesto_items").insert(itemsPayload);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const { error } = await conSesion(() =>
+        supabase.from("fema_presupuesto_items").insert(itemsPayload));
+      if (error) { toast.error(mensajeError(error.message)); setSaving(false); return; }
     }
 
     toast.success("Presupuesto guardado");
