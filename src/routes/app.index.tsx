@@ -14,7 +14,7 @@ export const Route = createFileRoute("/app/")({ component: Dashboard });
 
 type FV = { mes: number; total: number; estado: string; fecha: string; numero: string | null; cliente: { nombre: string } | null };
 type FC = { mes: number; total: number; estado: string; fecha: string; numero: string | null; proveedor: { nombre: string } | null };
-type SU = { sueldo_bruto: number | null; cargas_sociales: number | null };
+type SU = { monto: number | null };
 type IM = { iva_debito: number | null; iva_credito: number | null; ingresos_brutos: number | null; ganancias_estimadas: number | null };
 
 async function loadKPIs(_userId: string, anio: number) {
