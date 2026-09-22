@@ -197,6 +197,29 @@ function FormDoc({
   const [guardando, setGuardando] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
   const fileOcr = useRef<HTMLInputElement>(null);
+  // La foto leída por OCR se guarda como adjunto del documento al confirmar.
+  const [fotoOcr, setFotoOcr] = useState<File | null>(null);
+  const [buscaBien, setBuscaBien] = useState("");
+
+  const { data: vinculados = [] } = useQuery({
+    queryKey: ["fema_doc_compra_activos", doc?.id],
+    enabled: !!doc?.id,
+    queryFn: async () => {
+      const { data, error } = await (db as any).from("fema_doc_compra_activos")
+        .select("activo_id").eq("doc_id", doc!.id);
+      if (error) throw error;
+      return (data ?? []).map((x: any) => x.activo_id as string);
+    },
+  });
+  const [activoIds, setActivoIds] = useState<string[] | null>(null);
+  const bienesSel = activoIds ?? (doc ? vinculados : (v.activo_id ? [v.activo_id] : []));
+  const toggleBien = (id: string) =>
+    setActivoIds(bienesSel.includes(id) ? bienesSel.filter((x) => x !== id) : [...bienesSel, id]);
+  const bienesFiltrados = useMemo(() => {
+    const q = buscaBien.trim().toLowerCase();
+    if (!q) return activos;
+    return activos.filter((a: any) => String(a.nombre ?? "").toLowerCase().includes(q));
+  }, [activos, buscaBien]);
 
   const set = (k: string, val: string) => setV((p) => ({ ...p, [k]: val }));
 
