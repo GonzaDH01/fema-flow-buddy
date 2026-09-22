@@ -345,9 +345,18 @@ function AlertasSistema() {
                     {formatPesos(a.monto)}
                   </span>
                 ) : null}
+                {a.debito ? (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => setDebitar(a.debito!)}
+                  >
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirmar débito
+                  </Button>
+                ) : null}
                 {a.to ? (
                   <Button asChild size="sm" variant="ghost">
-                    <Link to={a.to}>
+                    <Link to={a.to as any} search={(a.search ?? {}) as any}>
                       Ir <ArrowRight className="ml-1 h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -357,6 +366,15 @@ function AlertasSistema() {
           ))}
         </div>
       )}
+
+      {debitar && (
+        <DebitoDialog
+          movs={[debitar]}
+          onClose={() => setDebitar(null)}
+          onDone={() => refetch()}
+        />
+      )}
     </div>
   );
 }
+
