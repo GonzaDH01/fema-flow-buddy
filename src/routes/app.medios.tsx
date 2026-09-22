@@ -688,7 +688,7 @@ function Page() {
 
       <Card className="border-rose-500/30">
         <CardContent className="p-4 space-y-3">
-          <Collapsible defaultOpen={false} className="group/emit space-y-3">
+          <Collapsible defaultOpen={emitidosUrgentes.length > 0} className="group/emit space-y-3">
           <CollapsibleTrigger className="w-full flex items-start justify-between gap-3 text-left">
             <div className="flex items-start gap-2">
               <ChevronDown className="w-4 h-4 mt-1 shrink-0 transition-transform group-data-[state=open]/emit:rotate-180" />
@@ -696,10 +696,15 @@ function Page() {
                 <h3 className="font-semibold">
                   Echeqs / cheques propios emitidos (pendientes de débito)
                   <span className="ml-2 text-xs text-muted-foreground font-normal">{emitidosPendientes.length} doc.</span>
+                  {emitidosUrgentes.length > 0 && (
+                    <Badge variant="outline" className="ml-2 border-rose-500/50 text-rose-400">
+                      {emitidosUrgentes.length} a debitar hoy o vencidos
+                    </Badge>
+                  )}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  La factura ya queda abonada con el plan de pago elegido. El importe se descuenta de la caja
-                  recién el día de la fecha de pago de cada documento: al llegar esa fecha, tocá <b>Debitar de caja</b>.
+                  Tildá los documentos que ya aparecieron en el extracto del banco y confirmá el débito:
+                  se descuenta el saldo de la cuenta y la alerta se apaga.
                 </p>
               </div>
             </div>
@@ -713,10 +718,34 @@ function Page() {
               No hay echeqs propios pendientes de débito.
             </p>
           ) : (
+            <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+              <span>
+                {selPropios.length > 0
+                  ? `${selPropios.length} seleccionado(s) · ${formatPesos(
+                      emitidosPendientes.filter(m => selPropios.includes(m.id))
+                        .reduce((s, m) => s + Number(m.monto), 0))}`
+                  : "Seleccioná uno o varios para confirmar el débito en lote."}
+              </span>
+              <div className="flex gap-2">
+                {emitidosUrgentes.length > 0 && (
+                  <Button size="sm" variant="outline"
+                    onClick={() => setSelPropios(emitidosUrgentes.map(m => m.id))}>
+                    Tildar vencidos y de hoy
+                  </Button>
+                )}
+                <Button size="sm" disabled={selPropios.length === 0}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  onClick={() => setDebitarMovs(emitidosPendientes.filter(m => selPropios.includes(m.id)))}>
+                  <CheckCircle2 className="w-3 h-3 mr-1" />Confirmar débito de los seleccionados
+                </Button>
+              </div>
+            </div>
             <div className="max-h-[380px] overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Fecha de pago</TableHead>
                   <TableHead>Instrumento</TableHead>
                   <TableHead>Nº</TableHead>
@@ -734,6 +763,11 @@ function Page() {
                   const hoyMismo = vence === hoyStr;
                   return (
                     <TableRow key={m.id} className={vencido ? "bg-rose-500/10" : hoyMismo ? "bg-amber-500/10" : ""}>
+                      <TableCell>
+                        <input type="checkbox" aria-label="Seleccionar documento"
+                          checked={selPropios.includes(m.id)}
+                          onChange={() => setSelPropios(s => s.includes(m.id) ? s.filter(x => x !== m.id) : [...s, m.id])} />
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {vence ? formatFecha(vence) : "—"}
                         {vencido && <Badge variant="outline" className="ml-2 border-rose-500/50 text-rose-400">A debitar</Badge>}
@@ -745,9 +779,9 @@ function Page() {
                       <TableCell className="text-xs">{m.banco || "—"}</TableCell>
                       <TableCell className="text-right font-semibold">{formatPesos(Number(m.monto))}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="outline" className="border-rose-500/40 text-rose-400"
-                          onClick={() => cobrar(m)}>
-                          <CheckCircle2 className="w-3 h-3 mr-1" />Debitar de caja
+                        <Button size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700"
+                          onClick={() => setDebitarMovs([m])}>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />Confirmar débito
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -756,11 +790,21 @@ function Page() {
               </TableBody>
             </Table>
             </div>
+            </div>
           )}
           </CollapsibleContent>
           </Collapsible>
         </CardContent>
       </Card>
+
+      {debitarMovs && debitarMovs.length > 0 && (
+        <DebitoDialog
+          movs={debitarMovs}
+          onClose={() => setDebitarMovs(null)}
+          onDone={() => { setSelPropios([]); movsQ.refetch(); }}
+        />
+      )}
+
 
       <Dialog open={openAjuste} onOpenChange={setOpenAjuste}>
         {openAjuste && user && (
