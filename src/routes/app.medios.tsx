@@ -33,7 +33,14 @@ import {
   femaPdfOptions,
 } from "@/lib/fema-doc";
 
-export const Route = createFileRoute("/app/medios")({ component: Page });
+export const Route = createFileRoute("/app/medios")({
+  component: Page,
+  validateSearch: (s: Record<string, unknown>) => ({
+    q: typeof s.q === "string" ? s.q : undefined,
+    tab: typeof s.tab === "string" ? s.tab : undefined,
+  }),
+});
+
 
 type Mov = {
   id: string; user_id: string;
