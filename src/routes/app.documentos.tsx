@@ -294,7 +294,7 @@ function FormDoc({
         proveedor_id: v.proveedor_id || null,
         proveedor_nombre: v.proveedor_nombre || null,
         bien_descripcion: v.bien_descripcion.trim(),
-        activo_id: v.activo_id || null,
+        activo_id: bienesSel[0] ?? null,
         moneda: v.moneda,
         cotizacion_usd: v.cotizacion_usd ? n(v.cotizacion_usd) : null,
         monto_total: n(v.monto_total),
@@ -432,15 +432,29 @@ function FormDoc({
               placeholder="Ej. Tractor John Deere 6110"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Bien del inventario (opcional)</Label>
-            <Select value={v.activo_id || "none"} onValueChange={(x) => set("activo_id", x === "none" ? "" : x)}>
-              <SelectTrigger><SelectValue placeholder="Sin vincular" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin vincular</SelectItem>
-                {activos.map((a) => <SelectItem key={a.id} value={a.id}>{a.nombre}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+            <Label>
+              Maquinarias / rodados del inventario afectados
+              {bienesSel.length > 0 && <Badge variant="secondary" className="ml-2">{bienesSel.length}</Badge>}
+            </Label>
+            <Input
+              placeholder="Buscar máquina o rodado…"
+              value={buscaBien}
+              onChange={(e) => setBuscaBien(e.target.value)}
+              className="h-9"
+            />
+            <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border/40">
+              {bienesFiltrados.length === 0 && (
+                <p className="p-3 text-xs text-muted-foreground">No hay bienes que coincidan.</p>
+              )}
+              {bienesFiltrados.map((a: any) => (
+                <label key={a.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                  <Checkbox checked={bienesSel.includes(a.id)} onCheckedChange={() => toggleBien(a.id)} />
+                  <span className="flex-1">{a.nombre}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Tildá todos los bienes que cubre este documento.</p>
           </div>
 
           <div className="space-y-1.5">
