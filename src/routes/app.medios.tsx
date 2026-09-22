@@ -32,6 +32,8 @@ import {
   absoluteAssetUrl, femaLogoUrl, femaWatermarkUrl,
   femaPdfOptions,
 } from "@/lib/fema-doc";
+import { DebitoDialog } from "@/components/debito-echeq";
+
 
 export const Route = createFileRoute("/app/medios")({
   component: Page,
