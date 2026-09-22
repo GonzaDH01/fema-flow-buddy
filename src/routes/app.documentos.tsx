@@ -214,7 +214,7 @@ function FormDoc({
   const [activoIds, setActivoIds] = useState<string[] | null>(null);
   const bienesSel = activoIds ?? (doc ? vinculados : (v.activo_id ? [v.activo_id] : []));
   const toggleBien = (id: string) =>
-    setActivoIds(bienesSel.includes(id) ? bienesSel.filter((x) => x !== id) : [...bienesSel, id]);
+    setActivoIds(bienesSel.includes(id) ? bienesSel.filter((x: string) => x !== id) : [...bienesSel, id]);
   const bienesFiltrados = useMemo(() => {
     const q = buscaBien.trim().toLowerCase();
     if (!q) return activos;
