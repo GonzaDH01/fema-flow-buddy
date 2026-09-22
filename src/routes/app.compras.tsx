@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -35,6 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/app/compras")({ component: Page });
@@ -99,6 +100,11 @@ const schema = z.object({
 });
 type FormVals = z.infer<typeof schema>;
 
+type ActivoMin = { id: string; nombre: string; tipo: string | null; marca: string | null };
+
+// Datos que el formulario maneja aparte del esquema: comprobante adjunto y bienes afectados.
+type ExtraVals = { archivo: File | null; quitarImagen: boolean; activoIds: string[] };
+
 type Row = {
   id: string; fecha: string; proveedor_id: string | null; numero: string | null;
   tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
@@ -128,6 +134,36 @@ function Page() {
   const [filtroCat, setFiltroCat] = useState<string>("__all");
   const [reciboRow, setReciboRow] = useState<Row | null>(null);
   const [imgRow, setImgRow] = useState<Row | null>(null);
+
+  // Maquinarias / rodados del inventario: una compra puede afectar a varios bienes.
+  const { data: activos } = useQuery({
+    queryKey: ["fema_activos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_activos")
+        .select("id,nombre,tipo,marca").order("nombre");
+      if (error) throw error;
+      return data as ActivoMin[];
+    },
+  });
+
+  const { data: vinculos } = useQuery({
+    queryKey: ["fema_compra_activos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_compra_activos")
+        .select("factura_compra_id,activo_id");
+      if (error) throw error;
+      const map: Record<string, string[]> = {};
+      for (const v of (data ?? []) as any[]) {
+        (map[v.factura_compra_id] ??= []).push(v.activo_id);
+      }
+      return map;
+    },
+  });
+  const activosMap = useMemo(
+    () => Object.fromEntries((activos ?? []).map((a) => [a.id, a.nombre])),
+    [activos],
+  );
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
@@ -231,8 +267,22 @@ function Page() {
     return created!.id;
   };
 
-  const onSubmit = async (v: FormVals) => {
+  const onSubmit = async (v: FormVals, extra: ExtraVals) => {
     const proveedor_id = v.proveedor_nombre ? await ensureProveedor(v.proveedor_nombre) : null;
+
+    // Comprobante adjunto: se sube antes para guardar la ruta junto con la compra.
+    let imagen_path: string | null | undefined = undefined;
+    if (extra.quitarImagen) imagen_path = null;
+    if (extra.archivo) {
+      const f = extra.archivo;
+      const ext = (f.name.split(".").pop() ?? "bin").toLowerCase();
+      const path = `compra/${user!.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("facturas-img")
+        .upload(path, f, { contentType: f.type || undefined, upsert: false });
+      if (upErr) { toast.error(`No se pudo guardar el comprobante: ${upErr.message}`); return; }
+      imagen_path = path;
+    }
+
     const payload = {
       user_id: user!.id,
       fecha: v.fecha,
@@ -254,13 +304,40 @@ function Page() {
       fecha_pago: v.fecha_pago || null,
       forma_pago: v.forma_pago || null,
       observaciones: v.observaciones || null,
+      ...(imagen_path !== undefined ? { imagen_path } : {}),
     };
-    const { error } = edit
-      ? await supabase.from("fema_facturas_compra").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_facturas_compra").insert(payload);
-    if (error) { toast.error(error.message); return; }
+
+    let compraId = edit?.id ?? null;
+    if (edit) {
+      const { error } = await supabase.from("fema_facturas_compra").update(payload).eq("id", edit.id);
+      if (error) { toast.error(error.message); return; }
+    } else {
+      const { data: creada, error } = await supabase.from("fema_facturas_compra")
+        .insert(payload).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      compraId = creada!.id;
+    }
+
+    // Bienes del inventario afectados por esta compra (puede ser más de uno).
+    if (compraId) {
+      const previos = (vinculos?.[compraId] ?? []).slice();
+      const nuevos = extra.activoIds;
+      const quitar = previos.filter((a) => !nuevos.includes(a));
+      const agregar = nuevos.filter((a) => !previos.includes(a));
+      if (quitar.length) {
+        await (supabase as any).from("fema_compra_activos")
+          .delete().eq("factura_compra_id", compraId).in("activo_id", quitar);
+      }
+      if (agregar.length) {
+        const { error: eAct } = await (supabase as any).from("fema_compra_activos")
+          .insert(agregar.map((activo_id) => ({ user_id: user!.id, factura_compra_id: compraId, activo_id })));
+        if (eAct) toast.error(`No se pudieron vincular los bienes: ${eAct.message}`);
+      }
+    }
+
     toast.success(edit ? "Compra actualizada" : "Compra creada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_compra_activos"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     close();
   };
@@ -377,6 +454,7 @@ function Page() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 text-center">ADJ.</TableHead>
                 <TableHead>N° FACTURA</TableHead>
                 <TableHead>PROVEEDOR</TableHead>
                 <TableHead>FECHA</TableHead>
@@ -391,13 +469,34 @@ function Page() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
               )}
               {pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell className="text-center">
+                    {r.imagen_path ? (
+                      <button
+                        type="button"
+                        onClick={() => setImgRow(r)}
+                        className="text-primary hover:opacity-80"
+                        title="Ver comprobante adjunto"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setEdit(r); setOpen(true); }}
+                        className="text-muted-foreground/50 hover:text-foreground"
+                        title="Sin comprobante: tocá para adjuntarlo"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </button>
+                    )}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {r.imagen_path ? (
                       <button
@@ -421,7 +520,18 @@ function Page() {
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
-                  <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
+                  <TableCell className="max-w-xs text-muted-foreground">
+                    <div className="truncate">{r.descripcion ?? "—"}</div>
+                    {(vinculos?.[r.id] ?? []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(vinculos?.[r.id] ?? []).map((a) => (
+                          <Badge key={a} variant="outline" className="text-[10px] border-accent/40">
+                            {activosMap[a] ?? "Bien"}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
                     {leerUsd(r.observaciones).monto && (
@@ -507,6 +617,8 @@ function Page() {
           initial={edit}
           provNombre={edit?.proveedor_id ? provsMap[edit.proveedor_id] ?? "" : ""}
           year={year}
+          activos={activos ?? []}
+          activosIniciales={edit ? (vinculos?.[edit.id] ?? []) : []}
         />
       </Dialog>
 
@@ -765,12 +877,30 @@ function ReciboCompraDialog({ row, proveedor, onClose }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, provNombre, year }: {
-  onSubmit: (v: FormVals) => Promise<void>;
+function FormDialog({ onSubmit, initial, provNombre, year, activos, activosIniciales }: {
+  onSubmit: (v: FormVals, extra: ExtraVals) => Promise<void>;
   initial: Row | null;
   provNombre: string;
   year: number;
+  activos: ActivoMin[];
+  activosIniciales: string[];
 }) {
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [quitarImagen, setQuitarImagen] = useState(false);
+  const [activoIds, setActivoIds] = useState<string[]>(activosIniciales);
+  const [buscaBien, setBuscaBien] = useState("");
+  const [verAdjunto, setVerAdjunto] = useState(false);
+
+  const bienesFiltrados = useMemo(() => {
+    const q = buscaBien.trim().toLowerCase();
+    if (!q) return activos;
+    return activos.filter((a) =>
+      a.nombre.toLowerCase().includes(q) || (a.marca ?? "").toLowerCase().includes(q));
+  }, [activos, buscaBien]);
+
+  const toggleBien = (id: string) =>
+    setActivoIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -851,7 +981,7 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
   return (
     <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} Compra / Proveedor</DialogTitle></DialogHeader>
-      <form onSubmit={f.handleSubmit(onSubmit, (errs) => {
+      <form onSubmit={f.handleSubmit((v) => onSubmit(v, { archivo, quitarImagen, activoIds }), (errs) => {
         console.error("Validación compras:", errs);
         const first = Object.values(errs)[0] as any;
         toast.error(first?.message ? `Revisá el formulario: ${first.message}` : "Revisá los campos marcados");
@@ -1087,6 +1217,75 @@ function FormDialog({ onSubmit, initial, provNombre, year }: {
         <FormField label="Observaciones">
           <Textarea placeholder="Notas adicionales…" rows={2} {...f.register("observaciones")} />
         </FormField>
+
+        {/* Comprobante escaneado: foto o PDF de la factura. */}
+        <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <Paperclip className="h-3.5 w-3.5 text-accent" /> Comprobante adjunto
+          </p>
+          {initial?.imagen_path && !quitarImagen && !archivo && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="outline" className="border-primary/40 text-primary">Ya tiene comprobante cargado</Badge>
+              <Button type="button" size="sm" variant="outline" onClick={() => setVerAdjunto(true)}>
+                <ImageIcon className="h-3.5 w-3.5" /> Ver
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="text-destructive"
+                onClick={() => setQuitarImagen(true)}>
+                <X className="h-3.5 w-3.5" /> Quitar
+              </Button>
+            </div>
+          )}
+          {quitarImagen && (
+            <p className="text-xs text-destructive">
+              Se quitará el comprobante al guardar.{" "}
+              <button type="button" className="underline" onClick={() => setQuitarImagen(false)}>Deshacer</button>
+            </p>
+          )}
+          <Input
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setQuitarImagen(false); }}
+          />
+          {archivo && <p className="text-xs text-primary">Se guardará: {archivo.name}</p>}
+          <p className="text-xs text-muted-foreground">
+            Sacá la foto de la factura o subí el PDF. Después se ve desde la lista de compras.
+          </p>
+        </div>
+
+        {/* Bienes del inventario afectados: una compra puede impactar en varias máquinas. */}
+        <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <Tractor className="h-3.5 w-3.5 text-accent" /> Maquinarias / rodados afectados
+            {activoIds.length > 0 && <Badge variant="secondary">{activoIds.length}</Badge>}
+          </p>
+          <Input
+            placeholder="Buscar máquina o rodado…"
+            value={buscaBien}
+            onChange={(e) => setBuscaBien(e.target.value)}
+            className="h-9"
+          />
+          <div className="max-h-44 overflow-y-auto rounded-md border border-border/60 divide-y divide-border/40">
+            {bienesFiltrados.length === 0 && (
+              <p className="p-3 text-xs text-muted-foreground">No hay bienes que coincidan.</p>
+            )}
+            {bienesFiltrados.map((a) => (
+              <label key={a.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                <Checkbox checked={activoIds.includes(a.id)} onCheckedChange={() => toggleBien(a.id)} />
+                <span className="flex-1">{a.nombre}</span>
+                <span className="text-xs text-muted-foreground">{a.tipo ?? ""}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Tildá todas las máquinas o vehículos a los que corresponde esta compra.
+          </p>
+        </div>
+
+        {initial?.imagen_path && (
+          <Dialog open={verAdjunto} onOpenChange={setVerAdjunto}>
+            <ImagenFacturaDialog row={initial} />
+          </Dialog>
+        )}
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => f.reset()}>Cancelar</Button>

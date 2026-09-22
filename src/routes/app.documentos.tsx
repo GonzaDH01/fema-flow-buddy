@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatPesos, formatFecha, formatNumero } from "@/lib/format";
 import { cotizacionOficial } from "@/lib/cotizacion";
@@ -196,6 +197,29 @@ function FormDoc({
   const [guardando, setGuardando] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
   const fileOcr = useRef<HTMLInputElement>(null);
+  // La foto leída por OCR se guarda como adjunto del documento al confirmar.
+  const [fotoOcr, setFotoOcr] = useState<File | null>(null);
+  const [buscaBien, setBuscaBien] = useState("");
+
+  const { data: vinculados = [] } = useQuery({
+    queryKey: ["fema_doc_compra_activos", doc?.id],
+    enabled: !!doc?.id,
+    queryFn: async () => {
+      const { data, error } = await (db as any).from("fema_doc_compra_activos")
+        .select("activo_id").eq("doc_id", doc!.id);
+      if (error) throw error;
+      return (data ?? []).map((x: any) => x.activo_id as string);
+    },
+  });
+  const [activoIds, setActivoIds] = useState<string[] | null>(null);
+  const bienesSel = activoIds ?? (doc ? vinculados : (v.activo_id ? [v.activo_id] : []));
+  const toggleBien = (id: string) =>
+    setActivoIds(bienesSel.includes(id) ? bienesSel.filter((x: string) => x !== id) : [...bienesSel, id]);
+  const bienesFiltrados = useMemo(() => {
+    const q = buscaBien.trim().toLowerCase();
+    if (!q) return activos;
+    return activos.filter((a: any) => String(a.nombre ?? "").toLowerCase().includes(q));
+  }, [activos, buscaBien]);
 
   const set = (k: string, val: string) => setV((p) => ({ ...p, [k]: val }));
 
@@ -245,6 +269,7 @@ function FormDoc({
         cantidad_cuotas: d.cantidad_cuotas ? String(d.cantidad_cuotas) : p.cantidad_cuotas,
       }));
       if (d.fecha_vencimiento) setPrimera(d.fecha_vencimiento);
+      setFotoOcr(file);
       toast.success("Datos leídos. Revisalos antes de guardar.");
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo leer el documento");
@@ -269,7 +294,7 @@ function FormDoc({
         proveedor_id: v.proveedor_id || null,
         proveedor_nombre: v.proveedor_nombre || null,
         bien_descripcion: v.bien_descripcion.trim(),
-        activo_id: v.activo_id || null,
+        activo_id: bienesSel[0] ?? null,
         moneda: v.moneda,
         cotizacion_usd: v.cotizacion_usd ? n(v.cotizacion_usd) : null,
         monto_total: n(v.monto_total),
@@ -315,7 +340,35 @@ function FormDoc({
         if (error) throw error;
       }
 
+      // Bienes del inventario afectados (pueden ser varios)
+      const previos: string[] = doc ? vinculados : [];
+      const quitar = previos.filter((a) => !bienesSel.includes(a));
+      const agregar = bienesSel.filter((a: string) => !previos.includes(a));
+      if (quitar.length) {
+        await (db as any).from("fema_doc_compra_activos")
+          .delete().eq("doc_id", docId).in("activo_id", quitar);
+      }
+      if (agregar.length) {
+        await (db as any).from("fema_doc_compra_activos")
+          .insert(agregar.map((activo_id: string) => ({ user_id: uid, doc_id: docId, activo_id })));
+      }
+
+      // Foto del documento leída por OCR: queda adjunta al documento
+      if (fotoOcr) {
+        const ext = (fotoOcr.name.split(".").pop() ?? "jpg").toLowerCase();
+        const path = `${uid}/${docId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: eUp } = await supabase.storage.from(BUCKET)
+          .upload(path, fotoOcr, { contentType: fotoOcr.type || undefined });
+        if (!eUp) {
+          await (db as any).from("fema_doc_compra_archivos").insert({
+            user_id: uid, doc_id: docId, path, nombre_archivo: fotoOcr.name, es_documento: ext === "pdf",
+          });
+        }
+        setFotoOcr(null);
+      }
+
       await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+      await qc.invalidateQueries({ queryKey: ["fema_doc_compra_activos"] });
       toast.success(doc ? "Documento actualizado" : "Documento cargado");
       onClose();
     } catch (e: any) {
@@ -379,15 +432,29 @@ function FormDoc({
               placeholder="Ej. Tractor John Deere 6110"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Bien del inventario (opcional)</Label>
-            <Select value={v.activo_id || "none"} onValueChange={(x) => set("activo_id", x === "none" ? "" : x)}>
-              <SelectTrigger><SelectValue placeholder="Sin vincular" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin vincular</SelectItem>
-                {activos.map((a) => <SelectItem key={a.id} value={a.id}>{a.nombre}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+            <Label>
+              Maquinarias / rodados del inventario afectados
+              {bienesSel.length > 0 && <Badge variant="secondary" className="ml-2">{bienesSel.length}</Badge>}
+            </Label>
+            <Input
+              placeholder="Buscar máquina o rodado…"
+              value={buscaBien}
+              onChange={(e) => setBuscaBien(e.target.value)}
+              className="h-9"
+            />
+            <div className="max-h-40 overflow-y-auto rounded-md border border-border divide-y divide-border/40">
+              {bienesFiltrados.length === 0 && (
+                <p className="p-3 text-xs text-muted-foreground">No hay bienes que coincidan.</p>
+              )}
+              {bienesFiltrados.map((a: any) => (
+                <label key={a.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                  <Checkbox checked={bienesSel.includes(a.id)} onCheckedChange={() => toggleBien(a.id)} />
+                  <span className="flex-1">{a.nombre}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Tildá todos los bienes que cubre este documento.</p>
           </div>
 
           <div className="space-y-1.5">
