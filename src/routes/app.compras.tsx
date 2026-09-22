@@ -102,6 +102,9 @@ type FormVals = z.infer<typeof schema>;
 
 type ActivoMin = { id: string; nombre: string; tipo: string | null; marca: string | null };
 
+// Datos que el formulario maneja aparte del esquema: comprobante adjunto y bienes afectados.
+type ExtraVals = { archivo: File | null; quitarImagen: boolean; activoIds: string[] };
+
 type Row = {
   id: string; fecha: string; proveedor_id: string | null; numero: string | null;
   tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
