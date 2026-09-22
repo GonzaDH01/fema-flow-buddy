@@ -95,11 +95,17 @@ function useAlertas() {
             categoria: "Echeqs emitidos",
             titulo: `${d < 0 ? "Echeq propio vencido" : "Echeq propio por debitar"} — ${m.contraparte ?? "s/d"}`,
             detalle: d < 0
-              ? `Debía debitarse el ${formatFecha(m.vencimiento)}. Registrá el débito de caja.`
+              ? `Debía debitarse el ${formatFecha(m.vencimiento)}. Confirmá el débito eligiendo la cuenta.`
               : `Se debita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
+            search: { tab: "propios", q: String(m.numero ?? m.contraparte ?? "") },
+            debito: {
+              id: m.id, monto: n(m.monto), contraparte: m.contraparte,
+              numero: m.numero ?? null, vencimiento: m.vencimiento,
+            },
           });
       }
+
 
       // 3. Facturas de compra vencidas sin pagar
       const mapC: Record<string, any> = {};
