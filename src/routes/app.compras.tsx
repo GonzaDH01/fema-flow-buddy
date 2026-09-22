@@ -304,13 +304,40 @@ function Page() {
       fecha_pago: v.fecha_pago || null,
       forma_pago: v.forma_pago || null,
       observaciones: v.observaciones || null,
+      ...(imagen_path !== undefined ? { imagen_path } : {}),
     };
-    const { error } = edit
-      ? await supabase.from("fema_facturas_compra").update(payload).eq("id", edit.id)
-      : await supabase.from("fema_facturas_compra").insert(payload);
-    if (error) { toast.error(error.message); return; }
+
+    let compraId = edit?.id ?? null;
+    if (edit) {
+      const { error } = await supabase.from("fema_facturas_compra").update(payload).eq("id", edit.id);
+      if (error) { toast.error(error.message); return; }
+    } else {
+      const { data: creada, error } = await supabase.from("fema_facturas_compra")
+        .insert(payload).select("id").single();
+      if (error) { toast.error(error.message); return; }
+      compraId = creada!.id;
+    }
+
+    // Bienes del inventario afectados por esta compra (puede ser más de uno).
+    if (compraId) {
+      const previos = (vinculos?.[compraId] ?? []).slice();
+      const nuevos = extra.activoIds;
+      const quitar = previos.filter((a) => !nuevos.includes(a));
+      const agregar = nuevos.filter((a) => !previos.includes(a));
+      if (quitar.length) {
+        await (supabase as any).from("fema_compra_activos")
+          .delete().eq("factura_compra_id", compraId).in("activo_id", quitar);
+      }
+      if (agregar.length) {
+        const { error: eAct } = await (supabase as any).from("fema_compra_activos")
+          .insert(agregar.map((activo_id) => ({ user_id: user!.id, factura_compra_id: compraId, activo_id })));
+        if (eAct) toast.error(`No se pudieron vincular los bienes: ${eAct.message}`);
+      }
+    }
+
     toast.success(edit ? "Compra actualizada" : "Compra creada");
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
+    qc.invalidateQueries({ queryKey: ["fema_compra_activos"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     close();
   };
