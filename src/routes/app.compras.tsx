@@ -948,7 +948,7 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
   return (
     <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>{initial ? "Editar" : "Nueva"} Compra / Proveedor</DialogTitle></DialogHeader>
-      <form onSubmit={f.handleSubmit(onSubmit, (errs) => {
+      <form onSubmit={f.handleSubmit((v) => onSubmit(v, { archivo, quitarImagen, activoIds }), (errs) => {
         console.error("Validación compras:", errs);
         const first = Object.values(errs)[0] as any;
         toast.error(first?.message ? `Revisá el formulario: ${first.message}` : "Revisá los campos marcados");
