@@ -1185,6 +1185,75 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
           <Textarea placeholder="Notas adicionales…" rows={2} {...f.register("observaciones")} />
         </FormField>
 
+        {/* Comprobante escaneado: foto o PDF de la factura. */}
+        <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <Paperclip className="h-3.5 w-3.5 text-accent" /> Comprobante adjunto
+          </p>
+          {initial?.imagen_path && !quitarImagen && !archivo && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="outline" className="border-primary/40 text-primary">Ya tiene comprobante cargado</Badge>
+              <Button type="button" size="sm" variant="outline" onClick={() => setVerAdjunto(true)}>
+                <ImageIcon className="h-3.5 w-3.5" /> Ver
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="text-destructive"
+                onClick={() => setQuitarImagen(true)}>
+                <X className="h-3.5 w-3.5" /> Quitar
+              </Button>
+            </div>
+          )}
+          {quitarImagen && (
+            <p className="text-xs text-destructive">
+              Se quitará el comprobante al guardar.{" "}
+              <button type="button" className="underline" onClick={() => setQuitarImagen(false)}>Deshacer</button>
+            </p>
+          )}
+          <Input
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => { setArchivo(e.target.files?.[0] ?? null); setQuitarImagen(false); }}
+          />
+          {archivo && <p className="text-xs text-primary">Se guardará: {archivo.name}</p>}
+          <p className="text-xs text-muted-foreground">
+            Sacá la foto de la factura o subí el PDF. Después se ve desde la lista de compras.
+          </p>
+        </div>
+
+        {/* Bienes del inventario afectados: una compra puede impactar en varias máquinas. */}
+        <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+            <Tractor className="h-3.5 w-3.5 text-accent" /> Maquinarias / rodados afectados
+            {activoIds.length > 0 && <Badge variant="secondary">{activoIds.length}</Badge>}
+          </p>
+          <Input
+            placeholder="Buscar máquina o rodado…"
+            value={buscaBien}
+            onChange={(e) => setBuscaBien(e.target.value)}
+            className="h-9"
+          />
+          <div className="max-h-44 overflow-y-auto rounded-md border border-border/60 divide-y divide-border/40">
+            {bienesFiltrados.length === 0 && (
+              <p className="p-3 text-xs text-muted-foreground">No hay bienes que coincidan.</p>
+            )}
+            {bienesFiltrados.map((a) => (
+              <label key={a.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                <Checkbox checked={activoIds.includes(a.id)} onCheckedChange={() => toggleBien(a.id)} />
+                <span className="flex-1">{a.nombre}</span>
+                <span className="text-xs text-muted-foreground">{a.tipo ?? ""}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Tildá todas las máquinas o vehículos a los que corresponde esta compra.
+          </p>
+        </div>
+
+        {initial?.imagen_path && (
+          <Dialog open={verAdjunto} onOpenChange={setVerAdjunto}>
+            <ImagenFacturaDialog row={initial} />
+          </Dialog>
+        )}
+
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => f.reset()}>Cancelar</Button>
           <Button type="submit" disabled={f.formState.isSubmitting}>Guardar compra</Button>
