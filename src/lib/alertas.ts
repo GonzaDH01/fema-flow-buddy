@@ -10,7 +10,18 @@ export type Alerta = {
   monto?: number;
   fecha?: string | null;
   to?: string;
+  /** Filtros que se pasan a la pantalla destino (p. ej. buscar ese echeq puntual). */
+  search?: Record<string, string>;
+  /** Documento propio emitido que se puede debitar desde la misma alerta. */
+  debito?: {
+    id: string;
+    monto: number;
+    contraparte?: string | null;
+    numero?: string | null;
+    vencimiento?: string | null;
+  };
 };
+
 
 export const ORDEN_SEV: Record<Severidad, number> = {
   critica: 0, alta: 1, media: 2, info: 3,

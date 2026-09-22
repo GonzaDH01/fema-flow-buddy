@@ -17,6 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecordatoriosPanel } from "@/components/recordatorios";
 import { MensajesPanel } from "@/components/mensajes-internos";
+import { DebitoDialog } from "@/components/debito-echeq";
+
 
 
 export const Route = createFileRoute("/app/alertas")({ component: Page });
@@ -95,11 +97,17 @@ function useAlertas() {
             categoria: "Echeqs emitidos",
             titulo: `${d < 0 ? "Echeq propio vencido" : "Echeq propio por debitar"} — ${m.contraparte ?? "s/d"}`,
             detalle: d < 0
-              ? `Debía debitarse el ${formatFecha(m.vencimiento)}. Registrá el débito de caja.`
+              ? `Debía debitarse el ${formatFecha(m.vencimiento)}. Confirmá el débito eligiendo la cuenta.`
               : `Se debita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
+            search: { tab: "propios", q: String(m.numero ?? m.contraparte ?? "") },
+            debito: {
+              id: m.id, monto: n(m.monto), contraparte: m.contraparte,
+              numero: m.numero ?? null, vencimiento: m.vencimiento,
+            },
           });
       }
+
 
       // 3. Facturas de compra vencidas sin pagar
       const mapC: Record<string, any> = {};
@@ -240,7 +248,9 @@ function Page() {
 function AlertasSistema() {
   const { data, isLoading, refetch, isFetching } = useAlertas();
   const [cat, setCat] = useState<string>("todas");
+  const [debitar, setDebitar] = useState<NonNullable<Alerta["debito"]> | null>(null);
   const alertas = data ?? [];
+
 
   const categorias = useMemo(
     () => ["todas", ...Array.from(new Set(alertas.map((a) => a.categoria)))],
@@ -337,9 +347,18 @@ function AlertasSistema() {
                     {formatPesos(a.monto)}
                   </span>
                 ) : null}
+                {a.debito ? (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => setDebitar(a.debito!)}
+                  >
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirmar débito
+                  </Button>
+                ) : null}
                 {a.to ? (
                   <Button asChild size="sm" variant="ghost">
-                    <Link to={a.to}>
+                    <Link to={a.to as any} search={(a.search ?? {}) as any}>
                       Ir <ArrowRight className="ml-1 h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -349,6 +368,15 @@ function AlertasSistema() {
           ))}
         </div>
       )}
+
+      {debitar && (
+        <DebitoDialog
+          movs={[debitar]}
+          onClose={() => setDebitar(null)}
+          onDone={() => refetch()}
+        />
+      )}
     </div>
   );
 }
+
