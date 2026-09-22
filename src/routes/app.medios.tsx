@@ -353,6 +353,12 @@ function Page() {
       .sort((a, b) => (a.vencimiento ?? "9999").localeCompare(b.vencimiento ?? "9999"));
   }, [movs]);
   const totalEmitidosPend = emitidosPendientes.reduce((a, m) => a + Number(m.monto), 0);
+  // Urgentes: ya vencidos o que vencen hoy (el banco ya los debitó o los debita hoy).
+  const emitidosUrgentes = useMemo(() => {
+    const hoy = hoyISO();
+    return emitidosPendientes.filter(m => (m.vencimiento ?? "9999") <= hoy);
+  }, [emitidosPendientes]);
+
 
   const filtrar = (filtro: (m: Mov) => boolean) => {
     const filtrados = movs.filter(m => {
