@@ -100,6 +100,8 @@ const schema = z.object({
 });
 type FormVals = z.infer<typeof schema>;
 
+type ActivoMin = { id: string; nombre: string; tipo: string | null; marca: string | null };
+
 type Row = {
   id: string; fecha: string; proveedor_id: string | null; numero: string | null;
   tipo: typeof LETRAS[number]; tipo_comprobante: string | null;
