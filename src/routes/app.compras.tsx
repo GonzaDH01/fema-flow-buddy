@@ -454,6 +454,7 @@ function Page() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 text-center">ADJ.</TableHead>
                 <TableHead>N° FACTURA</TableHead>
                 <TableHead>PROVEEDOR</TableHead>
                 <TableHead>FECHA</TableHead>
@@ -468,10 +469,10 @@ function Page() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">Cargando…</TableCell></TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">Sin compras</TableCell></TableRow>
               )}
               {pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
