@@ -17,6 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecordatoriosPanel } from "@/components/recordatorios";
 import { MensajesPanel } from "@/components/mensajes-internos";
+import { DebitoDialog } from "@/components/debito-echeq";
+
 
 
 export const Route = createFileRoute("/app/alertas")({ component: Page });
