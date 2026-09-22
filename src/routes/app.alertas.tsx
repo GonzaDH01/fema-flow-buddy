@@ -246,7 +246,9 @@ function Page() {
 function AlertasSistema() {
   const { data, isLoading, refetch, isFetching } = useAlertas();
   const [cat, setCat] = useState<string>("todas");
+  const [debitar, setDebitar] = useState<NonNullable<Alerta["debito"]> | null>(null);
   const alertas = data ?? [];
+
 
   const categorias = useMemo(
     () => ["todas", ...Array.from(new Set(alertas.map((a) => a.categoria)))],
