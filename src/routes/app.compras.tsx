@@ -844,12 +844,30 @@ function ReciboCompraDialog({ row, proveedor, onClose }: {
   );
 }
 
-function FormDialog({ onSubmit, initial, provNombre, year }: {
-  onSubmit: (v: FormVals) => Promise<void>;
+function FormDialog({ onSubmit, initial, provNombre, year, activos, activosIniciales }: {
+  onSubmit: (v: FormVals, extra: ExtraVals) => Promise<void>;
   initial: Row | null;
   provNombre: string;
   year: number;
+  activos: ActivoMin[];
+  activosIniciales: string[];
 }) {
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [quitarImagen, setQuitarImagen] = useState(false);
+  const [activoIds, setActivoIds] = useState<string[]>(activosIniciales);
+  const [buscaBien, setBuscaBien] = useState("");
+  const [verAdjunto, setVerAdjunto] = useState(false);
+
+  const bienesFiltrados = useMemo(() => {
+    const q = buscaBien.trim().toLowerCase();
+    if (!q) return activos;
+    return activos.filter((a) =>
+      a.nombre.toLowerCase().includes(q) || (a.marca ?? "").toLowerCase().includes(q));
+  }, [activos, buscaBien]);
+
+  const toggleBien = (id: string) =>
+    setActivoIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
   const f = useForm<FormVals>({
     resolver: zodResolver(schema),
     defaultValues: {
