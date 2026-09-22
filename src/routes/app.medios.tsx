@@ -896,7 +896,7 @@ function Page() {
                 <CollapsibleContent className="space-y-3">
                   {k === "propios" && <ResumenPropios rows={filas.propios} />}
                   <div className="max-h-[520px] overflow-auto">
-                    <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} onConciliar={(m) => setConciliarMov(m)} />
+                    <MovsTable rows={filas[k]} imputaciones={impsQ.data ?? []} onCobrar={cobrar} onCeder={ceder} onEdit={(m) => { setEditMov(m); setOpenMov(true); }} onDelete={eliminar} onDeleteMany={eliminarVarios} onRecibo={(m) => setReciboMov(m)} onConciliar={(m) => setConciliarMov(m)} onDebitar={(m) => setDebitarMovs([m])} />
                   </div>
                 </CollapsibleContent>
                 </Collapsible>
