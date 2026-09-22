@@ -520,7 +520,18 @@ function Page() {
                   <TableCell>{r.fema_proveedores?.nombre ?? (r.proveedor_id ? provsMap[r.proveedor_id] ?? "—" : "—")}</TableCell>
                   <TableCell>{formatFecha(r.fecha)}</TableCell>
                   <TableCell>{labelCat(r.categoria)}</TableCell>
-                  <TableCell className="max-w-xs truncate text-muted-foreground">{r.descripcion ?? "—"}</TableCell>
+                  <TableCell className="max-w-xs text-muted-foreground">
+                    <div className="truncate">{r.descripcion ?? "—"}</div>
+                    {(vinculos?.[r.id] ?? []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(vinculos?.[r.id] ?? []).map((a) => (
+                          <Badge key={a} variant="outline" className="text-[10px] border-accent/40">
+                            {activosMap[a] ?? "Bien"}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
                     {leerUsd(r.observaciones).monto && (
