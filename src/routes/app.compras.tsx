@@ -264,8 +264,22 @@ function Page() {
     return created!.id;
   };
 
-  const onSubmit = async (v: FormVals) => {
+  const onSubmit = async (v: FormVals, extra: ExtraVals) => {
     const proveedor_id = v.proveedor_nombre ? await ensureProveedor(v.proveedor_nombre) : null;
+
+    // Comprobante adjunto: se sube antes para guardar la ruta junto con la compra.
+    let imagen_path: string | null | undefined = undefined;
+    if (extra.quitarImagen) imagen_path = null;
+    if (extra.archivo) {
+      const f = extra.archivo;
+      const ext = (f.name.split(".").pop() ?? "bin").toLowerCase();
+      const path = `compra/${user!.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("facturas-img")
+        .upload(path, f, { contentType: f.type || undefined, upsert: false });
+      if (upErr) { toast.error(`No se pudo guardar el comprobante: ${upErr.message}`); return; }
+      imagen_path = path;
+    }
+
     const payload = {
       user_id: user!.id,
       fecha: v.fecha,
