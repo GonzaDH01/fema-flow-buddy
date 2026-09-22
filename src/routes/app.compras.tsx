@@ -476,6 +476,27 @@ function Page() {
               )}
               {pag.pageItems.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell className="text-center">
+                    {r.imagen_path ? (
+                      <button
+                        type="button"
+                        onClick={() => setImgRow(r)}
+                        className="text-primary hover:opacity-80"
+                        title="Ver comprobante adjunto"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setEdit(r); setOpen(true); }}
+                        className="text-muted-foreground/50 hover:text-foreground"
+                        title="Sin comprobante: tocá para adjuntarlo"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </button>
+                    )}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {r.imagen_path ? (
                       <button
