@@ -126,9 +126,10 @@ function Page() {
   const { user } = useAuth();
   const { year } = useYear();
   const qc = useQueryClient();
-  const [tab, setTab] = useState("todos");
+  const { q: qParam, tab: tabParam } = Route.useSearch();
+  const [tab, setTab] = useState(tabParam ?? "todos");
   const [mesFiltro, setMesFiltro] = useState<string>("todos");
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(qParam ?? "");
   const [ordenar, setOrdenar] = useState<string>("recientes");
   const [openMov, setOpenMov] = useState(false);
   const [editMov, setEditMov] = useState<Mov | null>(null);
@@ -139,6 +140,13 @@ function Page() {
   const [depositoMov, setDepositoMov] = useState<Mov | null>(null);
   const [openPase, setOpenPase] = useState(false);
   const [openAjuste, setOpenAjuste] = useState(false);
+  // Débito bancario de echeqs / cheques propios (individual o en lote)
+  const [debitarMovs, setDebitarMovs] = useState<Mov[] | null>(null);
+  const [selPropios, setSelPropios] = useState<string[]>([]);
+
+  useEffect(() => { if (qParam !== undefined) setBusqueda(qParam); }, [qParam]);
+  useEffect(() => { if (tabParam) setTab(tabParam); }, [tabParam]);
+
 
   const ctasQ = useQuery({
     queryKey: ["fema_cuentas_bancarias", user?.id],
