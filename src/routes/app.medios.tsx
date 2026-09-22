@@ -1291,15 +1291,28 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
                   <Button size="sm" variant="outline" onClick={() => onCeder(m)}><ArrowRight className="w-3 h-3 mr-1" />Ceder</Button>
                 )}
                 {m.estado === "en_cartera" && (
-                  <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "cobro" ? "Cobrar" : "Pagar"}
-                  </Button>
+                  m.direccion === "pago" && onDebitar ? (
+                    <Button size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => onDebitar(m)}>
+                      <CheckCircle2 className="w-3 h-3 mr-1" />Confirmar débito
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-emerald-500/40 text-emerald-400">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "cobro" ? "Cobrar" : "Pagar"}
+                    </Button>
+                  )
                 )}
                 {sinImpactoCaja && (
-                  <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-amber-500/40 text-amber-400">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />{m.direccion === "pago" ? "Debitar de caja" : "Acreditar en banco"}
-                  </Button>
+                  m.direccion === "pago" && onDebitar ? (
+                    <Button size="sm" variant="outline" onClick={() => onDebitar(m)} className="border-amber-500/40 text-amber-400">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />Indicar cuenta y debitar
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => onCobrar(m)} className="border-amber-500/40 text-amber-400">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />Acreditar en banco
+                    </Button>
+                  )
                 )}
+
                 {(m.estado === "cobrado" || m.estado === "pagado" || m.estado === "en_cartera") && (
                   <Button size="sm" variant="outline" onClick={() => onRecibo(m)} className="border-primary/40 text-primary">
                     <Receipt className="w-3 h-3 mr-1" />Recibo
