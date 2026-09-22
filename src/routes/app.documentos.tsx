@@ -340,7 +340,35 @@ function FormDoc({
         if (error) throw error;
       }
 
+      // Bienes del inventario afectados (pueden ser varios)
+      const previos: string[] = doc ? vinculados : [];
+      const quitar = previos.filter((a) => !bienesSel.includes(a));
+      const agregar = bienesSel.filter((a: string) => !previos.includes(a));
+      if (quitar.length) {
+        await (db as any).from("fema_doc_compra_activos")
+          .delete().eq("doc_id", docId).in("activo_id", quitar);
+      }
+      if (agregar.length) {
+        await (db as any).from("fema_doc_compra_activos")
+          .insert(agregar.map((activo_id: string) => ({ user_id: uid, doc_id: docId, activo_id })));
+      }
+
+      // Foto del documento leída por OCR: queda adjunta al documento
+      if (fotoOcr) {
+        const ext = (fotoOcr.name.split(".").pop() ?? "jpg").toLowerCase();
+        const path = `${uid}/${docId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: eUp } = await supabase.storage.from(BUCKET)
+          .upload(path, fotoOcr, { contentType: fotoOcr.type || undefined });
+        if (!eUp) {
+          await (db as any).from("fema_doc_compra_archivos").insert({
+            user_id: uid, doc_id: docId, path, nombre_archivo: fotoOcr.name, es_documento: ext === "pdf",
+          });
+        }
+        setFotoOcr(null);
+      }
+
       await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+      await qc.invalidateQueries({ queryKey: ["fema_doc_compra_activos"] });
       toast.success(doc ? "Documento actualizado" : "Documento cargado");
       onClose();
     } catch (e: any) {
