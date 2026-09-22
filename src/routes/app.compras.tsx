@@ -584,6 +584,8 @@ function Page() {
           initial={edit}
           provNombre={edit?.proveedor_id ? provsMap[edit.proveedor_id] ?? "" : ""}
           year={year}
+          activos={activos ?? []}
+          activosIniciales={edit ? (vinculos?.[edit.id] ?? []) : []}
         />
       </Dialog>
 
