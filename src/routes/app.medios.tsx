@@ -1276,8 +1276,9 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
                 <div className="mt-1 text-[10px] text-violet-400">ya abonado · fuera de caja</div>
               )}
               {sinImpactoCaja && (
-                <div className="mt-1 text-[10px] text-amber-400">sin impacto en caja</div>
+                <div className="mt-1 text-[10px] text-amber-400">falta indicar la cuenta</div>
               )}
+
               {tieneImps && (
                 <div className="mt-1 text-[10px] text-sky-400">imputado a {impsMov.length} factura{impsMov.length > 1 ? "s" : ""}</div>
               )}
