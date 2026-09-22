@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -35,6 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/app/compras")({ component: Page });
