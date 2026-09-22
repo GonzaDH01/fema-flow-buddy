@@ -269,6 +269,7 @@ function FormDoc({
         cantidad_cuotas: d.cantidad_cuotas ? String(d.cantidad_cuotas) : p.cantidad_cuotas,
       }));
       if (d.fecha_vencimiento) setPrimera(d.fecha_vencimiento);
+      setFotoOcr(file);
       toast.success("Datos leídos. Revisalos antes de guardar.");
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo leer el documento");
