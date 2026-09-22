@@ -130,6 +130,36 @@ function Page() {
   const [reciboRow, setReciboRow] = useState<Row | null>(null);
   const [imgRow, setImgRow] = useState<Row | null>(null);
 
+  // Maquinarias / rodados del inventario: una compra puede afectar a varios bienes.
+  const { data: activos } = useQuery({
+    queryKey: ["fema_activos_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_activos")
+        .select("id,nombre,tipo,marca").order("nombre");
+      if (error) throw error;
+      return data as ActivoMin[];
+    },
+  });
+
+  const { data: vinculos } = useQuery({
+    queryKey: ["fema_compra_activos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_compra_activos")
+        .select("factura_compra_id,activo_id");
+      if (error) throw error;
+      const map: Record<string, string[]> = {};
+      for (const v of (data ?? []) as any[]) {
+        (map[v.factura_compra_id] ??= []).push(v.activo_id);
+      }
+      return map;
+    },
+  });
+  const activosMap = useMemo(
+    () => Object.fromEntries((activos ?? []).map((a) => [a.id, a.nombre])),
+    [activos],
+  );
+
+
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_compra", user?.id, year],
     enabled: !!user,
