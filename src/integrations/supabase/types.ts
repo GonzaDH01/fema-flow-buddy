@@ -665,6 +665,52 @@ export type Database = {
           },
         ]
       }
+      fema_compra_activos: {
+        Row: {
+          activo_id: string
+          created_at: string
+          factura_compra_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activo_id: string
+          created_at?: string
+          factura_compra_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activo_id?: string
+          created_at?: string
+          factura_compra_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_compra_activos_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_compra_activos_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_compra_activos_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+        ]
+      }
       fema_creditos: {
         Row: {
           acreedor: string
@@ -810,6 +856,45 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fema_doc_compra_activos: {
+        Row: {
+          activo_id: string
+          created_at: string
+          doc_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activo_id: string
+          created_at?: string
+          doc_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activo_id?: string
+          created_at?: string
+          doc_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_doc_compra_activos_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_doc_compra_activos_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "fema_doc_compras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fema_doc_compra_archivos: {
         Row: {
