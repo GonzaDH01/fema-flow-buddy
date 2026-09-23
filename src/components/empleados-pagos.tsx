@@ -144,14 +144,68 @@ function imprimirRecibo(p: {
   setTimeout(() => { w.focus(); w.print(); }, 300);
 }
 
-// ============ NUEVO PAGO (rápido) ============
-export function NuevoPagoDialog() {
+function invalidarPagos(qc: ReturnType<typeof useQueryClient>) {
+  for (const k of ["fema_pagos_empleado", "facturas_empleado", "facturas_compra_asociar", "fema_facturas_compra", "fema_movimientos_pago", "dashboard", "cashflow-matrix"]) {
+    qc.invalidateQueries({ queryKey: [k] });
+  }
+}
+
+const INSTRUMENTO: Record<string, string> = {
+  Transferencia: "transferencia", Efectivo: "efectivo", Cheque: "cheque_fisico", Echeq: "echeq", Otro: "otro",
+};
+
+/**
+ * Al asociar una factura de empleado a un pago ya realizado, la factura de compra
+ * queda abonada: se registra el pago (transferencia por defecto) por el saldo pendiente.
+ */
+async function marcarFacturaAbonada(facturaId: string, fecha: string, forma: string | null, contraparte: string | null) {
+  const { data: fac } = await supabase.from("fema_facturas_compra").select("total").eq("id", facturaId).maybeSingle();
+  if (!fac) return;
+  const { data: movs } = await supabase
+    .from("fema_movimientos_pago").select("monto,estado,direccion").eq("factura_compra_id", facturaId);
+  const cubierto = (movs ?? [])
+    .filter((m) => ["pagado", "cedido"].includes(m.estado) || (m.estado === "en_cartera" && m.direccion === "pago"))
+    .reduce((a, m) => a + Number(m.monto ?? 0), 0);
+  const saldo = Math.round((Number(fac.total ?? 0) - cubierto) * 100) / 100;
+  if (saldo <= 0.01) return;
+  const { error } = await supabase.rpc("fema_registrar_pago", {
+    _borrar: [], _ceder: [], _updates: [],
+    _inserts: [{
+      instrumento: INSTRUMENTO[forma ?? ""] ?? "transferencia",
+      direccion: "pago", tipo_movimiento: "pago_proveedor",
+      fecha_emision: fecha, vencimiento: fecha,
+      contraparte, monto: saldo, estado: "pagado",
+      observaciones: "Pago a empleado (asociado desde Empleados)",
+      factura_compra_id: facturaId,
+    }],
+  });
+  if (error) toast.error("La factura se asoció pero no se pudo marcar como abonada: " + error.message);
+}
+
+function detectarTramo(desde: string | null, hasta: string | null) {
+  if (!desde || !hasta) return "mes";
+  if (desde.slice(8) === "16") return "q2";
+  if (hasta.slice(8) === "15") return "q1";
+  return "mes";
+}
+
+// ============ NUEVO / EDITAR PAGO ============
+export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClose?: () => void } = {}) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = pago ? true : openState;
+  const setOpen = (o: boolean) => { if (pago) { if (!o) onClose?.(); } else setOpenState(o); };
   const hoy = new Date();
   const hoyIso = hoy.toISOString().slice(0, 10);
-  const [v, setV] = useState({
+  const [v, setV] = useState(() => pago ? {
+    empleado_id: pago.empleado_id ?? "", tipo: pago.tipo_pago ?? "sueldo", fecha: pago.fecha,
+    mes: String(Number((pago.periodo_desde ?? pago.fecha).slice(5, 7))),
+    anio: (pago.periodo_desde ?? pago.fecha).slice(0, 4),
+    tramo: detectarTramo(pago.periodo_desde, pago.periodo_hasta),
+    monto: String(pago.monto ?? ""), detalle: pago.tareas ?? "", forma_pago: pago.forma_pago ?? "Transferencia",
+    factura_id: pago.factura_compra_id ?? "none",
+  } : {
     empleado_id: "", tipo: "sueldo", fecha: hoyIso,
     mes: String(hoy.getMonth() + 1), anio: String(hoy.getFullYear()), tramo: "mes",
     monto: "", detalle: "", forma_pago: "Transferencia",
@@ -186,42 +240,43 @@ export function NuevoPagoDialog() {
       ? rangoPeriodo(Number(v.anio), Number(v.mes), v.tramo)
       : { desde: v.fecha, hasta: v.fecha };
     const d = new Date(v.fecha + "T00:00:00");
-    const { error } = await supabase.from("fema_pagos_empleado").insert({
-      user_id: user!.id,
+    const payload = {
       empleado_id: v.empleado_id,
       fecha: v.fecha,
       tipo_pago: v.tipo,
       modalidad: v.tipo === "sueldo" ? (v.tramo === "mes" ? "mensual" : "quincenal") : v.tipo,
       periodo_desde: per.desde,
       periodo_hasta: per.hasta,
-      horas: 0,
       monto,
       tareas: v.detalle || null,
-      estado: "pagado",
       forma_pago: v.forma_pago || null,
       factura_compra_id: v.factura_id === "none" ? null : v.factura_id,
       anio: d.getFullYear(),
       mes: d.getMonth() + 1,
-    });
+    };
+    const { error } = pago
+      ? await supabase.from("fema_pagos_empleado").update(payload).eq("id", pago.id)
+      : await supabase.from("fema_pagos_empleado").insert({ ...payload, user_id: user!.id, horas: 0, estado: "pagado" });
     if (error) return toast.error(error.message);
     if (v.factura_id !== "none") {
       await supabase.from("fema_facturas_compra").update({ empleado_id: v.empleado_id }).eq("id", v.factura_id);
+      await marcarFacturaAbonada(v.factura_id, v.fecha, v.forma_pago, emp?.nombre ?? null);
     }
-    toast.success(`${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
-    qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
-    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
-    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
+    toast.success(pago ? "Pago actualizado" : `${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
+    invalidarPagos(qc);
     setOpen(false);
-    setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
+    if (!pago) setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="size-4 mr-1" /> Registrar pago</Button>
-      </DialogTrigger>
+      {!pago && (
+        <DialogTrigger asChild>
+          <Button size="sm"><Plus className="size-4 mr-1" /> Registrar pago</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Registrar pago a empleado</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{pago ? "Editar pago a empleado" : "Registrar pago a empleado"}</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Empleado</Label>
