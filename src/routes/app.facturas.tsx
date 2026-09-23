@@ -308,22 +308,43 @@ function Page() {
   };
 
 
-  const facturarPresup = async (p: PresupRow) => {
+  const facturarPresup = async (p: PresupRow) => facturarPresups([p]);
+
+  // Factura uno o varios presupuestos del mismo cliente en un solo comprobante.
+  // Los conceptos idénticos se suman en un solo renglón; los distintos van por separado.
+  const facturarPresups = async (lista: PresupRow[]) => {
+    if (lista.length === 0) return;
+    const p = lista[0];
+    const ids = lista.map((x) => x.id);
     const { data: its, error } = await supabase.from("fema_presupuesto_items")
       .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
-      .eq("presupuesto_id", p.id).order("orden");
+      .in("presupuesto_id", ids).order("orden");
     if (error) { toast.error(error.message); return; }
     const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre,unidad_medida");
     const porCodigo = new Map((prods ?? []).map((x: any) => [(x.codigo ?? "").toUpperCase(), x.id as string]));
     const porNombre = new Map((prods ?? []).map((x: any) => [String(x.nombre).toLowerCase(), x.id as string]));
     const unidadDe = new Map((prods ?? []).map((x: any) => [x.id as string, String(x.unidad_medida ?? "")]));
-    const todos = (its ?? []).map((it: any) => ({
+    const crudos = (its ?? []).map((it: any) => ({
       ...it,
       producto_id:
         porCodigo.get(String(it.codigo ?? "").toUpperCase()) ??
         porNombre.get(String(it.descripcion ?? "").toLowerCase()) ??
         null,
     })) as PresupItem[];
+
+    // Consolidación: mismo concepto (producto o descripción) + misma alícuota → un solo renglón
+    const mapa = new Map<string, PresupItem>();
+    for (const it of crudos) {
+      const clave = `${it.producto_id ?? String(it.descripcion ?? "").trim().toLowerCase()}||${it.alicuota_iva}`;
+      const prev = mapa.get(clave);
+      if (!prev) { mapa.set(clave, { ...it }); continue; }
+      const cantTotal = Number(prev.cantidad || 0) + Number(it.cantidad || 0);
+      const impTotal = Number(prev.cantidad || 0) * Number(prev.precio_unitario || 0)
+        + Number(it.cantidad || 0) * Number(it.precio_unitario || 0);
+      prev.cantidad = cantTotal;
+      prev.precio_unitario = cantTotal > 0 ? +(impTotal / cantTotal).toFixed(2) : Number(prev.precio_unitario || 0);
+    }
+    const todos = [...mapa.values()];
 
     // Los servicios por hectárea y por metro alimentan el control de campaña;
     // el resto (insumos, traslados) queda como ítems adicionales.
@@ -345,14 +366,19 @@ function Page() {
     };
     const ha = agregar(itemsHa);
     const mt = agregar(itemsMt);
-    const textoTodo = `${p.descripcion ?? ""} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
+    const textoTodo = `${lista.map((x) => x.descripcion ?? "").join(" ")} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
     const cultivo = CULTIVOS.find((c) => textoTodo.includes(c.toLowerCase()))
       ?? (textoTodo.includes("maiz") ? "Maíz" : undefined);
+
+    const descripcion = lista.length > 1
+      ? `Corresponde a Presupuestos N° ${lista.map((x) => x.numero ?? "s/n").join(" y N° ")}`
+      : p.descripcion;
 
     setEdit(null);
     setPrefill(null);
     setPrefillPresup({
-      presupuesto: p,
+      presupuesto: { ...p, descripcion, total: lista.reduce((a, x) => a + Number(x.total ?? 0), 0) },
+      ids,
       items,
       derived: {
         hectareas: ha.cant, precio_ha: ha.precio,
@@ -361,7 +387,6 @@ function Page() {
       },
     });
     setOpen(true);
-
   };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
