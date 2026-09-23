@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Check, FileText, Link2, Printer } from "lucide-react";
+import { Plus, Trash2, Check, FileText, Link2, Printer, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -408,6 +408,7 @@ export function PagosEmpleadoTab() {
   const [asociar, setAsociar] = useState<PagoEmpleado | null>(null);
   const [busca, setBusca] = useState("");
   const [soloMO, setSoloMO] = useState(true);
+  const [editar, setEditar] = useState<PagoEmpleado | null>(null);
 
   const { data: pagos } = useQuery({
     queryKey: ["fema_pagos_empleado", year],
@@ -457,11 +458,10 @@ export function PagosEmpleadoTab() {
     if (asociar.empleado_id) {
       await supabase.from("fema_facturas_compra").update({ empleado_id: asociar.empleado_id }).eq("id", facturaId);
     }
-    toast.success("Factura asociada al pago");
+    await marcarFacturaAbonada(facturaId, asociar.fecha, asociar.forma_pago, asociar.empleado_id ? empMap[asociar.empleado_id] ?? null : null);
+    toast.success("Factura asociada y marcada como abonada");
     setAsociar(null);
-    qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
-    qc.invalidateQueries({ queryKey: ["facturas_empleado"] });
-    qc.invalidateQueries({ queryKey: ["facturas_compra_asociar"] });
+    invalidarPagos(qc);
   };
 
   const quitarFactura = async (p: PagoEmpleado) => {
@@ -647,6 +647,9 @@ export function PagosEmpleadoTab() {
                       >
                         <Printer className="size-3" />
                       </Button>
+                      <Button size="icon" variant="outline" className="h-7 w-7" title="Editar pago" onClick={() => setEditar(r)}>
+                        <Pencil className="size-3" />
+                      </Button>
                       <Button size="icon" variant="outline" className="h-7 w-7 text-destructive" onClick={() => eliminar(r.id)}>
                         <Trash2 className="size-3" />
                       </Button>
@@ -659,6 +662,7 @@ export function PagosEmpleadoTab() {
         </Table>
       </div>
 
+      {editar && <NuevoPagoDialog key={editar.id} pago={editar} onClose={() => setEditar(null)} />}
       <Dialog open={!!asociar} onOpenChange={(o) => { if (!o) { setAsociar(null); setBusca(""); setSoloMO(true); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Asociar factura del empleado</DialogTitle></DialogHeader>
