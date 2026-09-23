@@ -205,6 +205,13 @@ function Page() {
     },
   });
 
+  // Cliente de los presupuestos tildados: impide mezclar clientes distintos en una misma factura
+  const clientePresupSel = useMemo<string | null>(() => {
+    if (selPresup.length === 0) return null;
+    const p = (presupuestos ?? []).find((x) => x.id === selPresup[0]);
+    return p?.cliente_id ?? null;
+  }, [selPresup, presupuestos]);
+
 
   // Planillas de bolsero: se pueden facturar directo, sin presupuesto previo
   const { data: planillas } = useQuery({
