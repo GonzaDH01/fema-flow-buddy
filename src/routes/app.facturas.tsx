@@ -801,13 +801,33 @@ function Page() {
 
         {tab === "presupuestos" ? (
           <>
-          <div className="border-b border-border px-4 py-3">
-            <h3 className="text-sm font-semibold">Presupuestos</h3>
-            <p className="text-xs text-muted-foreground">Aprobalos y facturalos. Una vez facturado queda bloqueado.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div>
+              <h3 className="text-sm font-semibold">Presupuestos</h3>
+              <p className="text-xs text-muted-foreground">
+                Aprobalos y facturalos. Podés tildar varios del mismo cliente y facturarlos juntos. Una vez facturado queda bloqueado.
+              </p>
+            </div>
+            {selPresup.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setSelPresup([])}>Quitar selección</Button>
+                <Button
+                  size="sm" className="h-8"
+                  onClick={() => {
+                    const lista = (presupuestos ?? []).filter((x) => selPresup.includes(x.id));
+                    setSelPresup([]);
+                    facturarPresups(lista);
+                  }}
+                >
+                  <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar presupuestos seleccionados ({selPresup.length})
+                </Button>
+              </div>
+            )}
           </div>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>N° Presupuesto</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -819,9 +839,22 @@ function Page() {
             </TableHeader>
             <TableBody>
               {(presupuestos ?? []).length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
               ) : (presupuestos ?? []).map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selPresup.includes(p.id)}
+                      disabled={p.estado !== "Aprobado" || (clientePresupSel !== null && p.cliente_id !== clientePresupSel)}
+                      title={p.estado !== "Aprobado"
+                        ? "Aprobalo antes de facturar"
+                        : clientePresupSel !== null && p.cliente_id !== clientePresupSel
+                          ? "Solo se pueden facturar juntos presupuestos del mismo cliente"
+                          : "Seleccionar para facturar junto a otros"}
+                      onCheckedChange={(v) =>
+                        setSelPresup((prev) => v ? [...prev, p.id] : prev.filter((x) => x !== p.id))}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
                   <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
                   <TableCell>{formatFecha(p.fecha)}</TableCell>
