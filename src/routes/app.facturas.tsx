@@ -126,7 +126,7 @@ type PresupItem = {
 type PresupDerived = {
   hectareas: number; precio_ha: number; metros_bolsa: number; precio_metro: number; cultivo: string;
 };
-type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
+type PrefillPresup = { presupuesto: PresupRow; ids: string[]; items: PresupItem[]; derived: PresupDerived };
 
 type PlanillaRow = {
   id: string; fecha: string; cliente_id: string | null; cliente_nombre: string | null;
