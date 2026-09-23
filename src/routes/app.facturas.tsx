@@ -156,6 +156,7 @@ function Page() {
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
   const [asociar, setAsociar] = useState<PlanillaRow | null>(null);
   const [asociarFacturaId, setAsociarFacturaId] = useState("");
+  const [selPresup, setSelPresup] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
