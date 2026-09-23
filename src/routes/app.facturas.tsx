@@ -126,7 +126,7 @@ type PresupItem = {
 type PresupDerived = {
   hectareas: number; precio_ha: number; metros_bolsa: number; precio_metro: number; cultivo: string;
 };
-type PrefillPresup = { presupuesto: PresupRow; items: PresupItem[]; derived: PresupDerived };
+type PrefillPresup = { presupuesto: PresupRow; ids: string[]; items: PresupItem[]; derived: PresupDerived };
 
 type PlanillaRow = {
   id: string; fecha: string; cliente_id: string | null; cliente_nombre: string | null;
@@ -156,6 +156,7 @@ function Page() {
   const [editEstim, setEditEstim] = useState<EstimGroup | null>(null);
   const [asociar, setAsociar] = useState<PlanillaRow | null>(null);
   const [asociarFacturaId, setAsociarFacturaId] = useState("");
+  const [selPresup, setSelPresup] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -203,6 +204,13 @@ function Page() {
       return data as PresupRow[];
     },
   });
+
+  // Cliente de los presupuestos tildados: impide mezclar clientes distintos en una misma factura
+  const clientePresupSel = useMemo<string | null>(() => {
+    if (selPresup.length === 0) return null;
+    const p = (presupuestos ?? []).find((x) => x.id === selPresup[0]);
+    return p?.cliente_id ?? null;
+  }, [selPresup, presupuestos]);
 
 
   // Planillas de bolsero: se pueden facturar directo, sin presupuesto previo
@@ -308,22 +316,43 @@ function Page() {
   };
 
 
-  const facturarPresup = async (p: PresupRow) => {
+  const facturarPresup = async (p: PresupRow) => facturarPresups([p]);
+
+  // Factura uno o varios presupuestos del mismo cliente en un solo comprobante.
+  // Los conceptos idénticos se suman en un solo renglón; los distintos van por separado.
+  const facturarPresups = async (lista: PresupRow[]) => {
+    if (lista.length === 0) return;
+    const p = lista[0];
+    const ids = lista.map((x) => x.id);
     const { data: its, error } = await supabase.from("fema_presupuesto_items")
       .select("codigo,descripcion,cantidad,precio_unitario,alicuota_iva")
-      .eq("presupuesto_id", p.id).order("orden");
+      .in("presupuesto_id", ids).order("orden");
     if (error) { toast.error(error.message); return; }
     const { data: prods } = await supabase.from("fema_productos").select("id,codigo,nombre,unidad_medida");
     const porCodigo = new Map((prods ?? []).map((x: any) => [(x.codigo ?? "").toUpperCase(), x.id as string]));
     const porNombre = new Map((prods ?? []).map((x: any) => [String(x.nombre).toLowerCase(), x.id as string]));
     const unidadDe = new Map((prods ?? []).map((x: any) => [x.id as string, String(x.unidad_medida ?? "")]));
-    const todos = (its ?? []).map((it: any) => ({
+    const crudos = (its ?? []).map((it: any) => ({
       ...it,
       producto_id:
         porCodigo.get(String(it.codigo ?? "").toUpperCase()) ??
         porNombre.get(String(it.descripcion ?? "").toLowerCase()) ??
         null,
     })) as PresupItem[];
+
+    // Consolidación: mismo concepto (producto o descripción) + misma alícuota → un solo renglón
+    const mapa = new Map<string, PresupItem>();
+    for (const it of crudos) {
+      const clave = `${it.producto_id ?? String(it.descripcion ?? "").trim().toLowerCase()}||${it.alicuota_iva}`;
+      const prev = mapa.get(clave);
+      if (!prev) { mapa.set(clave, { ...it }); continue; }
+      const cantTotal = Number(prev.cantidad || 0) + Number(it.cantidad || 0);
+      const impTotal = Number(prev.cantidad || 0) * Number(prev.precio_unitario || 0)
+        + Number(it.cantidad || 0) * Number(it.precio_unitario || 0);
+      prev.cantidad = cantTotal;
+      prev.precio_unitario = cantTotal > 0 ? +(impTotal / cantTotal).toFixed(2) : Number(prev.precio_unitario || 0);
+    }
+    const todos = [...mapa.values()];
 
     // Los servicios por hectárea y por metro alimentan el control de campaña;
     // el resto (insumos, traslados) queda como ítems adicionales.
@@ -345,14 +374,19 @@ function Page() {
     };
     const ha = agregar(itemsHa);
     const mt = agregar(itemsMt);
-    const textoTodo = `${p.descripcion ?? ""} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
+    const textoTodo = `${lista.map((x) => x.descripcion ?? "").join(" ")} ${todos.map((it) => it.descripcion).join(" ")}`.toLowerCase();
     const cultivo = CULTIVOS.find((c) => textoTodo.includes(c.toLowerCase()))
       ?? (textoTodo.includes("maiz") ? "Maíz" : undefined);
+
+    const descripcion = lista.length > 1
+      ? `Corresponde a Presupuestos N° ${lista.map((x) => x.numero ?? "s/n").join(" y N° ")}`
+      : p.descripcion;
 
     setEdit(null);
     setPrefill(null);
     setPrefillPresup({
-      presupuesto: p,
+      presupuesto: { ...p, descripcion, total: lista.reduce((a, x) => a + Number(x.total ?? 0), 0) },
+      ids,
       items,
       derived: {
         hectareas: ha.cant, precio_ha: ha.precio,
@@ -361,7 +395,6 @@ function Page() {
       },
     });
     setOpen(true);
-
   };
 
   const estimGroups = useMemo<EstimGroup[]>(() => {
@@ -649,7 +682,7 @@ function Page() {
     // Si venía de un presupuesto → queda marcado como Facturado
     if (!edit && prefillPresup) {
       const { error: errP } = await supabase.from("fema_presupuestos")
-        .update({ estado: "Facturado" }).eq("id", prefillPresup.presupuesto.id);
+        .update({ estado: "Facturado" }).in("id", prefillPresup.ids ?? [prefillPresup.presupuesto.id]);
       if (errP) toast.error(`Presupuesto: ${errP.message}`);
       qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
       qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
@@ -776,13 +809,33 @@ function Page() {
 
         {tab === "presupuestos" ? (
           <>
-          <div className="border-b border-border px-4 py-3">
-            <h3 className="text-sm font-semibold">Presupuestos</h3>
-            <p className="text-xs text-muted-foreground">Aprobalos y facturalos. Una vez facturado queda bloqueado.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div>
+              <h3 className="text-sm font-semibold">Presupuestos</h3>
+              <p className="text-xs text-muted-foreground">
+                Aprobalos y facturalos. Podés tildar varios del mismo cliente y facturarlos juntos. Una vez facturado queda bloqueado.
+              </p>
+            </div>
+            {selPresup.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setSelPresup([])}>Quitar selección</Button>
+                <Button
+                  size="sm" className="h-8"
+                  onClick={() => {
+                    const lista = (presupuestos ?? []).filter((x) => selPresup.includes(x.id));
+                    setSelPresup([]);
+                    facturarPresups(lista);
+                  }}
+                >
+                  <Receipt className="mr-1 h-3.5 w-3.5" /> Facturar presupuestos seleccionados ({selPresup.length})
+                </Button>
+              </div>
+            )}
           </div>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>N° Presupuesto</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -794,9 +847,22 @@ function Page() {
             </TableHeader>
             <TableBody>
               {(presupuestos ?? []).length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="py-12 text-center text-muted-foreground">No hay presupuestos cargados</TableCell></TableRow>
               ) : (presupuestos ?? []).map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selPresup.includes(p.id)}
+                      disabled={p.estado !== "Aprobado" || (clientePresupSel !== null && p.cliente_id !== clientePresupSel)}
+                      title={p.estado !== "Aprobado"
+                        ? "Aprobalo antes de facturar"
+                        : clientePresupSel !== null && p.cliente_id !== clientePresupSel
+                          ? "Solo se pueden facturar juntos presupuestos del mismo cliente"
+                          : "Seleccionar para facturar junto a otros"}
+                      onCheckedChange={(v) =>
+                        setSelPresup((prev) => v ? [...prev, p.id] : prev.filter((x) => x !== p.id))}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
                   <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
                   <TableCell>{formatFecha(p.fecha)}</TableCell>
