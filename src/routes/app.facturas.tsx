@@ -674,7 +674,7 @@ function Page() {
     // Si venía de un presupuesto → queda marcado como Facturado
     if (!edit && prefillPresup) {
       const { error: errP } = await supabase.from("fema_presupuestos")
-        .update({ estado: "Facturado" }).eq("id", prefillPresup.presupuesto.id);
+        .update({ estado: "Facturado" }).in("id", prefillPresup.ids ?? [prefillPresup.presupuesto.id]);
       if (errP) toast.error(`Presupuesto: ${errP.message}`);
       qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
       qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
