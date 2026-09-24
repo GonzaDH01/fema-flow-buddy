@@ -148,7 +148,15 @@ const DOC_VACIO = {
   observaciones: "",
 };
 
-type CuotaDraft = { numero_cuota: number; fecha_vencimiento: string; monto: string; numero_pagare: string };
+type CuotaDraft = {
+  numero_cuota: number;
+  fecha_vencimiento: string;
+  monto: string;
+  numero_pagare: string;
+  pagada: boolean;
+  fecha_pago: string;
+  forma_pago: string;
+};
 
 function FormDoc({
   doc,
@@ -196,6 +204,9 @@ function FormDoc({
             fecha_vencimiento: c.fecha_vencimiento,
             monto: String(c.monto),
             numero_pagare: c.numero_pagare ?? "",
+            pagada: c.estado === "pagada",
+            fecha_pago: c.fecha_pago ?? c.fecha_vencimiento,
+            forma_pago: c.forma_pago ?? "Transferencia",
           }))
       : [],
   );
