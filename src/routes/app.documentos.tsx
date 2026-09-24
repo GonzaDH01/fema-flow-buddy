@@ -67,6 +67,7 @@ type Doc = {
   estado: string;
   factura_compra_id: string | null;
   observaciones: string | null;
+  created_at?: string | null;
 };
 
 const db = supabase as any;
