@@ -1204,12 +1204,18 @@ function Page() {
                             {c.estado === "pagada" ? `${formatFecha(c.fecha_pago)} · ${c.forma_pago ?? ""}` : "—"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {c.estado !== "pagada" && (
+                            {c.estado !== "pagada" ? (
                               <Button size="sm" variant="outline" onClick={() => setPago({ cuota: c, doc: d })}>
                                 <Banknote className="mr-2 h-4 w-4" /> Pagar
                               </Button>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-primary" />
+                                <Button size="sm" variant="ghost" className="text-xs" onClick={() => deshacerPago(c)}>
+                                  <Undo2 className="mr-1 h-3.5 w-3.5" /> Deshacer
+                                </Button>
+                              </div>
                             )}
-                            {c.estado === "pagada" && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
                           </TableCell>
                         </TableRow>
                       ))}
