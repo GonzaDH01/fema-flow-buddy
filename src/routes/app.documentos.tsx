@@ -204,6 +204,7 @@ function FormDoc({
   const [unidad, setUnidad] = useState<"dias" | "meses">("dias");
   const [guardando, setGuardando] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
+  const [arrastrando, setArrastrando] = useState(false);
   const fileOcr = useRef<HTMLInputElement>(null);
   // La foto leída por OCR se guarda como adjunto del documento al confirmar.
   const [fotoOcr, setFotoOcr] = useState<File | null>(null);
