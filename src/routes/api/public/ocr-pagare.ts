@@ -6,7 +6,7 @@ const HEADERS = { "Content-Type": "application/json" };
 
 const InputSchema = z.object({
   image: z.string().min(100).max(7_000_000),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
 });
 
 const SYSTEM_PROMPT = `Sos un sistema de lectura de documentos de compra a plazo argentinos:
