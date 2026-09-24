@@ -91,17 +91,25 @@ function diasHasta(f: string | null) {
   return Math.round((a - b) / 86400000);
 }
 
-async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+async function comprimirParaOcr(
+  file: File,
+): Promise<{ base64: string; mimeType: "image/jpeg" | "application/pdf" }> {
   const dataUrl: string = await new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));
     r.onerror = () => reject(new Error("No se pudo leer el archivo"));
     r.readAsDataURL(file);
   });
+  const esPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (esPdf) {
+    if (file.size > 3_500_000) throw new Error("El PDF es muy pesado (máx. 3,5 MB).");
+    return { base64: dataUrl.split(",")[1] ?? "", mimeType: "application/pdf" };
+  }
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+    el.onerror = () =>
+      reject(new Error("Formato no soportado. Usá JPG, PNG, WEBP o PDF (las fotos HEIC del iPhone convertilas a JPG)."));
     el.src = dataUrl;
   });
   const MAX = 2200;
