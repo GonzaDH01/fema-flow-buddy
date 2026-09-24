@@ -943,6 +943,8 @@ function Page() {
   const [form, setForm] = useState<{ open: boolean; doc: Doc | null }>({ open: false, doc: null });
   const [pago, setPago] = useState<{ cuota: Cuota; doc: Doc } | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [orden, setOrden] = useState<"recientes" | "fecha">("recientes");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_doc_compras", user?.id],
