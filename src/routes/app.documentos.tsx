@@ -204,6 +204,7 @@ function FormDoc({
   const [unidad, setUnidad] = useState<"dias" | "meses">("dias");
   const [guardando, setGuardando] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
+  const [arrastrando, setArrastrando] = useState(false);
   const fileOcr = useRef<HTMLInputElement>(null);
   // La foto leída por OCR se guarda como adjunto del documento al confirmar.
   const [fotoOcr, setFotoOcr] = useState<File | null>(null);
@@ -393,15 +394,39 @@ function FormDoc({
       </DialogHeader>
 
       <div className="space-y-5">
-        <div className="rounded-lg border border-dashed border-border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" size="sm" disabled={leyendo} onClick={() => fileOcr.current?.click()}>
-              {leyendo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanLine className="mr-2 h-4 w-4" />}
-              Leer foto o PDF del documento
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              Subí la foto o el PDF del pagaré / boleto y se completan solos importe, fechas y acreedor.
-            </span>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => { if (!leyendo) fileOcr.current?.click(); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileOcr.current?.click(); }}
+          onDragOver={(e) => { e.preventDefault(); if (!leyendo) setArrastrando(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setArrastrando(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setArrastrando(false);
+            if (leyendo) return;
+            const f = e.dataTransfer.files?.[0];
+            if (f) void leerDocumento(f);
+          }}
+          className={`cursor-pointer rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
+            arrastrando ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:border-primary/50"
+          }`}
+        >
+          <div className="flex flex-col items-center gap-2">
+            {leyendo ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <ScanLine className="h-6 w-6 text-muted-foreground" />}
+            <p className="text-sm font-medium">
+              {leyendo
+                ? "Leyendo el documento..."
+                : arrastrando
+                  ? "Soltá el archivo acá"
+                  : "Arrastrá la foto o el PDF acá, o hacé clic para buscarlo"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Se completan solos importe, fechas, acreedor y cuotas del pagaré o boleto.
+            </p>
+            {fotoOcr && !leyendo && (
+              <p className="text-xs text-emerald-500">Archivo cargado: {fotoOcr.name}</p>
+            )}
           </div>
           <input
             ref={fileOcr}
