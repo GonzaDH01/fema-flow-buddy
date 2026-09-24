@@ -358,7 +358,10 @@ function FormDoc({
           fecha_vencimiento: c.fecha_vencimiento,
           monto: n(c.monto),
           moneda: v.moneda,
-          estado: "pendiente",
+          // Cuotas históricas: se marcan abonadas sin tocar el saldo del banco
+          estado: c.pagada ? "pagada" : "pendiente",
+          fecha_pago: c.pagada ? (c.fecha_pago || c.fecha_vencimiento) : null,
+          forma_pago: c.pagada ? (c.forma_pago || "Transferencia") : null,
         }));
       if (nuevas.length) {
         const { error } = await db.from("fema_doc_compra_cuotas").insert(nuevas);
