@@ -397,16 +397,16 @@ function FormDoc({
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" disabled={leyendo} onClick={() => fileOcr.current?.click()}>
               {leyendo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanLine className="mr-2 h-4 w-4" />}
-              Leer foto del documento
+              Leer foto o PDF del documento
             </Button>
             <span className="text-xs text-muted-foreground">
-              Sacá o subí la foto del pagaré / boleto y se completan solos importe, fechas y acreedor.
+              Subí la foto o el PDF del pagaré / boleto y se completan solos importe, fechas y acreedor.
             </span>
           </div>
           <input
             ref={fileOcr}
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
