@@ -252,11 +252,16 @@ function FormDoc({
     const base = financiado > 0 ? financiado / cant : 0;
     const filas: CuotaDraft[] = [];
     for (let i = 0; i < cant; i++) {
+      const previa = cuotas.find((x) => x.numero_cuota === i + 1);
+      const vto = unidad === "meses" ? addMeses(primera, i * paso) : addDias(primera, i * paso);
       filas.push({
         numero_cuota: i + 1,
-        fecha_vencimiento: unidad === "meses" ? addMeses(primera, i * paso) : addDias(primera, i * paso),
+        fecha_vencimiento: vto,
         monto: base ? String(Math.round(base * 100) / 100) : "",
-        numero_pagare: "",
+        numero_pagare: previa?.numero_pagare ?? "",
+        pagada: previa?.pagada ?? false,
+        fecha_pago: previa?.fecha_pago || vto,
+        forma_pago: previa?.forma_pago || v.forma_pago || "Transferencia",
       });
     }
     setCuotas(filas);
