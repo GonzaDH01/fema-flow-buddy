@@ -608,6 +608,13 @@ function FormDoc({
           </div>
 
           {cuotas.length > 0 && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Tildá “Abonada” en las cuotas que ya pagaste antes de usar el sistema: quedan registradas con su fecha
+              real y no descuentan plata de los saldos actuales del banco.
+            </p>
+          )}
+
+          {cuotas.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
