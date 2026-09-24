@@ -613,7 +613,8 @@ function FormDoc({
                   <TableHead className="w-16">Cuota</TableHead>
                   <TableHead className="w-44">Vencimiento</TableHead>
                   <TableHead className="w-40">Importe</TableHead>
-                  <TableHead className="w-40">N° pagaré</TableHead>
+                  <TableHead className="w-36">N° pagaré</TableHead>
+                  <TableHead className="w-64">Ya abonada</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
