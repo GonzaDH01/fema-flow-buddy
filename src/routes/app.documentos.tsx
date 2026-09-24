@@ -171,7 +171,7 @@ function FormDoc({
   proveedores: any[];
   activos: any[];
   dolar: number;
-  onClose: () => void;
+  onClose: (docId?: string) => void;
 }) {
   const qc = useQueryClient();
   const [v, setV] = useState(
@@ -398,7 +398,7 @@ function FormDoc({
       await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
       await qc.invalidateQueries({ queryKey: ["fema_doc_compra_activos"] });
       toast.success(doc ? "Documento actualizado" : "Documento cargado");
-      onClose();
+      onClose(docId);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo guardar");
     } finally {
@@ -688,7 +688,7 @@ function FormDoc({
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
         <Button onClick={guardar} disabled={guardando}>
           {guardando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar
         </Button>
