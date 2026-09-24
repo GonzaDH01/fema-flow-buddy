@@ -823,7 +823,7 @@ function Archivos({ docId }: { docId: string }) {
           Subir foto o PDF
         </Button>
         <input
-          ref={input} type="file" multiple className="hidden"
+          ref={input} type="file" multiple accept="image/*,application/pdf,.pdf" className="hidden"
           onChange={(e) => { const f = e.target.files; if (f?.length) void subir(f); }}
         />
         <span className="text-xs text-muted-foreground">{archivos.length} archivo(s) adjunto(s)</span>
