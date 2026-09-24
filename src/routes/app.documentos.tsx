@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Pencil, Upload, ScanLine, Loader2, FileText, ChevronDown, ChevronRight,
-  CheckCircle2, Banknote, Paperclip, RefreshCw,
+  CheckCircle2, Banknote, Paperclip, RefreshCw, Undo2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -67,6 +67,7 @@ type Doc = {
   estado: string;
   factura_compra_id: string | null;
   observaciones: string | null;
+  created_at?: string | null;
 };
 
 const db = supabase as any;
@@ -148,7 +149,15 @@ const DOC_VACIO = {
   observaciones: "",
 };
 
-type CuotaDraft = { numero_cuota: number; fecha_vencimiento: string; monto: string; numero_pagare: string };
+type CuotaDraft = {
+  numero_cuota: number;
+  fecha_vencimiento: string;
+  monto: string;
+  numero_pagare: string;
+  pagada: boolean;
+  fecha_pago: string;
+  forma_pago: string;
+};
 
 function FormDoc({
   doc,
@@ -163,7 +172,7 @@ function FormDoc({
   proveedores: any[];
   activos: any[];
   dolar: number;
-  onClose: () => void;
+  onClose: (docId?: string) => void;
 }) {
   const qc = useQueryClient();
   const [v, setV] = useState(
@@ -196,6 +205,9 @@ function FormDoc({
             fecha_vencimiento: c.fecha_vencimiento,
             monto: String(c.monto),
             numero_pagare: c.numero_pagare ?? "",
+            pagada: c.estado === "pagada",
+            fecha_pago: c.fecha_pago ?? c.fecha_vencimiento,
+            forma_pago: c.forma_pago ?? "Transferencia",
           }))
       : [],
   );
@@ -241,11 +253,16 @@ function FormDoc({
     const base = financiado > 0 ? financiado / cant : 0;
     const filas: CuotaDraft[] = [];
     for (let i = 0; i < cant; i++) {
+      const previa = cuotas.find((x) => x.numero_cuota === i + 1);
+      const vto = unidad === "meses" ? addMeses(primera, i * paso) : addDias(primera, i * paso);
       filas.push({
         numero_cuota: i + 1,
-        fecha_vencimiento: unidad === "meses" ? addMeses(primera, i * paso) : addDias(primera, i * paso),
+        fecha_vencimiento: vto,
         monto: base ? String(Math.round(base * 100) / 100) : "",
-        numero_pagare: "",
+        numero_pagare: previa?.numero_pagare ?? "",
+        pagada: previa?.pagada ?? false,
+        fecha_pago: previa?.fecha_pago || vto,
+        forma_pago: previa?.forma_pago || v.forma_pago || "Transferencia",
       });
     }
     setCuotas(filas);
@@ -342,7 +359,10 @@ function FormDoc({
           fecha_vencimiento: c.fecha_vencimiento,
           monto: n(c.monto),
           moneda: v.moneda,
-          estado: "pendiente",
+          // Cuotas históricas: se marcan abonadas sin tocar el saldo del banco
+          estado: c.pagada ? "pagada" : "pendiente",
+          fecha_pago: c.pagada ? (c.fecha_pago || c.fecha_vencimiento) : null,
+          forma_pago: c.pagada ? (c.forma_pago || "Transferencia") : null,
         }));
       if (nuevas.length) {
         const { error } = await db.from("fema_doc_compra_cuotas").insert(nuevas);
@@ -379,7 +399,7 @@ function FormDoc({
       await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
       await qc.invalidateQueries({ queryKey: ["fema_doc_compra_activos"] });
       toast.success(doc ? "Documento actualizado" : "Documento cargado");
-      onClose();
+      onClose(docId);
     } catch (e: any) {
       toast.error(e?.message ?? "No se pudo guardar");
     } finally {
@@ -588,13 +608,21 @@ function FormDoc({
           </div>
 
           {cuotas.length > 0 && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Tildá “Abonada” en las cuotas que ya pagaste antes de usar el sistema: quedan registradas con su fecha
+              real y no descuentan plata de los saldos actuales del banco.
+            </p>
+          )}
+
+          {cuotas.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Cuota</TableHead>
                   <TableHead className="w-44">Vencimiento</TableHead>
                   <TableHead className="w-40">Importe</TableHead>
-                  <TableHead className="w-40">N° pagaré</TableHead>
+                  <TableHead className="w-36">N° pagaré</TableHead>
+                  <TableHead className="w-64">Ya abonada</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -624,6 +652,40 @@ function FormDoc({
                           onChange={(e) => setCuotas((p) => p.map((x, j) => j === i ? { ...x, numero_pagare: e.target.value } : x))}
                         />
                       </TableCell>
+                      <TableCell>
+                        {pagada ? (
+                          <span className="text-xs text-muted-foreground">Registrada como abonada</span>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="flex cursor-pointer items-center gap-2 text-xs">
+                              <Checkbox
+                                checked={c.pagada}
+                                onCheckedChange={(ck) =>
+                                  setCuotas((p) => p.map((x, j) => j === i ? { ...x, pagada: ck === true } : x))
+                                }
+                              />
+                              Abonada
+                            </label>
+                            {c.pagada && (
+                              <>
+                                <Input
+                                  type="date" className="h-8 w-36 text-xs" value={c.fecha_pago}
+                                  onChange={(e) => setCuotas((p) => p.map((x, j) => j === i ? { ...x, fecha_pago: e.target.value } : x))}
+                                />
+                                <Select
+                                  value={c.forma_pago}
+                                  onValueChange={(x) => setCuotas((p) => p.map((y, j) => j === i ? { ...y, forma_pago: x } : y))}
+                                >
+                                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {FORMAS_PAGO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -634,7 +696,7 @@ function FormDoc({
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
         <Button onClick={guardar} disabled={guardando}>
           {guardando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar
         </Button>
@@ -889,6 +951,8 @@ function Page() {
   const [form, setForm] = useState<{ open: boolean; doc: Doc | null }>({ open: false, doc: null });
   const [pago, setPago] = useState<{ cuota: Cuota; doc: Doc } | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [orden, setOrden] = useState<"recientes" | "fecha">("recientes");
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_doc_compras", user?.id],
@@ -943,6 +1007,44 @@ function Page() {
     return { pendArs, pendUsd, mes, vencidas };
   }, [cuotas, dolar]);
 
+  const docsVisibles = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const prov = data?.proveedores ?? [];
+    const lista = docs.filter((d) => {
+      if (!q) return true;
+      const acreedor = d.proveedor_nombre || prov.find((p: any) => p.id === d.proveedor_id)?.nombre || "";
+      return `${d.bien_descripcion} ${acreedor} ${d.numero ?? ""} ${d.tipo_documento}`.toLowerCase().includes(q);
+    });
+    return lista.slice().sort((a, b) =>
+      orden === "recientes"
+        ? String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+        : String(b.fecha).localeCompare(String(a.fecha)),
+    );
+  }, [docs, busca, orden, data?.proveedores]);
+
+  async function deshacerPago(c: Cuota) {
+    if (!confirm(`¿Volver la cuota ${c.numero_cuota} a pendiente?`)) return;
+    try {
+      if ((c as any).movimiento_pago_id) {
+        const { error } = await db.rpc("fema_revertir_caja", {
+          _mov_id: (c as any).movimiento_pago_id, _estado: "anulado",
+        });
+        if (error) throw error;
+      }
+      const { error } = await db
+        .from("fema_doc_compra_cuotas")
+        .update({ estado: "pendiente", fecha_pago: null, forma_pago: null, cuenta_id: null, movimiento_pago_id: null })
+        .eq("id", c.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+      await qc.invalidateQueries({ queryKey: ["fema_tesoreria"] });
+      await qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+      toast.success("La cuota volvió a quedar pendiente");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo deshacer el pago");
+    }
+  }
+
   async function eliminar(id: string) {
     if (!confirm("¿Eliminar el documento y todas sus cuotas?")) return;
     const { error } = await db.from("fema_doc_compras").delete().eq("id", id);
@@ -996,15 +1098,37 @@ function Page() {
         </Card>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          className="h-9 w-72"
+          placeholder="Buscar por máquina, acreedor o número…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+        <Select value={orden} onValueChange={(x) => setOrden(x as any)}>
+          <SelectTrigger className="h-9 w-56"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recientes">Últimos cargados primero</SelectItem>
+            <SelectItem value="fecha">Por fecha del documento</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{docsVisibles.length} documento(s)</span>
+      </div>
+
       {isLoading && <div className="text-sm text-muted-foreground">Cargando…</div>}
       {!isLoading && docs.length === 0 && (
         <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
           Todavía no hay documentos cargados. Empezá con “Nuevo documento”.
         </CardContent></Card>
       )}
+      {!isLoading && docs.length > 0 && docsVisibles.length === 0 && (
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+          No hay documentos que coincidan con la búsqueda.
+        </CardContent></Card>
+      )}
 
       <div className="space-y-3">
-        {docs.map((d) => {
+        {docsVisibles.map((d) => {
           const lista = (cuotasPorDoc.get(d.id) ?? []).slice().sort((a, b) => a.numero_cuota - b.numero_cuota);
           const pend = lista.filter((c) => c.estado !== "pagada");
           const saldo = pend.reduce((s, c) => s + n(c.monto), 0);
@@ -1087,12 +1211,18 @@ function Page() {
                             {c.estado === "pagada" ? `${formatFecha(c.fecha_pago)} · ${c.forma_pago ?? ""}` : "—"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {c.estado !== "pagada" && (
+                            {c.estado !== "pagada" ? (
                               <Button size="sm" variant="outline" onClick={() => setPago({ cuota: c, doc: d })}>
                                 <Banknote className="mr-2 h-4 w-4" /> Pagar
                               </Button>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-primary" />
+                                <Button size="sm" variant="ghost" className="text-xs" onClick={() => deshacerPago(c)}>
+                                  <Undo2 className="mr-1 h-3.5 w-3.5" /> Deshacer
+                                </Button>
+                              </div>
                             )}
-                            {c.estado === "pagada" && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1120,7 +1250,10 @@ function Page() {
             proveedores={data?.proveedores ?? []}
             activos={data?.activos ?? []}
             dolar={dolar}
-            onClose={() => setForm({ open: false, doc: null })}
+            onClose={(docId) => {
+              setForm({ open: false, doc: null });
+              if (docId) setAbierto(docId);
+            }}
           />
         )}
       </Dialog>
