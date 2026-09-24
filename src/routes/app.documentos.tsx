@@ -1000,6 +1000,44 @@ function Page() {
     return { pendArs, pendUsd, mes, vencidas };
   }, [cuotas, dolar]);
 
+  const docsVisibles = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const prov = data?.proveedores ?? [];
+    const lista = docs.filter((d) => {
+      if (!q) return true;
+      const acreedor = d.proveedor_nombre || prov.find((p: any) => p.id === d.proveedor_id)?.nombre || "";
+      return `${d.bien_descripcion} ${acreedor} ${d.numero ?? ""} ${d.tipo_documento}`.toLowerCase().includes(q);
+    });
+    return lista.slice().sort((a, b) =>
+      orden === "recientes"
+        ? String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+        : String(b.fecha).localeCompare(String(a.fecha)),
+    );
+  }, [docs, busca, orden, data?.proveedores]);
+
+  async function deshacerPago(c: Cuota) {
+    if (!confirm(`¿Volver la cuota ${c.numero_cuota} a pendiente?`)) return;
+    try {
+      if ((c as any).movimiento_pago_id) {
+        const { error } = await db.rpc("fema_revertir_caja", {
+          _mov_id: (c as any).movimiento_pago_id, _estado: "anulado",
+        });
+        if (error) throw error;
+      }
+      const { error } = await db
+        .from("fema_doc_compra_cuotas")
+        .update({ estado: "pendiente", fecha_pago: null, forma_pago: null, cuenta_id: null, movimiento_pago_id: null })
+        .eq("id", c.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+      await qc.invalidateQueries({ queryKey: ["fema_tesoreria"] });
+      await qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+      toast.success("La cuota volvió a quedar pendiente");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo deshacer el pago");
+    }
+  }
+
   async function eliminar(id: string) {
     if (!confirm("¿Eliminar el documento y todas sus cuotas?")) return;
     const { error } = await db.from("fema_doc_compras").delete().eq("id", id);
