@@ -644,6 +644,40 @@ function FormDoc({
                           onChange={(e) => setCuotas((p) => p.map((x, j) => j === i ? { ...x, numero_pagare: e.target.value } : x))}
                         />
                       </TableCell>
+                      <TableCell>
+                        {pagada ? (
+                          <span className="text-xs text-muted-foreground">Registrada como abonada</span>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="flex cursor-pointer items-center gap-2 text-xs">
+                              <Checkbox
+                                checked={c.pagada}
+                                onCheckedChange={(ck) =>
+                                  setCuotas((p) => p.map((x, j) => j === i ? { ...x, pagada: ck === true } : x))
+                                }
+                              />
+                              Abonada
+                            </label>
+                            {c.pagada && (
+                              <>
+                                <Input
+                                  type="date" className="h-8 w-36 text-xs" value={c.fecha_pago}
+                                  onChange={(e) => setCuotas((p) => p.map((x, j) => j === i ? { ...x, fecha_pago: e.target.value } : x))}
+                                />
+                                <Select
+                                  value={c.forma_pago}
+                                  onValueChange={(x) => setCuotas((p) => p.map((y, j) => j === i ? { ...y, forma_pago: x } : y))}
+                                >
+                                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {FORMAS_PAGO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
