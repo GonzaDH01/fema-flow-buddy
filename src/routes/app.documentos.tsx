@@ -1091,15 +1091,37 @@ function Page() {
         </Card>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          className="h-9 w-72"
+          placeholder="Buscar por máquina, acreedor o número…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+        <Select value={orden} onValueChange={(x) => setOrden(x as any)}>
+          <SelectTrigger className="h-9 w-56"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recientes">Últimos cargados primero</SelectItem>
+            <SelectItem value="fecha">Por fecha del documento</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{docsVisibles.length} documento(s)</span>
+      </div>
+
       {isLoading && <div className="text-sm text-muted-foreground">Cargando…</div>}
       {!isLoading && docs.length === 0 && (
         <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
           Todavía no hay documentos cargados. Empezá con “Nuevo documento”.
         </CardContent></Card>
       )}
+      {!isLoading && docs.length > 0 && docsVisibles.length === 0 && (
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+          No hay documentos que coincidan con la búsqueda.
+        </CardContent></Card>
+      )}
 
       <div className="space-y-3">
-        {docs.map((d) => {
+        {docsVisibles.map((d) => {
           const lista = (cuotasPorDoc.get(d.id) ?? []).slice().sort((a, b) => a.numero_cuota - b.numero_cuota);
           const pend = lista.filter((c) => c.estado !== "pagada");
           const saldo = pend.reduce((s, c) => s + n(c.monto), 0);
