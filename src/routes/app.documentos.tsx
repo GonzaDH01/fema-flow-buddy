@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Pencil, Upload, ScanLine, Loader2, FileText, ChevronDown, ChevronRight,
-  CheckCircle2, Banknote, Paperclip, RefreshCw,
+  CheckCircle2, Banknote, Paperclip, RefreshCw, Undo2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -1243,7 +1243,10 @@ function Page() {
             proveedores={data?.proveedores ?? []}
             activos={data?.activos ?? []}
             dolar={dolar}
-            onClose={() => setForm({ open: false, doc: null })}
+            onClose={(docId) => {
+              setForm({ open: false, doc: null });
+              if (docId) setAbierto(docId);
+            }}
           />
         )}
       </Dialog>
