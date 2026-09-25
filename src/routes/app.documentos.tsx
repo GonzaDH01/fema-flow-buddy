@@ -790,7 +790,7 @@ function PagoDialog({
         .from("fema_doc_compra_cuotas")
         .update({
           estado: "pagada", fecha_pago: fecha, forma_pago: forma,
-          cuenta_id: cuentaId || null, movimiento_pago_id: mov.id,
+          cuenta_id: cuentaId || null, movimiento_pago_id: mov.id, sin_caja: false,
         })
         .eq("id", cuota.id);
       if (eC) throw eC;
