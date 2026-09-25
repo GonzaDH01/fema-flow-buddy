@@ -964,6 +964,7 @@ export type Database = {
           numero_cuota: number
           numero_pagare: string | null
           observaciones: string | null
+          sin_caja: boolean
           updated_at: string
           user_id: string
         }
@@ -983,6 +984,7 @@ export type Database = {
           numero_cuota?: number
           numero_pagare?: string | null
           observaciones?: string | null
+          sin_caja?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -1002,6 +1004,7 @@ export type Database = {
           numero_cuota?: number
           numero_pagare?: string | null
           observaciones?: string | null
+          sin_caja?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -1405,6 +1408,7 @@ export type Database = {
           percepciones: number | null
           producto: string | null
           proveedor_id: string | null
+          sin_caja: boolean
           tipo: Database["public"]["Enums"]["tipo_factura"]
           tipo_comprobante: string | null
           total: number
@@ -1435,6 +1439,7 @@ export type Database = {
           percepciones?: number | null
           producto?: string | null
           proveedor_id?: string | null
+          sin_caja?: boolean
           tipo?: Database["public"]["Enums"]["tipo_factura"]
           tipo_comprobante?: string | null
           total?: number
@@ -1465,6 +1470,7 @@ export type Database = {
           percepciones?: number | null
           producto?: string | null
           proveedor_id?: string | null
+          sin_caja?: boolean
           tipo?: Database["public"]["Enums"]["tipo_factura"]
           tipo_comprobante?: string | null
           total?: number

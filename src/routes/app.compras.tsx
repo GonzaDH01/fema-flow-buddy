@@ -96,6 +96,7 @@ const schema = z.object({
   estado: z.enum(["pendiente", "pagada"]),
   fecha_pago: z.string().optional().or(z.literal("")),
   forma_pago: z.string().optional().or(z.literal("")),
+  sin_caja: z.boolean().optional(),
   observaciones: z.string().max(500).optional().or(z.literal("")),
 });
 type FormVals = z.infer<typeof schema>;
@@ -115,6 +116,7 @@ type Row = {
   total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
   fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
+  sin_caja?: boolean | null;
   imagen_path?: string | null;
   fema_proveedores?: { nombre: string } | null;
 };
@@ -304,6 +306,7 @@ function Page() {
       fecha_pago: v.fecha_pago || null,
       forma_pago: v.forma_pago || null,
       observaciones: v.observaciones || null,
+      sin_caja: !!v.sin_caja,
       ...(imagen_path !== undefined ? { imagen_path } : {}),
     };
 
@@ -928,6 +931,7 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
       fecha_pago: initial?.fecha_pago ?? "",
       forma_pago: initial?.forma_pago ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      sin_caja: !!initial?.sin_caja,
     },
   });
 
@@ -1213,6 +1217,20 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
             </Select>
           </FormField>
         </div>
+
+        <label className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <Checkbox
+            checked={!!f.watch("sin_caja")}
+            onCheckedChange={(c) => f.setValue("sin_caja", c === true, { shouldDirty: true })}
+          />
+          <span>
+            <span className="font-medium">Pago diversificado / canje (no mueve el banco)</span>
+            <span className="block text-xs text-muted-foreground">
+              Marcalo cuando el pago ya se hizo por fuera de la cuenta (canje, compensación, terceros).
+              Queda como abonado pero no se descuenta del Cash Flow.
+            </span>
+          </span>
+        </label>
 
         <FormField label="Observaciones">
           <Textarea placeholder="Notas adicionales…" rows={2} {...f.register("observaciones")} />

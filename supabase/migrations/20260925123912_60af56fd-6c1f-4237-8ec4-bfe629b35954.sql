@@ -1,0 +1,2 @@
+ALTER TABLE public.fema_doc_compra_cuotas ADD COLUMN IF NOT EXISTS sin_caja boolean NOT NULL DEFAULT false;
+ALTER TABLE public.fema_facturas_compra ADD COLUMN IF NOT EXISTS sin_caja boolean NOT NULL DEFAULT false;

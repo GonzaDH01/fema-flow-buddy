@@ -363,6 +363,7 @@ function FormDoc({
           estado: c.pagada ? "pagada" : "pendiente",
           fecha_pago: c.pagada ? (c.fecha_pago || c.fecha_vencimiento) : null,
           forma_pago: c.pagada ? (c.forma_pago || "Transferencia") : null,
+          sin_caja: !!c.pagada,
         }));
       if (nuevas.length) {
         const { error } = await db.from("fema_doc_compra_cuotas").insert(nuevas);
@@ -726,6 +727,7 @@ function PagoDialog({
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
   const [cot, setCot] = useState(dolar ? String(dolar) : "");
   const [guardando, setGuardando] = useState(false);
+  const [sinCaja, setSinCaja] = useState(false);
 
   const enPesos = cuota.moneda === "USD" ? n(cuota.monto) * (n(cot) || dolar) : n(cuota.monto);
 
@@ -733,6 +735,23 @@ function PagoDialog({
     if (enPesos <= 0) return toast.error("Revisá el importe o la cotización.");
     setGuardando(true);
     try {
+      // Pago diversificado: la cuota queda saldada pero no mueve caja ni banco.
+      if (sinCaja) {
+        const { error: eSC } = await db
+          .from("fema_doc_compra_cuotas")
+          .update({
+            estado: "pagada", fecha_pago: fecha, forma_pago: forma,
+            cuenta_id: null, movimiento_pago_id: null, sin_caja: true,
+          })
+          .eq("id", cuota.id);
+        if (eSC) throw eSC;
+        await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+        await qc.invalidateQueries({ queryKey: ["fema_tesoreria"] });
+        await qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+        toast.success("Cuota saldada sin movimiento de caja");
+        onClose();
+        return;
+      }
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       const contraparte = doc.proveedor_nombre || doc.bien_descripcion;
@@ -771,7 +790,7 @@ function PagoDialog({
         .from("fema_doc_compra_cuotas")
         .update({
           estado: "pagada", fecha_pago: fecha, forma_pago: forma,
-          cuenta_id: cuentaId || null, movimiento_pago_id: mov.id,
+          cuenta_id: cuentaId || null, movimiento_pago_id: mov.id, sin_caja: false,
         })
         .eq("id", cuota.id);
       if (eC) throw eC;
@@ -818,18 +837,31 @@ function PagoDialog({
               <Input type="number" step="0.01" value={cot} onChange={(e) => setCot(e.target.value)} />
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label>Cuenta que paga</Label>
-            <Select value={cuentaId || "none"} onValueChange={(x) => setCuentaId(x === "none" ? "" : x)}>
-              <SelectTrigger><SelectValue placeholder="Sin descontar de banco" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin descontar de banco</SelectItem>
-                {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{c.alias || c.banco}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!sinCaja && (
+            <div className="space-y-1.5">
+              <Label>Cuenta que paga</Label>
+              <Select value={cuentaId || "none"} onValueChange={(x) => setCuentaId(x === "none" ? "" : x)}>
+                <SelectTrigger><SelectValue placeholder="Sin descontar de banco" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin descontar de banco</SelectItem>
+                  {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{c.alias || c.banco}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        <div className="text-sm text-muted-foreground">Se descuenta {formatPesos(enPesos)}.</div>
+        <label className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <Checkbox checked={sinCaja} onCheckedChange={(c) => setSinCaja(c === true)} />
+          <span>
+            <span className="font-medium">Pago diversificado / canje (no mueve el banco)</span>
+            <span className="block text-xs text-muted-foreground">
+              La cuota queda abonada, pero no se descuenta de ninguna cuenta ni del Cash Flow.
+            </span>
+          </span>
+        </label>
+        <div className="text-sm text-muted-foreground">
+          {sinCaja ? `Se salda ${formatPesos(enPesos)} sin tocar el banco.` : `Se descuenta ${formatPesos(enPesos)}.`}
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
