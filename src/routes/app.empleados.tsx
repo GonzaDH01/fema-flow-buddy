@@ -31,6 +31,8 @@ import {
   etiquetaImporte,
 } from "@/components/empleado-ficha";
 import { CarnetsVencimientosTab } from "@/components/empleado-carnets";
+import { LiquidarHectareasDialog } from "@/components/empleados-hectareas";
+
 
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
@@ -106,8 +108,9 @@ function HeaderActions({ tab }: { tab: string }) {
       <Button variant="outline" size="sm" onClick={() => exportEmpleados()}>
         <FileDown className="size-4 mr-1" /> Exportar Excel
       </Button>
-      {tab === "pagos" && <NuevoPagoDialog />}
+      {tab === "pagos" && <><LiquidarHectareasDialog /><NuevoPagoDialog /></>}
       {tab === "historico" && <NuevoPagoDialog />}
+
       {tab === "personal" && <NuevoEmpleadoDialog />}
       {tab === "liquidar" && <NuevaHoraDialog />}
     </div>

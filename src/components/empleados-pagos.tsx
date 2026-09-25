@@ -42,10 +42,12 @@ const TIPOS = [
   { v: "sueldo", label: "Sueldo / Período" },
   { v: "adelanto", label: "Adelanto" },
   { v: "extra", label: "Extra / Bono" },
+  { v: "hectareas", label: "Bono hectáreas" },
 ];
 const TIPO_LABEL: Record<string, string> = {
-  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra",
+  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra", hectareas: "Hectáreas",
 };
+
 
 const PERIODOS = [
   { v: "mes", label: "Mes completo" },
@@ -299,7 +301,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
 
           <div className="space-y-1.5">
             <Label>Tipo de pago</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {TIPOS.map((t) => (
                 <Button
                   key={t.v}
