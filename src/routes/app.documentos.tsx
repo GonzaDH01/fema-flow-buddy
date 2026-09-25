@@ -363,6 +363,7 @@ function FormDoc({
           estado: c.pagada ? "pagada" : "pendiente",
           fecha_pago: c.pagada ? (c.fecha_pago || c.fecha_vencimiento) : null,
           forma_pago: c.pagada ? (c.forma_pago || "Transferencia") : null,
+          sin_caja: !!c.pagada,
         }));
       if (nuevas.length) {
         const { error } = await db.from("fema_doc_compra_cuotas").insert(nuevas);
