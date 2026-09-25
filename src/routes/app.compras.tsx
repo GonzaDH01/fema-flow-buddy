@@ -1218,6 +1218,20 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
           </FormField>
         </div>
 
+        <label className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <Checkbox
+            checked={!!f.watch("sin_caja")}
+            onCheckedChange={(c) => f.setValue("sin_caja", c === true, { shouldDirty: true })}
+          />
+          <span>
+            <span className="font-medium">Pago diversificado / canje (no mueve el banco)</span>
+            <span className="block text-xs text-muted-foreground">
+              Marcalo cuando el pago ya se hizo por fuera de la cuenta (canje, compensación, terceros).
+              Queda como abonado pero no se descuenta del Cash Flow.
+            </span>
+          </span>
+        </label>
+
         <FormField label="Observaciones">
           <Textarea placeholder="Notas adicionales…" rows={2} {...f.register("observaciones")} />
         </FormField>
