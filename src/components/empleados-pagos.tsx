@@ -42,10 +42,12 @@ const TIPOS = [
   { v: "sueldo", label: "Sueldo / Período" },
   { v: "adelanto", label: "Adelanto" },
   { v: "extra", label: "Extra / Bono" },
+  { v: "hectareas", label: "Bono hectáreas" },
 ];
 const TIPO_LABEL: Record<string, string> = {
-  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra",
+  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra", hectareas: "Hectáreas",
 };
+
 
 const PERIODOS = [
   { v: "mes", label: "Mes completo" },
