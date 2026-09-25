@@ -96,6 +96,7 @@ const schema = z.object({
   estado: z.enum(["pendiente", "pagada"]),
   fecha_pago: z.string().optional().or(z.literal("")),
   forma_pago: z.string().optional().or(z.literal("")),
+  sin_caja: z.boolean().default(false),
   observaciones: z.string().max(500).optional().or(z.literal("")),
 });
 type FormVals = z.infer<typeof schema>;
@@ -115,6 +116,7 @@ type Row = {
   total: number; categoria: typeof CATS[number];
   estado: "pendiente" | "pagada";
   fecha_pago: string | null; forma_pago: string | null; observaciones: string | null;
+  sin_caja?: boolean | null;
   imagen_path?: string | null;
   fema_proveedores?: { nombre: string } | null;
 };
