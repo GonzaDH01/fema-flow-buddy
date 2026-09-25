@@ -727,6 +727,7 @@ function PagoDialog({
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
   const [cot, setCot] = useState(dolar ? String(dolar) : "");
   const [guardando, setGuardando] = useState(false);
+  const [sinCaja, setSinCaja] = useState(false);
 
   const enPesos = cuota.moneda === "USD" ? n(cuota.monto) * (n(cot) || dolar) : n(cuota.monto);
 
@@ -734,6 +735,23 @@ function PagoDialog({
     if (enPesos <= 0) return toast.error("Revisá el importe o la cotización.");
     setGuardando(true);
     try {
+      // Pago diversificado: la cuota queda saldada pero no mueve caja ni banco.
+      if (sinCaja) {
+        const { error: eSC } = await db
+          .from("fema_doc_compra_cuotas")
+          .update({
+            estado: "pagada", fecha_pago: fecha, forma_pago: forma,
+            cuenta_id: null, movimiento_pago_id: null, sin_caja: true,
+          })
+          .eq("id", cuota.id);
+        if (eSC) throw eSC;
+        await qc.invalidateQueries({ queryKey: ["fema_doc_compras"] });
+        await qc.invalidateQueries({ queryKey: ["fema_tesoreria"] });
+        await qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+        toast.success("Cuota saldada sin movimiento de caja");
+        onClose();
+        return;
+      }
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       const contraparte = doc.proveedor_nombre || doc.bien_descripcion;
