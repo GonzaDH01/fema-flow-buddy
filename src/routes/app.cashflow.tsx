@@ -36,7 +36,7 @@ async function loadCashflow(userId: string, anio: number) {
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("id,mes,total,estado,numero,categoria,tipo_comprobante,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,numero,categoria,tipo_comprobante,sin_caja,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_pagos_empleado")
       .select("fecha,mes,anio,monto,tipo_pago,empleado:fema_empleados(nombre)")
@@ -66,7 +66,7 @@ async function loadCashflow(userId: string, anio: number) {
       .select("fecha,cuenta_id,tipo,monto,concepto,saldo_resultante,cuenta:fema_cuentas_bancarias(banco,alias)")
       .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_doc_compra_cuotas" as any)
-      .select("numero_cuota,fecha_vencimiento,monto,moneda,estado,doc:fema_doc_compras(bien_descripcion,proveedor_nombre,tipo_documento,cantidad_cuotas)")
+      .select("numero_cuota,fecha_vencimiento,monto,moneda,estado,sin_caja,doc:fema_doc_compras(bien_descripcion,proveedor_nombre,tipo_documento,cantidad_cuotas)")
       .gte("fecha_vencimiento", `${anio}-01-01`).lte("fecha_vencimiento", `${anio}-12-31`),
     supabase.from("fema_productos").select("nombre,categoria,precio,precio_venta,precio_compra,moneda"),
   ]);
@@ -261,6 +261,8 @@ async function loadCashflow(userId: string, anio: number) {
     if (c.categoria === "Franco_Particular") continue;
     // Notas de crédito/débito: informativas, no mueven caja.
     if (esComprobanteInformativo(c.tipo_comprobante)) continue;
+    // Pago diversificado / canje: se saldó sin salida de banco.
+    if (c.sin_caja) continue;
     const linked = movsByFC.get(c.id) ?? [];
     const total = Number(c.total);
     const facturaMes = Number(c.mes);
