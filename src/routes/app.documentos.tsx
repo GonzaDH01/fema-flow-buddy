@@ -837,18 +837,31 @@ function PagoDialog({
               <Input type="number" step="0.01" value={cot} onChange={(e) => setCot(e.target.value)} />
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label>Cuenta que paga</Label>
-            <Select value={cuentaId || "none"} onValueChange={(x) => setCuentaId(x === "none" ? "" : x)}>
-              <SelectTrigger><SelectValue placeholder="Sin descontar de banco" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin descontar de banco</SelectItem>
-                {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{c.alias || c.banco}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!sinCaja && (
+            <div className="space-y-1.5">
+              <Label>Cuenta que paga</Label>
+              <Select value={cuentaId || "none"} onValueChange={(x) => setCuentaId(x === "none" ? "" : x)}>
+                <SelectTrigger><SelectValue placeholder="Sin descontar de banco" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin descontar de banco</SelectItem>
+                  {cuentas.map((c) => <SelectItem key={c.id} value={c.id}>{c.alias || c.banco}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        <div className="text-sm text-muted-foreground">Se descuenta {formatPesos(enPesos)}.</div>
+        <label className="flex items-start gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
+          <Checkbox checked={sinCaja} onCheckedChange={(c) => setSinCaja(c === true)} />
+          <span>
+            <span className="font-medium">Pago diversificado / canje (no mueve el banco)</span>
+            <span className="block text-xs text-muted-foreground">
+              La cuota queda abonada, pero no se descuenta de ninguna cuenta ni del Cash Flow.
+            </span>
+          </span>
+        </label>
+        <div className="text-sm text-muted-foreground">
+          {sinCaja ? `Se salda ${formatPesos(enPesos)} sin tocar el banco.` : `Se descuenta ${formatPesos(enPesos)}.`}
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
