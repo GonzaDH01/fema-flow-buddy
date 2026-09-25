@@ -31,6 +31,8 @@ import {
   etiquetaImporte,
 } from "@/components/empleado-ficha";
 import { CarnetsVencimientosTab } from "@/components/empleado-carnets";
+import { LiquidarHectareasDialog } from "@/components/empleados-hectareas";
+
 
 
 export const Route = createFileRoute("/app/empleados")({ component: Page });
