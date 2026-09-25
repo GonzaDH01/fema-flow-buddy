@@ -394,6 +394,8 @@ async function loadCashflow(userId: string, anio: number) {
   for (const q of (cuotasDoc.data ?? []) as any[]) {
     const mes = Number((q.fecha_vencimiento ?? "").slice(5, 7));
     if (mes < 1 || mes > 12) continue;
+    // Cuota saldada por fuera del banco (canje, compensación, pago diversificado).
+    if (q.sin_caja) continue;
     const bien = q.doc?.bien_descripcion ?? "Documento de compra";
     const acreedor = q.doc?.proveedor_nombre ?? "";
     const key = `${bien}||${acreedor}`;
