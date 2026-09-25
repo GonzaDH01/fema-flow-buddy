@@ -96,7 +96,7 @@ const schema = z.object({
   estado: z.enum(["pendiente", "pagada"]),
   fecha_pago: z.string().optional().or(z.literal("")),
   forma_pago: z.string().optional().or(z.literal("")),
-  sin_caja: z.boolean(),
+  sin_caja: z.boolean().optional(),
   observaciones: z.string().max(500).optional().or(z.literal("")),
 });
 type FormVals = z.infer<typeof schema>;
