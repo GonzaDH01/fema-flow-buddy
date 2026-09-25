@@ -1223,6 +1223,7 @@ export type Database = {
           titular_cuenta: string | null
           updated_at: string
           user_id: string
+          valor_hectarea: number
           valor_hora: number | null
         }
         Insert: {
@@ -1258,6 +1259,7 @@ export type Database = {
           titular_cuenta?: string | null
           updated_at?: string
           user_id: string
+          valor_hectarea?: number
           valor_hora?: number | null
         }
         Update: {
@@ -1293,6 +1295,7 @@ export type Database = {
           titular_cuenta?: string | null
           updated_at?: string
           user_id?: string
+          valor_hectarea?: number
           valor_hora?: number | null
         }
         Relationships: []
@@ -1858,6 +1861,77 @@ export type Database = {
             columns: ["movimiento_pago_id"]
             isOneToOne: false
             referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_liquidacion_ha: {
+        Row: {
+          created_at: string
+          detalle: string | null
+          empleado_id: string | null
+          factura_venta_id: string | null
+          hectareas: number
+          id: string
+          importe: number
+          pago_id: string
+          updated_at: string
+          user_id: string
+          valor_ha: number
+        }
+        Insert: {
+          created_at?: string
+          detalle?: string | null
+          empleado_id?: string | null
+          factura_venta_id?: string | null
+          hectareas?: number
+          id?: string
+          importe?: number
+          pago_id: string
+          updated_at?: string
+          user_id: string
+          valor_ha?: number
+        }
+        Update: {
+          created_at?: string
+          detalle?: string | null
+          empleado_id?: string | null
+          factura_venta_id?: string | null
+          hectareas?: number
+          id?: string
+          importe?: number
+          pago_id?: string
+          updated_at?: string
+          user_id?: string
+          valor_ha?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_liquidacion_ha_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_liquidacion_ha_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_venta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_liquidacion_ha_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_venta"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_liquidacion_ha_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_pagos_empleado"
             referencedColumns: ["id"]
           },
         ]
