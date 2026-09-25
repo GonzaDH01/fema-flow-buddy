@@ -306,6 +306,7 @@ function Page() {
       fecha_pago: v.fecha_pago || null,
       forma_pago: v.forma_pago || null,
       observaciones: v.observaciones || null,
+      sin_caja: !!v.sin_caja,
       ...(imagen_path !== undefined ? { imagen_path } : {}),
     };
 
@@ -930,6 +931,7 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
       fecha_pago: initial?.fecha_pago ?? "",
       forma_pago: initial?.forma_pago ?? "Transferencia",
       observaciones: initial?.observaciones ?? "",
+      sin_caja: !!initial?.sin_caja,
     },
   });
 
