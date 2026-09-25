@@ -26,60 +26,96 @@ const CANT_BOLSAS = 7;
 const MAX_VIAJES = 30;
 
 /** Reduce la foto de la planilla a un tamaño que el lector pueda procesar (máx ~2200px, JPEG). */
-async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+/** Achica la foto mientras se decodifica: usa muy poca memoria en celulares. */
+async function decodificarAchicado(file: File, max: number): Promise<ImageBitmap | HTMLImageElement> {
+  try {
+    const previo = await createImageBitmap(file, { imageOrientation: "from-image" } as any);
+    const mayor = Math.max(previo.width, previo.height);
+    if (mayor <= max) return previo;
+    const escala = max / mayor;
+    const chico = await createImageBitmap(previo, {
+      imageOrientation: "from-image",
+      resizeWidth: Math.round(previo.width * escala),
+      resizeHeight: Math.round(previo.height * escala),
+      resizeQuality: "high",
+    } as any);
+    previo.close?.();
+    return chico;
+  } catch {
+    const url = URL.createObjectURL(file);
+    try {
+      return await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => { URL.revokeObjectURL(url); resolve(el); };
+        el.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo abrir la imagen")); };
+        el.src = url;
+      });
+    } catch (e) {
+      URL.revokeObjectURL(url);
+      throw e;
+    }
+  }
+}
+
+function cerrar(img: ImageBitmap | HTMLImageElement) {
+  (img as ImageBitmap).close?.();
+}
+
+async function blobABase64(blob: Blob): Promise<string> {
   const dataUrl: string = await new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("No se pudo leer el archivo"));
-    r.readAsDataURL(file);
+    r.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    r.readAsDataURL(blob);
   });
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error("No se pudo abrir la imagen"));
-    el.src = dataUrl;
-  });
-  const MAX = 2200;
-  const escala = Math.min(1, MAX / Math.max(img.width, img.height));
+  return dataUrl.split(",")[1] ?? "";
+}
+
+async function comprimirParaOcr(file: File): Promise<{ base64: string; mimeType: "image/jpeg" }> {
+  const MAX = 1800;
+  const img = await decodificarAchicado(file, MAX);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * escala);
-  canvas.height = Math.round(img.height * escala);
+  canvas.width = img.width;
+  canvas.height = img.height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("No se pudo procesar la imagen");
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  let calidad = 0.85;
-  let base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
-  while (base64.length > 3_800_000 && calidad > 0.35) {
+  if (!ctx) { cerrar(img); throw new Error("No se pudo procesar la imagen"); }
+  ctx.drawImage(img as CanvasImageSource, 0, 0, canvas.width, canvas.height);
+  cerrar(img);
+  let calidad = 0.8;
+  let blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", calidad));
+  while (blob && blob.size > 2_600_000 && calidad > 0.35) {
     calidad -= 0.15;
-    base64 = canvas.toDataURL("image/jpeg", calidad).split(",")[1] ?? "";
+    blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", calidad));
   }
-  return { base64, mimeType: "image/jpeg" };
+  canvas.width = 0;
+  canvas.height = 0;
+  if (!blob) throw new Error("No se pudo procesar la imagen");
+  return { base64: await blobABase64(blob), mimeType: "image/jpeg" };
 }
 
 /** Endereza la foto (respeta la orientación de la cámara) y la deja siempre horizontal. */
 async function normalizarHorizontal(file: File): Promise<File> {
   try {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as any);
-    const vertical = bitmap.height > bitmap.width;
-    const MAX = 2400;
-    const w = vertical ? bitmap.height : bitmap.width;
-    const h = vertical ? bitmap.width : bitmap.height;
-    const escala = Math.min(1, MAX / Math.max(w, h));
+    const MAX = 2000;
+    const img = await decodificarAchicado(file, MAX);
+    const vertical = img.height > img.width;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(w * escala);
-    canvas.height = Math.round(h * escala);
+    canvas.width = vertical ? img.height : img.width;
+    canvas.height = vertical ? img.width : img.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
+    if (!ctx) { cerrar(img); return file; }
     if (vertical) {
       // Giro 90° en sentido horario para que la planilla quede apaisada.
       ctx.translate(canvas.width, 0);
       ctx.rotate(Math.PI / 2);
-      ctx.drawImage(bitmap, 0, 0, canvas.height, canvas.width);
+      ctx.drawImage(img as CanvasImageSource, 0, 0, canvas.height, canvas.width);
     } else {
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img as CanvasImageSource, 0, 0, canvas.width, canvas.height);
     }
-    bitmap.close?.();
-    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
+    cerrar(img);
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+    canvas.width = 0;
+    canvas.height = 0;
     if (!blob) return file;
     const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
     return new File([blob], nombre, { type: "image/jpeg" });
