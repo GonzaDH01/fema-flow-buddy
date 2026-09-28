@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { usePrestamos, usePrestamoMovs, invalidarPrestamos } from "@/components/empleados-prestamos";
 
 export type PagoEmpleado = {
   id: string; empleado_id: string | null; fecha: string;
@@ -211,11 +212,28 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     empleado_id: "", tipo: "sueldo", fecha: hoyIso,
     mes: String(hoy.getMonth() + 1), anio: String(hoy.getFullYear()), tramo: "mes",
     monto: "", detalle: "", forma_pago: "Transferencia",
-    factura_id: "none",
+    factura_id: "none", descontar: "",
   });
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
   const { data: empleados } = useEmpleadosMin();
   const { data: facturas } = useFacturasCompraAsociar();
+  const { data: prestamos } = usePrestamos();
+  const { data: prestamoMovs } = usePrestamoMovs();
+
+  // Deuda pendiente del empleado (compras a cuenta / préstamos) para descontar del pago.
+  const prestamosEmp = useMemo(() => {
+    const devuelto: Record<string, number> = {};
+    for (const m of prestamoMovs ?? []) devuelto[m.prestamo_id] = (devuelto[m.prestamo_id] ?? 0) + Number(m.monto ?? 0);
+    return (prestamos ?? [])
+      .filter((p) => p.empleado_id === v.empleado_id)
+      .map((p) => ({ p, saldo: Number(p.monto ?? 0) - (devuelto[p.id] ?? 0) }))
+      .filter((x) => x.saldo > 0.01)
+      .sort((a, b) => a.p.fecha.localeCompare(b.p.fecha));
+  }, [prestamos, prestamoMovs, v.empleado_id]);
+  const deudaTotal = prestamosEmp.reduce((a, x) => a + x.saldo, 0);
+  const cuotaSugerida = prestamosEmp.length
+    ? Math.min(prestamosEmp[0].saldo, Number(prestamosEmp[0].p.valor_cuota || prestamosEmp[0].saldo))
+    : 0;
 
   const emp = (empleados ?? []).find((e) => e.id === v.empleado_id);
   const facturasEmp = useMemo(
@@ -256,10 +274,31 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
       anio: d.getFullYear(),
       mes: d.getMonth() + 1,
     };
-    const { error } = pago
-      ? await supabase.from("fema_pagos_empleado").update(payload).eq("id", pago.id)
-      : await supabase.from("fema_pagos_empleado").insert({ ...payload, user_id: user!.id, horas: 0, estado: "pagado" });
+    const res = pago
+      ? await supabase.from("fema_pagos_empleado").update(payload).eq("id", pago.id).select("id").maybeSingle()
+      : await supabase.from("fema_pagos_empleado").insert({ ...payload, user_id: user!.id, horas: 0, estado: "pagado" }).select("id").maybeSingle();
+    const error = res.error;
     if (error) return toast.error(error.message);
+    const pagoId = res.data?.id ?? pago?.id ?? null;
+
+    // Descuento de cuota de préstamo: se imputa a las deudas más antiguas.
+    let restante = Number(v.descontar || 0);
+    if (restante > 0) {
+      for (const { p, saldo } of prestamosEmp) {
+        if (restante <= 0.01) break;
+        const aplicar = Math.min(restante, saldo);
+        await supabase.from("fema_empleado_prestamo_mov").insert({
+          user_id: user!.id, prestamo_id: p.id, empleado_id: v.empleado_id,
+          fecha: v.fecha, monto: aplicar, tipo: "descuento", pago_id: pagoId,
+          observaciones: "Descontado de la liquidación",
+        });
+        if (aplicar >= saldo - 0.01) {
+          await supabase.from("fema_empleado_prestamos").update({ estado: "cancelado" }).eq("id", p.id);
+        }
+        restante -= aplicar;
+      }
+      invalidarPrestamos(qc);
+    }
     if (v.factura_id !== "none") {
       await supabase.from("fema_facturas_compra").update({ empleado_id: v.empleado_id }).eq("id", v.factura_id);
       await marcarFacturaAbonada(v.factura_id, v.fecha, v.forma_pago, emp?.nombre ?? null);
@@ -267,7 +306,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     toast.success(pago ? "Pago actualizado" : `${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
     invalidarPagos(qc);
     setOpen(false);
-    if (!pago) setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none" }));
+    if (!pago) setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none", descontar: "" }));
   };
 
   return (
@@ -383,6 +422,30 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
               </Select>
             </div>
           </div>
+
+          {deudaTotal > 0.01 && (
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="text-sm">
+                Este empleado debe <b>{formatPesos(deudaTotal)}</b> a la empresa.
+              </p>
+              <div className="flex items-end gap-2">
+                <div className="space-y-1.5 flex-1">
+                  <Label>Descontar de este pago ($)</Label>
+                  <Input type="number" step="0.01" value={v.descontar} placeholder="0,00"
+                    onChange={(e) => set("descontar", e.target.value)} />
+                </div>
+                <Button type="button" variant="outline" className="h-9"
+                  onClick={() => set("descontar", String(cuotaSugerida))}>
+                  Cuota {formatPesos(cuotaSugerida)}
+                </Button>
+              </div>
+              {Number(v.descontar || 0) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Neto a entregar: <b>{formatPesos(Number(v.monto || 0) - Number(v.descontar || 0))}</b>
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Detalle (opcional)</Label>
