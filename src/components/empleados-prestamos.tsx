@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, HandCoins, Wallet, ChevronDown, ChevronRight } from "lucide-react";
@@ -486,8 +486,8 @@ export function PrestamosEmpleadoTab() {
               const detalleMovs = movsPorPrestamo[p.id] ?? [];
               const open = !!abierto[p.id];
               return (
-                <>
-                  <TableRow key={p.id}>
+                <Fragment key={p.id}>
+                  <TableRow>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="size-7"
                         onClick={() => setAbierto((s) => ({ ...s, [p.id]: !s[p.id] }))}>
@@ -521,7 +521,7 @@ export function PrestamosEmpleadoTab() {
                     </TableCell>
                   </TableRow>
                   {open && (
-                    <TableRow key={p.id + "-det"}>
+                    <TableRow>
                       <TableCell />
                       <TableCell colSpan={7}>
                         {p.detalle && <p className="text-sm text-muted-foreground mb-2">{p.detalle}</p>}
@@ -546,7 +546,7 @@ export function PrestamosEmpleadoTab() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>
