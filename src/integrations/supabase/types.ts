@@ -1192,6 +1192,159 @@ export type Database = {
           },
         ]
       }
+      fema_empleado_prestamo_mov: {
+        Row: {
+          created_at: string
+          cuenta_id: string | null
+          empleado_id: string
+          fecha: string
+          id: string
+          monto: number
+          observaciones: string | null
+          pago_id: string | null
+          prestamo_id: string
+          tipo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          cuenta_id?: string | null
+          empleado_id: string
+          fecha?: string
+          id?: string
+          monto?: number
+          observaciones?: string | null
+          pago_id?: string | null
+          prestamo_id: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          cuenta_id?: string | null
+          empleado_id?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          observaciones?: string | null
+          pago_id?: string | null
+          prestamo_id?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_empleado_prestamo_mov_cuenta_id_fkey"
+            columns: ["cuenta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_empleado_prestamo_mov_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_empleado_prestamo_mov_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_pagos_empleado"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_empleado_prestamo_mov_prestamo_id_fkey"
+            columns: ["prestamo_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleado_prestamos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fema_empleado_prestamos: {
+        Row: {
+          anio: number | null
+          concepto: string
+          created_at: string
+          cuotas: number
+          detalle: string | null
+          empleado_id: string
+          estado: string
+          factura_compra_id: string | null
+          fecha: string
+          id: string
+          mes: number | null
+          monto: number
+          observaciones: string | null
+          updated_at: string
+          user_id: string | null
+          valor_cuota: number
+        }
+        Insert: {
+          anio?: number | null
+          concepto: string
+          created_at?: string
+          cuotas?: number
+          detalle?: string | null
+          empleado_id: string
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number | null
+          monto?: number
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_cuota?: number
+        }
+        Update: {
+          anio?: number | null
+          concepto?: string
+          created_at?: string
+          cuotas?: number
+          detalle?: string | null
+          empleado_id?: string
+          estado?: string
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          mes?: number | null
+          monto?: number
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string | null
+          valor_cuota?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_empleado_prestamos_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_empleado_prestamos_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_empleado_prestamos_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+        ]
+      }
       fema_empleados: {
         Row: {
           activo: boolean | null

@@ -22,6 +22,7 @@ import { CampanaTab } from "@/components/empleados-campana";
 import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { CuponesPagoTab } from "@/components/empleados-cupones";
 import { LiquidadorTab } from "@/components/empleados-liquidador";
+import { PrestamosEmpleadoTab } from "@/components/empleados-prestamos";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
@@ -74,6 +75,7 @@ function Page() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="pagos">Pagos y sueldos</TabsTrigger>
           <TabsTrigger value="liquidar">Liquidador</TabsTrigger>
+          <TabsTrigger value="ctacte">Cta. Cte. / Préstamos</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
@@ -85,6 +87,7 @@ function Page() {
           <SemanasTrabajadasTab />
           <HorasTab />
         </TabsContent>
+        <TabsContent value="ctacte"><PrestamosEmpleadoTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
         <TabsContent value="reporte" className="space-y-4">
