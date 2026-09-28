@@ -207,7 +207,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     anio: (pago.periodo_desde ?? pago.fecha).slice(0, 4),
     tramo: detectarTramo(pago.periodo_desde, pago.periodo_hasta),
     monto: String(pago.monto ?? ""), detalle: pago.tareas ?? "", forma_pago: pago.forma_pago ?? "Transferencia",
-    factura_id: pago.factura_compra_id ?? "none",
+    factura_id: pago.factura_compra_id ?? "none", descontar: "",
   } : {
     empleado_id: "", tipo: "sueldo", fecha: hoyIso,
     mes: String(hoy.getMonth() + 1), anio: String(hoy.getFullYear()), tramo: "mes",
