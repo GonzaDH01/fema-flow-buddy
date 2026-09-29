@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tabs as OuterTabs, TabsList as OuterTabsList, TabsTrigger as OuterTabsTrigger, TabsContent as OuterTabsContent } from "@/components/ui/tabs";
 import { GastosFijos } from "@/components/gastos-fijos";
+import { PagoCompraDialog } from "@/components/pago-compra";
 import { ControlMes } from "@/components/control-mes";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -135,6 +136,7 @@ function Page() {
   const [filtroProv, setFiltroProv] = useState<string>("__all");
   const [filtroCat, setFiltroCat] = useState<string>("__all");
   const [reciboRow, setReciboRow] = useState<Row | null>(null);
+  const [pagoRow, setPagoRow] = useState<Row | null>(null);
   const [imgRow, setImgRow] = useState<Row | null>(null);
 
   // Maquinarias / rodados del inventario: una compra puede afectar a varios bienes.
@@ -578,6 +580,12 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      {!esInfo(r) && (
+                        <Button variant="outline" size="sm" className="border-emerald-500/40 text-emerald-500"
+                          onClick={() => setPagoRow(r)}>
+                          <Banknote className="h-3 w-3" /> Pago
+                        </Button>
+                      )}
                       {!esInfo(r) && (r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
@@ -634,6 +642,19 @@ function Page() {
           />
         )}
       </Dialog>
+
+      {pagoRow && (
+        <PagoCompraDialog
+          factura={{
+            id: pagoRow.id,
+            numero: pagoRow.numero,
+            total: Number(pagoRow.total),
+            fecha: pagoRow.fecha,
+            proveedor: pagoRow.fema_proveedores?.nombre ?? (pagoRow.proveedor_id ? provsMap[pagoRow.proveedor_id] ?? "—" : "—"),
+          }}
+          onClose={() => setPagoRow(null)}
+        />
+      )}
 
       <Dialog open={!!imgRow} onOpenChange={(v) => { if (!v) setImgRow(null); }}>
         {imgRow && <ImagenFacturaDialog row={imgRow} />}
