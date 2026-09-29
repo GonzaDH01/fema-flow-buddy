@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, Fuel, Receipt, Image as ImageIcon, Loader2, Paperclip, Tractor, X, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tabs as OuterTabs, TabsList as OuterTabsList, TabsTrigger as OuterTabsTrigger, TabsContent as OuterTabsContent } from "@/components/ui/tabs";
 import { GastosFijos } from "@/components/gastos-fijos";
+import { PagoCompraDialog } from "@/components/pago-compra";
 import { ControlMes } from "@/components/control-mes";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -135,6 +136,7 @@ function Page() {
   const [filtroProv, setFiltroProv] = useState<string>("__all");
   const [filtroCat, setFiltroCat] = useState<string>("__all");
   const [reciboRow, setReciboRow] = useState<Row | null>(null);
+  const [pagoRow, setPagoRow] = useState<Row | null>(null);
   const [imgRow, setImgRow] = useState<Row | null>(null);
 
   // Maquinarias / rodados del inventario: una compra puede afectar a varios bienes.
