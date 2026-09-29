@@ -16,6 +16,8 @@ type Row = {
   sub?: string;
   badge?: string;
   cat?: string;
+  /** Proveedor / cliente / responsable para consolidar varios comprobantes. */
+  ent?: string;
   values: number[];
   sign: "+" | "-";
   tooltips?: (string | undefined)[];
