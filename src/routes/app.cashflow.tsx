@@ -246,6 +246,7 @@ async function loadCashflow(userId: string, anio: number) {
     }
     const r: Row = {
       label: v.cliente?.nombre ?? "Sin cliente",
+      ent: v.cliente?.nombre ?? "Sin cliente",
       sub,
       badge: planBadge(linked, v.condicion_pago, total) ?? undefined,
       cat: "Facturas de venta",
