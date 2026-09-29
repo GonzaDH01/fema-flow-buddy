@@ -618,10 +618,11 @@ function cell(n: number) {
   return n === 0 ? <span className="text-muted-foreground/50">—</span> : formatPesos(n);
 }
 
-/** Sección colapsable, agrupada por categoría con subtotales desplegables. */
+/** Sección colapsable: categoría ➔ proveedor/cliente consolidado ➔ comprobantes. */
 function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }) {
   const [open, setOpen] = useState(true);
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  const [entesAbiertos, setEntesAbiertos] = useState<Record<string, boolean>>({});
 
   const grupos = useMemo(() => {
     const map = new Map<string, Row[]>();
@@ -631,12 +632,29 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
       map.get(k)!.push(r);
     }
     return Array.from(map.entries())
-      .map(([cat, rs]) => ({
-        cat,
-        rows: rs,
-        values: empty12().map((_, i) => sum(rs.map((r) => r.values[i]))),
-        sign: rs[0]?.sign ?? "+",
-      }))
+      .map(([cat, rs]) => {
+        const entMap = new Map<string, Row[]>();
+        for (const r of rs) {
+          const k = r.ent ?? r.label;
+          if (!entMap.has(k)) entMap.set(k, []);
+          entMap.get(k)!.push(r);
+        }
+        const entes = Array.from(entMap.entries())
+          .map(([ent, ers]) => ({
+            ent,
+            rows: ers,
+            values: empty12().map((_, i) => sum(ers.map((r) => r.values[i]))),
+            sign: ers[0]?.sign ?? ("+" as "+" | "-"),
+          }))
+          .sort((a, b) => sum(b.values) - sum(a.values));
+        return {
+          cat,
+          rows: rs,
+          entes,
+          values: empty12().map((_, i) => sum(rs.map((r) => r.values[i]))),
+          sign: rs[0]?.sign ?? ("+" as "+" | "-"),
+        };
+      })
       .sort((a, b) => sum(b.values) - sum(a.values));
   }, [rows]);
 
