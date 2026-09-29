@@ -2632,6 +2632,101 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
       )}
 
       </div>
+
+      {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
+        <aside className="shrink-0 space-y-3 overflow-y-auto border-t bg-muted/20 px-4 py-3 lg:w-[310px] lg:border-l lg:border-t-0 lg:px-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Resumen en vivo
+          </div>
+
+          <div className="space-y-1.5 rounded-md border bg-background p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">
+                {tipo === "cobro_cliente" ? "Total a cobrar" : "Total facturas"}
+              </span>
+              <span className="font-mono">{formatPesos(multiActivo ? totalMulti : Number(facturaActual?.total ?? 0))}</span>
+            </div>
+            {ajusteNotas !== 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Notas de crédito / débito</span>
+                <span className={`font-mono ${ajusteNotas < 0 ? "text-amber-400" : "text-rose-400"}`}>
+                  {ajusteNotas < 0 ? "−" : "+"}{formatPesos(Math.abs(ajusteNotas))}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t pt-1.5 text-sm">
+              <span className="font-semibold">A cancelar</span>
+              <span className="font-mono font-semibold text-emerald-400">{formatPesos(totalFactura)}</span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 rounded-md border bg-background p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Instrumentos cargados</span>
+              <span className="font-mono">{formatPesos(totalCargado)}</span>
+            </div>
+            {totalCedidos > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Echeqs cedidos</span>
+                <span className="font-mono text-amber-400">{formatPesos(totalCedidos)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t pt-1.5 text-sm">
+              <span className="font-semibold">Total cargado</span>
+              <span className="font-mono font-semibold">{formatPesos(totalCombinado)}</span>
+            </div>
+          </div>
+
+          <div
+            className={`rounded-md border p-3 text-center text-xs ${
+              totalFactura <= 0
+                ? "border-border bg-muted/40 text-muted-foreground"
+                : Math.abs(diferencia) <= 0.5
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : diferencia > 0
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                    : "border-rose-500/40 bg-rose-500/10 text-rose-400"
+            }`}
+          >
+            {totalFactura <= 0 ? (
+              <span>Elegí un comprobante para ver el balance</span>
+            ) : Math.abs(diferencia) <= 0.5 ? (
+              <span className="font-semibold">Balanceado ✓</span>
+            ) : diferencia > 0 ? (
+              <>
+                <div className="font-semibold">Faltan {formatPesos(diferencia)}</div>
+                <div className="text-[11px] opacity-80">Quedará como pago parcial</div>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold">Excede {formatPesos(-diferencia)}</div>
+                <div className="text-[11px] opacity-80">Se registrará como saldo a cuenta o ajuste</div>
+              </>
+            )}
+          </div>
+
+          {(cuentasSaldos ?? []).length > 0 && (
+            <div className="space-y-1 rounded-md border bg-background p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Saldos disponibles
+              </div>
+              {(cuentasSaldos ?? []).map((c: any) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate text-muted-foreground">{c.banco}{c.alias ? ` · ${c.alias}` : ""}</span>
+                  <span className={`font-mono ${Number(c.saldo || 0) < 0 ? "text-rose-400" : ""}`}>
+                    {formatPesos(Number(c.saldo || 0))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button className="w-full" onClick={guardar} disabled={saving}>
+            {saving ? "Guardando..." : tipo === "pago_proveedor" ? "Confirmar pago" : "Confirmar cobro"}
+          </Button>
+        </aside>
+      )}
+      </div>
       <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
