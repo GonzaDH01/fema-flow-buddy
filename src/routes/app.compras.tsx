@@ -643,6 +643,19 @@ function Page() {
         )}
       </Dialog>
 
+      {pagoRow && (
+        <PagoCompraDialog
+          factura={{
+            id: pagoRow.id,
+            numero: pagoRow.numero,
+            total: Number(pagoRow.total),
+            fecha: pagoRow.fecha,
+            proveedor: pagoRow.fema_proveedores?.nombre ?? (pagoRow.proveedor_id ? provsMap[pagoRow.proveedor_id] ?? "—" : "—"),
+          }}
+          onClose={() => setPagoRow(null)}
+        />
+      )}
+
       <Dialog open={!!imgRow} onOpenChange={(v) => { if (!v) setImgRow(null); }}>
         {imgRow && <ImagenFacturaDialog row={imgRow} />}
       </Dialog>
