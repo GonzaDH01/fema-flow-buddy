@@ -41,7 +41,7 @@ function useAlertas() {
       const hoy = hoyISO();
       const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf, docCuotas] = await Promise.all([
         supabase.from("fema_movimientos_pago")
-          .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
+          .select("id,instrumento,numero,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
         supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,imagen_path,tipo_comprobante,categoria"),
