@@ -287,6 +287,7 @@ async function loadCashflow(userId: string, anio: number) {
     }
     const r: Row = {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
+      ent: c.proveedor?.nombre ?? "Sin proveedor",
       sub,
       badge: planBadge(linked, null, total) ?? undefined,
       cat: c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
