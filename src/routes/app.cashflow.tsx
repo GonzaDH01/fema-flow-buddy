@@ -317,6 +317,7 @@ async function loadCashflow(userId: string, anio: number) {
     if (total === 0) continue;
     egPendientes.push({
       label: `AFIP · ${i.periodo ?? ""}`,
+      ent: "AFIP",
       sub: "Impuestos",
       badge: "Impuesto",
       cat: "Impuestos",
