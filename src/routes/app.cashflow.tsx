@@ -16,6 +16,8 @@ type Row = {
   sub?: string;
   badge?: string;
   cat?: string;
+  /** Proveedor / cliente / responsable para consolidar varios comprobantes. */
+  ent?: string;
   values: number[];
   sign: "+" | "-";
   tooltips?: (string | undefined)[];
@@ -244,6 +246,7 @@ async function loadCashflow(userId: string, anio: number) {
     }
     const r: Row = {
       label: v.cliente?.nombre ?? "Sin cliente",
+      ent: v.cliente?.nombre ?? "Sin cliente",
       sub,
       badge: planBadge(linked, v.condicion_pago, total) ?? undefined,
       cat: "Facturas de venta",
@@ -284,6 +287,7 @@ async function loadCashflow(userId: string, anio: number) {
     }
     const r: Row = {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
+      ent: c.proveedor?.nombre ?? "Sin proveedor",
       sub,
       badge: planBadge(linked, null, total) ?? undefined,
       cat: c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
@@ -300,6 +304,7 @@ async function loadCashflow(userId: string, anio: number) {
     const total = Number(s.monto ?? 0);
     egPagados.push({
       label: `${s.empleado?.nombre ?? "Empleado"} · ${TIPO_PAGO_LABEL[s.tipo_pago] ?? "Sueldo"}`,
+      ent: s.empleado?.nombre ?? "Empleado",
       cat: "Sueldos",
       values: placeAt(mes, total),
       sign: "-",
@@ -312,6 +317,7 @@ async function loadCashflow(userId: string, anio: number) {
     if (total === 0) continue;
     egPendientes.push({
       label: `AFIP · ${i.periodo ?? ""}`,
+      ent: "AFIP",
       sub: "Impuestos",
       badge: "Impuesto",
       cat: "Impuestos",
@@ -612,10 +618,11 @@ function cell(n: number) {
   return n === 0 ? <span className="text-muted-foreground/50">—</span> : formatPesos(n);
 }
 
-/** Sección colapsable, agrupada por categoría con subtotales desplegables. */
+/** Sección colapsable: categoría ➔ proveedor/cliente consolidado ➔ comprobantes. */
 function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }) {
   const [open, setOpen] = useState(true);
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  const [entesAbiertos, setEntesAbiertos] = useState<Record<string, boolean>>({});
 
   const grupos = useMemo(() => {
     const map = new Map<string, Row[]>();
@@ -625,12 +632,29 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
       map.get(k)!.push(r);
     }
     return Array.from(map.entries())
-      .map(([cat, rs]) => ({
-        cat,
-        rows: rs,
-        values: empty12().map((_, i) => sum(rs.map((r) => r.values[i]))),
-        sign: rs[0]?.sign ?? "+",
-      }))
+      .map(([cat, rs]) => {
+        const entMap = new Map<string, Row[]>();
+        for (const r of rs) {
+          const k = r.ent ?? r.label;
+          if (!entMap.has(k)) entMap.set(k, []);
+          entMap.get(k)!.push(r);
+        }
+        const entes = Array.from(entMap.entries())
+          .map(([ent, ers]) => ({
+            ent,
+            rows: ers,
+            values: empty12().map((_, i) => sum(ers.map((r) => r.values[i]))),
+            sign: ers[0]?.sign ?? ("+" as "+" | "-"),
+          }))
+          .sort((a, b) => sum(b.values) - sum(a.values));
+        return {
+          cat,
+          rows: rs,
+          entes,
+          values: empty12().map((_, i) => sum(rs.map((r) => r.values[i]))),
+          sign: rs[0]?.sign ?? ("+" as "+" | "-"),
+        };
+      })
       .sort((a, b) => sum(b.values) - sum(a.values));
   }, [rows]);
 
@@ -682,7 +706,44 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
                   ))}
                   <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>{cell(sum(g.values))}</td>
                 </tr>
-                {abierta ? g.rows.map((r, i) => <DataRow key={`${id}-${g.cat}-${i}`} row={r} />) : null}
+                {abierta
+                  ? g.entes.map((e) => {
+                      const eKey = `${id}-${g.cat}-${e.ent}`;
+                      if (e.rows.length === 1) {
+                        return <DataRow key={eKey} row={e.rows[0]} indent />;
+                      }
+                      const eAbierto = !!entesAbiertos[eKey];
+                      return (
+                        <Fragment key={eKey}>
+                          <tr
+                            className="no-stripe cursor-pointer border-t border-border/40 hover:bg-muted/20"
+                            onClick={() => setEntesAbiertos((s) => ({ ...s, [eKey]: !s[eKey] }))}
+                          >
+                            <td className="sticky left-0 z-10 bg-card py-1.5 pl-7 pr-3">
+                              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                                {eAbierto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                {e.ent}
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({e.rows.length} comprobantes)
+                                </span>
+                              </span>
+                            </td>
+                            {e.values.map((v, i) => (
+                              <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${v === 0 ? "" : color}`}>
+                                {cell(v)}
+                              </td>
+                            ))}
+                            <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>
+                              {cell(sum(e.values))}
+                            </td>
+                          </tr>
+                          {eAbierto
+                            ? e.rows.map((r, i) => <DataRow key={`${eKey}-${i}`} row={r} indent detalle />)
+                            : null}
+                        </Fragment>
+                      );
+                    })
+                  : null}
               </Fragment>
             );
           })
@@ -699,13 +760,13 @@ function EmptyRow() {
   );
 }
 
-function DataRow({ row }: { row: Row }) {
+function DataRow({ row, indent, detalle }: { row: Row; indent?: boolean; detalle?: boolean }) {
   const color = row.sign === "+" ? "text-primary" : "text-destructive";
   const total = sum(row.values);
   return (
     <tr className="border-t border-border/40 hover:bg-muted/20">
-      <td className="sticky left-0 z-10 bg-card px-3 py-2">
-        <div className="font-medium">{row.label}</div>
+      <td className={`sticky left-0 z-10 bg-card py-2 pr-3 ${detalle ? "pl-12" : indent ? "pl-7" : "px-3"}`}>
+        <div className={detalle ? "text-[11px] font-medium" : "font-medium"}>{row.label}</div>
         {row.badge && (
           <div className="mt-0.5">
             <span className="inline-block rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
