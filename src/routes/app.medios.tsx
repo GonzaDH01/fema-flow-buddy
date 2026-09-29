@@ -1560,6 +1560,16 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Saldos de cuentas bancarias, visibles en el panel de resumen mientras se carga el pago.
+  const { data: cuentasSaldos } = useQuery({
+    queryKey: ["fema_cuentas_bancarias_resumen"],
+    queryFn: async () => {
+      const { data, error } = await sb.from("fema_cuentas_bancarias")
+        .select("id,banco,alias,saldo,activa").order("banco");
+      if (error) throw error;
+      return (data ?? []).filter((c: any) => c.activa !== false);
+    },
+  });
   // Pago ya realizado fuera del sistema (mes anterior): se asienta pero no toca caja.
   const [sinCaja, setSinCaja] = useState(esMovimientoHistorico(initial?.observaciones));
   const [busqCartera, setBusqCartera] = useState("");
