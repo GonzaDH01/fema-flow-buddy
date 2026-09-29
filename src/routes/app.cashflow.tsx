@@ -760,13 +760,13 @@ function EmptyRow() {
   );
 }
 
-function DataRow({ row }: { row: Row }) {
+function DataRow({ row, indent, detalle }: { row: Row; indent?: boolean; detalle?: boolean }) {
   const color = row.sign === "+" ? "text-primary" : "text-destructive";
   const total = sum(row.values);
   return (
     <tr className="border-t border-border/40 hover:bg-muted/20">
-      <td className="sticky left-0 z-10 bg-card px-3 py-2">
-        <div className="font-medium">{row.label}</div>
+      <td className={`sticky left-0 z-10 bg-card py-2 pr-3 ${detalle ? "pl-12" : indent ? "pl-7" : "px-3"}`}>
+        <div className={detalle ? "text-[11px] font-medium" : "font-medium"}>{row.label}</div>
         {row.badge && (
           <div className="mt-0.5">
             <span className="inline-block rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
