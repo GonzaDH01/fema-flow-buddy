@@ -25,6 +25,23 @@ export const Route = createFileRoute("/app/alertas")({ component: Page });
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
+// Nombre legible del medio de pago, para no llamar "echeq" a una transferencia.
+const INSTRUMENTO_LABEL: Record<string, string> = {
+  transferencia: "Transferencia",
+  efectivo: "Efectivo",
+  echeq: "E-cheq",
+  cheque_fisico: "Cheque físico",
+  cheque: "Cheque",
+  debito: "Débito automático",
+  otro: "Movimiento",
+};
+const labelInstrumento = (v: unknown) => {
+  const k = String(v ?? "").toLowerCase();
+  return INSTRUMENTO_LABEL[k] ?? (k ? k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ") : "Movimiento");
+};
+// Sólo los cheques/echeqs son "valores"; el resto son salidas directas de banco o caja.
+const esValor = (v: unknown) => ["echeq", "cheque", "cheque_fisico"].includes(String(v ?? "").toLowerCase());
+
 const SEV_STYLE: Record<Severidad, { label: string; cls: string }> = {
   critica: { label: "Crítica", cls: "bg-destructive/15 text-destructive border-destructive/30" },
   alta: { label: "Alta", cls: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
