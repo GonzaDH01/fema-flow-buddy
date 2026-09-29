@@ -304,6 +304,7 @@ async function loadCashflow(userId: string, anio: number) {
     const total = Number(s.monto ?? 0);
     egPagados.push({
       label: `${s.empleado?.nombre ?? "Empleado"} · ${TIPO_PAGO_LABEL[s.tipo_pago] ?? "Sueldo"}`,
+      ent: s.empleado?.nombre ?? "Empleado",
       cat: "Sueldos",
       values: placeAt(mes, total),
       sign: "-",
