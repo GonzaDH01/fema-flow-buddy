@@ -2056,17 +2056,23 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   };
 
   return (
-    <DialogContent className="flex max-h-[80dvh] w-[95vw] max-w-5xl flex-col overflow-hidden p-0 sm:max-h-[75dvh]">
+    <DialogContent className="flex max-h-[88dvh] w-[96vw] max-w-6xl flex-col overflow-hidden p-0">
       <DialogHeader className="shrink-0 px-4 pt-3 pb-1.5 sm:px-6 sm:pt-4 sm:pb-2">
-        <DialogTitle>Registrar movimiento</DialogTitle>
+        <DialogTitle>
+          {tipo === "pago_proveedor" ? "Orden de pago a proveedor"
+            : tipo === "cobro_cliente" ? "Registrar cobro de cliente"
+            : tipo === "ceder_echeq" ? "Ceder echeq de cartera"
+            : "Registrar movimiento"}
+        </DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
             : tipo === "cobro_cliente" ? "Elegí la factura y cargá los echeqs de una vez"
-            : tipo === "pago_proveedor" ? "Elegí la factura y registrá el pago"
+            : tipo === "pago_proveedor" ? "Elegí los comprobantes y combiná los medios de pago"
             : "Movimiento sin vincular a comprobante"}
         </DialogDescription>
       </DialogHeader>
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
       <div>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
