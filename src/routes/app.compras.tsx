@@ -578,6 +578,12 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      {!esInfo(r) && (
+                        <Button variant="outline" size="sm" className="border-emerald-500/40 text-emerald-500"
+                          onClick={() => setPagoRow(r)}>
+                          <Banknote className="h-3 w-3" /> Pago
+                        </Button>
+                      )}
                       {!esInfo(r) && (r.estado === "pagada" || pagadoDe(r.id) > 0.01 || programadoDe(r.id) > 0.01) && (
                         <Button variant="outline" size="sm" className="border-primary/40 text-primary"
                           onClick={() => setReciboRow(r)}>
