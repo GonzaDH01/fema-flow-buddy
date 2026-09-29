@@ -25,6 +25,23 @@ export const Route = createFileRoute("/app/alertas")({ component: Page });
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
+// Nombre legible del medio de pago, para no llamar "echeq" a una transferencia.
+const INSTRUMENTO_LABEL: Record<string, string> = {
+  transferencia: "Transferencia",
+  efectivo: "Efectivo",
+  echeq: "E-cheq",
+  cheque_fisico: "Cheque físico",
+  cheque: "Cheque",
+  debito: "Débito automático",
+  otro: "Movimiento",
+};
+const labelInstrumento = (v: unknown) => {
+  const k = String(v ?? "").toLowerCase();
+  return INSTRUMENTO_LABEL[k] ?? (k ? k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ") : "Movimiento");
+};
+// Sólo los cheques/echeqs son "valores"; el resto son salidas directas de banco o caja.
+const esValor = (v: unknown) => ["echeq", "cheque", "cheque_fisico"].includes(String(v ?? "").toLowerCase());
+
 const SEV_STYLE: Record<Severidad, { label: string; cls: string }> = {
   critica: { label: "Crítica", cls: "bg-destructive/15 text-destructive border-destructive/30" },
   alta: { label: "Alta", cls: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
@@ -41,7 +58,7 @@ function useAlertas() {
       const hoy = hoyISO();
       const [movs, sc, sv, fc, fv, prov, cli, cuotas, gf, docCuotas] = await Promise.all([
         supabase.from("fema_movimientos_pago")
-          .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
+          .select("id,instrumento,numero,direccion,estado,vencimiento,monto,contraparte,factura_compra_id,factura_venta_id"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
         supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,imagen_path,tipo_comprobante,categoria"),
@@ -58,17 +75,18 @@ function useAlertas() {
       const nombre = (rows: any[] | null, id: string | null) =>
         (rows ?? []).find((r: any) => r.id === id)?.nombre ?? "Sin identificar";
 
-      // 1. Echeqs recibidos vencidos sin cobrar
+      // 1. Valores / cobros pendientes vencidos
       for (const m of (movs.data ?? []) as any[]) {
         if (m.direccion !== "cobro" || m.estado !== "en_cartera" || !m.vencimiento) continue;
         const d = diasHasta(m.vencimiento);
         if (d === null) continue;
+        const cat = esValor(m.instrumento) ? "Echeqs a cobrar" : "Cobros pendientes";
         if (d < 0) {
           out.push({
             id: `echeq-venc-${m.id}`,
             severidad: severidadPorAtraso(-d),
-            categoria: "Echeqs a cobrar",
-            titulo: `${m.instrumento ?? "Echeq"} vencido sin cobrar — ${m.contraparte ?? "s/d"}`,
+            categoria: cat,
+            titulo: `${labelInstrumento(m.instrumento)} vencida sin cobrar — ${m.contraparte ?? "s/d"}`,
             detalle: `Fecha de pago ${formatFecha(m.vencimiento)} (${-d} días de atraso). Marcalo como cobrado y acreditalo en banco.`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
           });
@@ -76,31 +94,35 @@ function useAlertas() {
           out.push({
             id: `echeq-prox-${m.id}`,
             severidad: "info",
-            categoria: "Echeqs a cobrar",
+            categoria: cat,
             titulo: `Cobro próximo — ${m.contraparte ?? "s/d"}`,
-            detalle: `Se acredita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
+            detalle: `${labelInstrumento(m.instrumento)} · se acredita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
           });
         }
       }
 
-      // 2. Echeqs propios a debitar en los próximos 15 días
+      // 2. Pagos propios a debitar en los próximos 15 días (echeqs, transferencias, débitos)
       const propiosProx = ((movs.data ?? []) as any[]).filter(
         (m) => m.direccion === "pago" && m.estado === "en_cartera" && m.vencimiento &&
           (diasHasta(m.vencimiento) ?? 99) <= 15,
       );
       for (const m of propiosProx) {
           const d = diasHasta(m.vencimiento)!;
+          const valor = esValor(m.instrumento);
+          const inst = labelInstrumento(m.instrumento);
           out.push({
             id: `propio-${m.id}`,
             severidad: d < 0 ? "critica" : d <= 3 ? "alta" : "media",
-            categoria: "Echeqs emitidos",
-            titulo: `${d < 0 ? "Echeq propio vencido" : "Echeq propio por debitar"} — ${m.contraparte ?? "s/d"}`,
+            categoria: valor ? "Echeqs emitidos" : "Pagos a confirmar",
+            titulo: d < 0
+              ? `${inst} pendiente de confirmar — ${m.contraparte ?? "s/d"}`
+              : `${inst} por debitar — ${m.contraparte ?? "s/d"}`,
             detalle: d < 0
-              ? `Debía debitarse el ${formatFecha(m.vencimiento)}. Confirmá el débito eligiendo la cuenta.`
+              ? `Estaba programada para el ${formatFecha(m.vencimiento)}. Si ya salió del banco, confirmá el débito eligiendo la cuenta.`
               : `Se debita en ${d} día(s) (${formatFecha(m.vencimiento)}).`,
             monto: n(m.monto), fecha: m.vencimiento, to: "/app/medios",
-            search: { tab: "propios", q: String(m.numero ?? m.contraparte ?? "") },
+            search: { tab: valor ? "propios" : "pagos", q: String(m.numero ?? m.contraparte ?? "") },
             debito: {
               id: m.id, monto: n(m.monto), contraparte: m.contraparte,
               numero: m.numero ?? null, vencimiento: m.vencimiento,
