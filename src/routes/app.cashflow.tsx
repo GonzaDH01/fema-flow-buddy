@@ -706,7 +706,44 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
                   ))}
                   <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>{cell(sum(g.values))}</td>
                 </tr>
-                {abierta ? g.rows.map((r, i) => <DataRow key={`${id}-${g.cat}-${i}`} row={r} />) : null}
+                {abierta
+                  ? g.entes.map((e) => {
+                      const eKey = `${id}-${g.cat}-${e.ent}`;
+                      if (e.rows.length === 1) {
+                        return <DataRow key={eKey} row={e.rows[0]} indent />;
+                      }
+                      const eAbierto = !!entesAbiertos[eKey];
+                      return (
+                        <Fragment key={eKey}>
+                          <tr
+                            className="no-stripe cursor-pointer border-t border-border/40 hover:bg-muted/20"
+                            onClick={() => setEntesAbiertos((s) => ({ ...s, [eKey]: !s[eKey] }))}
+                          >
+                            <td className="sticky left-0 z-10 bg-card py-1.5 pl-7 pr-3">
+                              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                                {eAbierto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                {e.ent}
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({e.rows.length} comprobantes)
+                                </span>
+                              </span>
+                            </td>
+                            {e.values.map((v, i) => (
+                              <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${v === 0 ? "" : color}`}>
+                                {cell(v)}
+                              </td>
+                            ))}
+                            <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>
+                              {cell(sum(e.values))}
+                            </td>
+                          </tr>
+                          {eAbierto
+                            ? e.rows.map((r, i) => <DataRow key={`${eKey}-${i}`} row={r} indent detalle />)
+                            : null}
+                        </Fragment>
+                      );
+                    })
+                  : null}
               </Fragment>
             );
           })
