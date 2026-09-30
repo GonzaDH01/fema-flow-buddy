@@ -64,7 +64,7 @@ const labelCat = (c: string) => {
 // ([USD:1000@1350]) para no perder el dato original de facturas en moneda extranjera.
 const USD_TAG = /\s*\[USD:([\d.]+)(?:@([\d.]+))?\]/;
 
-export function leerUsd(obs?: string | null): { monto: string; cotiz: string } {
+function leerUsd(obs?: string | null): { monto: string; cotiz: string } {
   const m = USD_TAG.exec(obs ?? "");
   return { monto: m?.[1] ?? "", cotiz: m?.[2] ?? "" };
 }

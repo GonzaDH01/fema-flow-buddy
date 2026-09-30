@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Download, FileSpreadsheet, FileArchive, Calendar, CheckSquare, Square } from "lucide-react";
 import { exportarSeleccion, type ModuloExport } from "@/lib/exportar-excel";
 
-export const Route = createFileRoute("/app/exportaciones")({ component: Page });
+export const Route = createFileRoute("/app/exportaciones")({ component: Page, head });
 
 const MODULOS: { id: ModuloExport; label: string; group: string }[] = [
   { id: "cashflow", label: "Cash Flow mensual", group: "Resumen" },
@@ -34,7 +34,7 @@ const MODULOS: { id: ModuloExport; label: string; group: string }[] = [
 const GROUPS = ["Resumen", "Ingresos", "Egresos", "Finanzas", "Operativo", "RRHH"];
 const DEFAULT_SELECTED: ModuloExport[] = ["cashflow", "facturas_venta", "facturas_compra", "medios_pago"];
 
-export function head() {
+function head() {
   return {
     title: "Exportaciones masivas | FEMA",
     meta: [

@@ -122,7 +122,7 @@ const ESTADO_LABEL: Record<string, string> = {
 // Movimiento ya abonado fuera del sistema (p. ej. transferencia de un mes anterior).
 // Queda asentado y reconcilia la factura, pero NO debe impactar en los saldos de caja.
 const HIST_TAG = "[HIST]";
-export const esMovimientoHistorico = (obs?: string | null) => (obs ?? "").includes(HIST_TAG);
+const esMovimientoHistorico = (obs?: string | null) => (obs ?? "").includes(HIST_TAG);
 
 function Page() {
   const { user } = useAuth();

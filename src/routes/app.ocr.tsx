@@ -106,7 +106,7 @@ const fmtImporte = (v: unknown) => {
 };
 
 /** Detalle del comprobante, una línea por producto/ítem. */
-export function armarObservaciones(result: OCRResult): string {
+function armarObservaciones(result: OCRResult): string {
   const lineas: string[] = [];
   if (result.emisor) lineas.push(`OCR: ${result.emisor}`);
   else lineas.push("OCR");
