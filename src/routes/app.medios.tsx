@@ -2381,8 +2381,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </label>
           )}
 
+          {!mostrarGenerador ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarGenerador(true)}>
+              <Sparkles className="w-3 h-3 mr-1" />Dividir en varias cuotas (opcional)
+            </Button>
+          ) : (
           <div className="rounded-md border p-3 space-y-2">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setMostrarGenerador(false)}>
+                <XIcon className="w-3 h-3" />
+              </Button>
+            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <div className="text-[10px] text-muted-foreground mb-1">Cuotas</div>
@@ -2408,8 +2418,14 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </Button>
             </div>
           </div>
+          )}
 
           <div className="rounded-md border overflow-hidden">
+            <div className="border-b bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              Cargá una fila por cada {esValor ? "cheque / echeq" : "pago realizado"}: {esValor
+                ? "número, banco, vencimiento e importe."
+                : "fecha, importe y, si querés, el número de comprobante."} Podés cargar un importe menor al total: queda como pago parcial.
+            </div>
             {planCargado && (
               <div className="border-b bg-primary/10 px-3 py-2 text-[11px] text-primary">
                 Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
@@ -2421,9 +2437,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
-                    <TableHead>Nº {instrumento === "echeq" ? "Echeq" : instrumento === "cheque_fisico" ? "Cheque" : "Ref"}</TableHead>
+                    <TableHead>{etiquetaNumero}</TableHead>
                     <TableHead>Banco</TableHead>
-                    <TableHead>Vencimiento</TableHead>
+                    <TableHead>{etiquetaFecha}</TableHead>
                     <TableHead className="text-right">Monto ($)</TableHead>
                     <TableHead>Observaciones</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -2433,7 +2449,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   {cuotas.map((c, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
-                      <TableCell><Input className="h-8 min-w-[110px]" placeholder="Nº" value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[110px]" placeholder={esValor ? "Nº" : "Ref. (opcional)"} value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[140px]" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px] text-right font-mono" type="number" value={c.monto} onChange={(e) => updFila(i, { monto: Number(e.target.value) })} /></TableCell>
