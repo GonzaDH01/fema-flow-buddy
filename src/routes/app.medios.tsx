@@ -1559,6 +1559,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
+  const [mostrarCesion, setMostrarCesion] = useState(false);
+  const [mostrarGenerador, setMostrarGenerador] = useState(false);
   const [saving, setSaving] = useState(false);
   // Saldos de cuentas bancarias, visibles en el panel de resumen mientras se carga el pago.
   const { data: cuentasSaldos } = useQuery({
@@ -1668,6 +1670,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     : Number(facturaActual?.total ?? monto ?? 0);
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
+
+  // --- Guía paso a paso (sólo presentación) ---
+  const esOperacionConFactura = tipo === "cobro_cliente" || tipo === "pago_proveedor";
+  const pasoDestinoOk = multiActivo ? facturasMulti.length > 0 : !!facturaSel;
+  const pasoMedioOk = totalCombinado > 0.5;
+  const faltantes = useMemo(() => {
+    const f: string[] = [];
+    if (!pasoDestinoOk) f.push(tipo === "cobro_cliente" ? "Elegí la factura del cliente que estás cobrando" : "Elegí la/las facturas del proveedor que estás pagando");
+    if (!pasoMedioOk) f.push("Cargá el importe del pago en la tabla de abajo (o seleccioná echeqs de cartera)");
+    if (pasoMedioOk && (instrumento === "echeq" || instrumento === "cheque_fisico") && cuotas.some(c => Number(c.monto || 0) > 0 && !c.vencimiento))
+      f.push("Completá la fecha de vencimiento de cada cheque / echeq");
+    return f;
+  }, [pasoDestinoOk, pasoMedioOk, tipo, instrumento, cuotas]);
+  const etiquetaNumero = instrumento === "echeq" ? "Nº Echeq"
+    : instrumento === "cheque_fisico" ? "Nº Cheque"
+    : instrumento === "transferencia" ? "Nº comprobante / referencia"
+    : "Referencia";
+  const etiquetaFecha = (instrumento === "transferencia" || instrumento === "efectivo")
+    ? "Fecha del pago" : "Vencimiento";
+  const esValor = instrumento === "echeq" || instrumento === "cheque_fisico";
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
@@ -2076,16 +2098,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
-            : tipo === "cobro_cliente" ? "Elegí la factura y cargá los echeqs de una vez"
-            : tipo === "pago_proveedor" ? "Elegí los comprobantes y combiná los medios de pago"
+            : esOperacionConFactura ? "Seguí los 3 pasos: qué operación, a quién y cómo se paga"
             : "Movimiento sin vincular a comprobante"}
         </DialogDescription>
+        {esOperacionConFactura && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <PasoChip n={1} label="Operación" ok={true} />
+            <span className="text-muted-foreground">→</span>
+            <PasoChip n={2} label={tipo === "cobro_cliente" ? "Factura del cliente" : "Facturas del proveedor"} ok={pasoDestinoOk} />
+            <span className="text-muted-foreground">→</span>
+            <PasoChip n={3} label="Medio de pago e importe" ok={pasoDestinoOk && pasoMedioOk} />
+          </div>
+        )}
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
       <div>
-        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+          {esOperacionConFactura ? "Paso 1 · ¿Qué querés registrar?" : "¿Qué querés registrar?"}
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => setTipo("cobro_cliente")} />
           <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => setTipo("pago_proveedor")} />
@@ -2095,9 +2127,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Paso 2 · {tipo === "cobro_cliente" ? "¿Qué factura estás cobrando?" : "¿Qué facturas estás pagando?"}
+          </div>
           <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Facturas del proveedor a pagar (selección múltiple)"}>
             <Input placeholder="Buscar por cliente / proveedor / Nº factura..." value={busqFact} onChange={(e) => setBusqFact(e.target.value)} />
           </FormField>
+
 
           {multiActivo ? (
             <div className="space-y-2">
@@ -2222,13 +2258,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
-          {tipo === "pago_proveedor" && !initial && (
-            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-[11px] text-muted-foreground">
-              Podés combinar varios medios de pago en un mismo movimiento: cargá <b>cesiones de echeqs de cartera</b> abajo, y/o <b>transferencias / echeqs emitidos</b> en la tabla de instrumentos. El sistema guardará todo junto al confirmar.
-            </div>
+          {tipo === "pago_proveedor" && !initial && !mostrarCesion && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarCesion(true)}>
+              <Plus className="w-3 h-3 mr-1" />Pagar entregando echeqs de cartera (opcional)
+            </Button>
           )}
 
-          {tipo === "pago_proveedor" && !initial && (
+          {tipo === "pago_proveedor" && !initial && mostrarCesion && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Ceder echeqs de cartera (opcional · selección múltiple)</div>
@@ -2294,6 +2330,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           )}
 
           <>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
+            Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Tipo documento">
               <Select value={instrumento} onValueChange={setInstrumento}>
@@ -2342,8 +2381,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </label>
           )}
 
+          {!mostrarGenerador ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarGenerador(true)}>
+              <Sparkles className="w-3 h-3 mr-1" />Dividir en varias cuotas (opcional)
+            </Button>
+          ) : (
           <div className="rounded-md border p-3 space-y-2">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Generar cuotas automático</div>
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setMostrarGenerador(false)}>
+                <XIcon className="w-3 h-3" />
+              </Button>
+            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <div className="text-[10px] text-muted-foreground mb-1">Cuotas</div>
@@ -2369,8 +2418,14 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </Button>
             </div>
           </div>
+          )}
 
           <div className="rounded-md border overflow-hidden">
+            <div className="border-b bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              Cargá una fila por cada {esValor ? "cheque / echeq" : "pago realizado"}: {esValor
+                ? "número, banco, vencimiento e importe."
+                : "fecha, importe y, si querés, el número de comprobante."} Podés cargar un importe menor al total: queda como pago parcial.
+            </div>
             {planCargado && (
               <div className="border-b bg-primary/10 px-3 py-2 text-[11px] text-primary">
                 Plan de cuotas cargado desde la factura ({planOriginalIds.length}). Confirmá el cobro tal cual, o modificá montos / vencimientos / instrumento si el cliente pagó de otra forma.
@@ -2382,9 +2437,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
-                    <TableHead>Nº {instrumento === "echeq" ? "Echeq" : instrumento === "cheque_fisico" ? "Cheque" : "Ref"}</TableHead>
+                    <TableHead>{etiquetaNumero}</TableHead>
                     <TableHead>Banco</TableHead>
-                    <TableHead>Vencimiento</TableHead>
+                    <TableHead>{etiquetaFecha}</TableHead>
                     <TableHead className="text-right">Monto ($)</TableHead>
                     <TableHead>Observaciones</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -2394,7 +2449,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   {cuotas.map((c, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
-                      <TableCell><Input className="h-8 min-w-[110px]" placeholder="Nº" value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[110px]" placeholder={esValor ? "Nº" : "Ref. (opcional)"} value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[140px]" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px] text-right font-mono" type="number" value={c.monto} onChange={(e) => updFila(i, { monto: Number(e.target.value) })} /></TableCell>
@@ -2705,7 +2760,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             }`}
           >
             {totalFactura <= 0 ? (
-              <span>Elegí un comprobante para ver el balance</span>
+              <span>Paso 2: elegí la factura para ver el balance</span>
             ) : Math.abs(diferencia) <= 0.5 ? (
               <span className="font-semibold">Balanceado ✓</span>
             ) : diferencia > 0 ? (
@@ -2737,17 +2792,43 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
-          <Button className="w-full" onClick={guardar} disabled={saving}>
+          {faltantes.length > 0 && (
+            <div className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-[11px] text-amber-300">
+              <div className="font-semibold uppercase tracking-wider text-[10px]">Para continuar falta</div>
+              {faltantes.map((f, i) => <div key={i}>• {f}</div>)}
+            </div>
+          )}
+
+          {faltantes.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Al confirmar se registra {formatPesos(totalCombinado)} como {tipo === "pago_proveedor" ? "pago" : "cobro"}
+              {sinCaja ? " (sin mover el saldo de las cuentas)." : " y se actualiza el saldo de la cuenta y el Cash Flow."}
+            </p>
+          )}
+
+          <Button className="w-full" onClick={guardar} disabled={saving || faltantes.length > 0}>
             {saving ? "Guardando..." : tipo === "pago_proveedor" ? "Confirmar pago" : "Confirmar cobro"}
           </Button>
+          <Button variant="outline" className="w-full" onClick={onClose}>Cancelar</Button>
         </aside>
       )}
       </div>
-      <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
-      </DialogFooter>
+      {!esOperacionConFactura && (
+        <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
+        </DialogFooter>
+      )}
     </DialogContent>
+  );
+}
+
+function PasoChip({ n, label, ok }: { n: number; label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${ok ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground"}`}>
+      <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${ok ? "bg-emerald-500 text-background" : "bg-muted"}`}>{ok ? "✓" : n}</span>
+      {label}
+    </span>
   );
 }
 
