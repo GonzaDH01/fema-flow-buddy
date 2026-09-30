@@ -2760,7 +2760,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             }`}
           >
             {totalFactura <= 0 ? (
-              <span>Elegí un comprobante para ver el balance</span>
+              <span>Paso 2: elegí la factura para ver el balance</span>
             ) : Math.abs(diferencia) <= 0.5 ? (
               <span className="font-semibold">Balanceado ✓</span>
             ) : diferencia > 0 ? (
