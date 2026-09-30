@@ -2096,16 +2096,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogTitle>
         <DialogDescription>
           {tipo === "ceder_echeq" ? "Elegí el echeq en cartera y el proveedor destino"
-            : tipo === "cobro_cliente" ? "Elegí la factura y cargá los echeqs de una vez"
-            : tipo === "pago_proveedor" ? "Elegí los comprobantes y combiná los medios de pago"
+            : esOperacionConFactura ? "Seguí los 3 pasos: qué operación, a quién y cómo se paga"
             : "Movimiento sin vincular a comprobante"}
         </DialogDescription>
+        {esOperacionConFactura && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <PasoChip n={1} label="Operación" ok={true} />
+            <span className="text-muted-foreground">→</span>
+            <PasoChip n={2} label={tipo === "cobro_cliente" ? "Factura del cliente" : "Facturas del proveedor"} ok={pasoDestinoOk} />
+            <span className="text-muted-foreground">→</span>
+            <PasoChip n={3} label="Medio de pago e importe" ok={pasoDestinoOk && pasoMedioOk} />
+          </div>
+        )}
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
       <div>
-        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">¿Qué querés registrar?</div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+          {esOperacionConFactura ? "Paso 1 · ¿Qué querés registrar?" : "¿Qué querés registrar?"}
+        </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => setTipo("cobro_cliente")} />
           <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => setTipo("pago_proveedor")} />
@@ -2115,9 +2125,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Paso 2 · {tipo === "cobro_cliente" ? "¿Qué factura estás cobrando?" : "¿Qué facturas estás pagando?"}
+          </div>
           <FormField label={tipo === "cobro_cliente" ? "Factura de cliente a cobrar" : "Facturas del proveedor a pagar (selección múltiple)"}>
             <Input placeholder="Buscar por cliente / proveedor / Nº factura..." value={busqFact} onChange={(e) => setBusqFact(e.target.value)} />
           </FormField>
+
 
           {multiActivo ? (
             <div className="space-y-2">
