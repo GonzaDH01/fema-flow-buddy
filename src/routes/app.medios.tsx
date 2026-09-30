@@ -1559,6 +1559,8 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
   const [echeqsCedidos, setEcheqsCedidos] = useState<string[]>([]);
+  const [mostrarCesion, setMostrarCesion] = useState(false);
+  const [mostrarGenerador, setMostrarGenerador] = useState(false);
   const [saving, setSaving] = useState(false);
   // Saldos de cuentas bancarias, visibles en el panel de resumen mientras se carga el pago.
   const { data: cuentasSaldos } = useQuery({
