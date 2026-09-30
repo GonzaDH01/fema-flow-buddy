@@ -230,17 +230,17 @@ const TIPOS_COMPROBANTE = [
 type Aviso = { campo: string; nivel: "error" | "warn"; msg: string };
 
 /** ITC total (nafta + gasoil), con compatibilidad con el campo agregado. */
-export const sumaITC = (r: OCRResult) =>
+const sumaITC = (r: OCRResult) =>
   (r.itc_nafta ?? 0) + (r.itc_gasoil ?? 0) +
   ((r.itc_nafta == null && r.itc_gasoil == null) ? (r.itc_combustible ?? 0) : 0);
 
 /** CO2 total (nafta + gasoil), con compatibilidad con el campo agregado. */
-export const sumaCO2 = (r: OCRResult) =>
+const sumaCO2 = (r: OCRResult) =>
   (r.co2_nafta ?? 0) + (r.co2_gasoil ?? 0) +
   ((r.co2_nafta == null && r.co2_gasoil == null) ? (r.co2_combustible ?? 0) : 0);
 
 /** Suma del desglose que debe igualar al total impreso del comprobante. */
-export const sumaDesglose = (r: OCRResult) =>
+const sumaDesglose = (r: OCRResult) =>
   (r.neto ?? 0) + (r.iva_21 ?? 0) + (r.iva_105 ?? 0) + (r.percepciones ?? 0) +
   (r.otros_impuestos ?? 0) + sumaITC(r) + sumaCO2(r);
 
