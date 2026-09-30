@@ -2256,13 +2256,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
-          {tipo === "pago_proveedor" && !initial && (
-            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-[11px] text-muted-foreground">
-              Podés combinar varios medios de pago en un mismo movimiento: cargá <b>cesiones de echeqs de cartera</b> abajo, y/o <b>transferencias / echeqs emitidos</b> en la tabla de instrumentos. El sistema guardará todo junto al confirmar.
-            </div>
+          {tipo === "pago_proveedor" && !initial && !mostrarCesion && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setMostrarCesion(true)}>
+              <Plus className="w-3 h-3 mr-1" />Pagar entregando echeqs de cartera (opcional)
+            </Button>
           )}
 
-          {tipo === "pago_proveedor" && !initial && (
+          {tipo === "pago_proveedor" && !initial && mostrarCesion && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-xs uppercase text-amber-400 font-semibold tracking-wide">Ceder echeqs de cartera (opcional · selección múltiple)</div>
