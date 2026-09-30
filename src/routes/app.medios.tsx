@@ -2792,16 +2792,33 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </div>
           )}
 
-          <Button className="w-full" onClick={guardar} disabled={saving}>
+          {faltantes.length > 0 && (
+            <div className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-[11px] text-amber-300">
+              <div className="font-semibold uppercase tracking-wider text-[10px]">Para continuar falta</div>
+              {faltantes.map((f, i) => <div key={i}>• {f}</div>)}
+            </div>
+          )}
+
+          {faltantes.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Al confirmar se registra {formatPesos(totalCombinado)} como {tipo === "pago_proveedor" ? "pago" : "cobro"}
+              {sinCaja ? " (sin mover el saldo de las cuentas)." : " y se actualiza el saldo de la cuenta y el Cash Flow."}
+            </p>
+          )}
+
+          <Button className="w-full" onClick={guardar} disabled={saving || faltantes.length > 0}>
             {saving ? "Guardando..." : tipo === "pago_proveedor" ? "Confirmar pago" : "Confirmar cobro"}
           </Button>
+          <Button variant="outline" className="w-full" onClick={onClose}>Cancelar</Button>
         </aside>
       )}
       </div>
-      <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
-      </DialogFooter>
+      {!esOperacionConFactura && (
+        <DialogFooter className="shrink-0 border-t bg-muted/20 px-4 py-2 sm:px-6 sm:py-3">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={guardar} disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</Button>
+        </DialogFooter>
+      )}
     </DialogContent>
   );
 }
