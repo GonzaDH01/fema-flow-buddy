@@ -1669,6 +1669,26 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const totalCombinado = totalCargado + totalCedidos;
   const diferencia = totalFactura - totalCombinado;
 
+  // --- Guía paso a paso (sólo presentación) ---
+  const esOperacionConFactura = tipo === "cobro_cliente" || tipo === "pago_proveedor";
+  const pasoDestinoOk = multiActivo ? facturasMulti.length > 0 : !!facturaSel;
+  const pasoMedioOk = totalCombinado > 0.5;
+  const faltantes = useMemo(() => {
+    const f: string[] = [];
+    if (!pasoDestinoOk) f.push(tipo === "cobro_cliente" ? "Elegí la factura del cliente que estás cobrando" : "Elegí la/las facturas del proveedor que estás pagando");
+    if (!pasoMedioOk) f.push("Cargá el importe del pago en la tabla de abajo (o seleccioná echeqs de cartera)");
+    if (pasoMedioOk && (instrumento === "echeq" || instrumento === "cheque_fisico") && cuotas.some(c => Number(c.monto || 0) > 0 && !c.vencimiento))
+      f.push("Completá la fecha de vencimiento de cada cheque / echeq");
+    return f;
+  }, [pasoDestinoOk, pasoMedioOk, tipo, instrumento, cuotas]);
+  const etiquetaNumero = instrumento === "echeq" ? "Nº Echeq"
+    : instrumento === "cheque_fisico" ? "Nº Cheque"
+    : instrumento === "transferencia" ? "Nº comprobante / referencia"
+    : "Referencia";
+  const etiquetaFecha = (instrumento === "transferencia" || instrumento === "efectivo")
+    ? "Fecha del pago" : "Vencimiento";
+  const esValor = instrumento === "echeq" || instrumento === "cheque_fisico";
+
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
     const base = totalFactura > 0 ? totalFactura : Number(monto || 0);
