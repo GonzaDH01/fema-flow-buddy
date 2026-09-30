@@ -18,7 +18,7 @@ import { usePaginacion, Paginacion } from "@/components/paginacion";
 
 export const Route = createFileRoute("/app/franco")({ component: Page });
 
-export const CATEGORIA_FRANCO = "Franco_Particular";
+const CATEGORIA_FRANCO = "Franco_Particular";
 
 const ESTADOS = [
   { v: "pendiente", l: "Pendiente" },

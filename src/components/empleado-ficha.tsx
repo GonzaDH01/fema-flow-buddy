@@ -599,5 +599,3 @@ export function FotoEmpleado({ path, nombre }: { path?: string | null; nombre: s
     </div>
   );
 }
-
-export { Dialog as FichaDialog };
