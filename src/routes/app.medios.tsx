@@ -2823,6 +2823,15 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   );
 }
 
+function PasoChip({ n, label, ok }: { n: number; label: string; ok: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${ok ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground"}`}>
+      <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${ok ? "bg-emerald-500 text-background" : "bg-muted"}`}>{ok ? "✓" : n}</span>
+      {label}
+    </span>
+  );
+}
+
 function TipoBtn({ icon, label, sub, active, onClick }: { icon: React.ReactNode; label: string; sub: string; active: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
