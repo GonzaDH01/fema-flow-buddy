@@ -2328,6 +2328,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           )}
 
           <>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
+            Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Tipo documento">
               <Select value={instrumento} onValueChange={setInstrumento}>
