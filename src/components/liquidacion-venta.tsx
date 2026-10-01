@@ -73,23 +73,23 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       <td class="right">${pesos(Number(it.cantidad) * Number(it.precio_unitario))}</td></tr>`).join("");
     const presup: any[] = data.presup ?? [];
     const presupHTML = presup.length > 1 ? `
-      <div style="margin-top:14px;font-weight:bold;font-style:italic;text-decoration:underline">DETALLE POR PRESUPUESTO</div>
+      <div class="sec">DETALLE POR PRESUPUESTO</div>
       ${presup.map((p) => `<table class="fema"><thead><tr><th colspan="3">Presupuesto Nº ${esc(p.numero)} — ${fecha(p.fecha)}</th><th class="right">P. unitario</th><th class="right">Subtotal</th></tr></thead><tbody>
         ${p.items.map((i: any) => `<tr><td colspan="2">${esc(i.descripcion)}</td><td class="right">${Number(i.cantidad).toLocaleString("es-AR")}</td>
           <td class="right">${Number(i.precio_unitario) ? pesos(Number(i.precio_unitario)) : "Bonificado"}</td><td class="right">${pesos(Number(i.cantidad) * Number(i.precio_unitario))}</td></tr>`).join("")}
-        <tr><td colspan="4" class="right">Neto ${pesos(Number(p.neto))} · <b>Total c/ IVA</b></td><td class="right"><b>${pesos(Number(p.total))}</b></td></tr>
+        <tr class="tot"><td colspan="4" class="right">Neto ${pesos(Number(p.neto))} · <b>Total c/ IVA</b></td><td class="right"><b>${pesos(Number(p.total))}</b></td></tr>
       </tbody></table>`).join("")}` : "";
     const movs: any[] = data.movs;
     const planHTML = movs.length ? `
-      <div style="margin-top:14px;font-weight:bold;font-style:italic;text-decoration:underline">CONDICIONES Y PLAN DE PAGO ACORDADO</div>
+      <div class="sec">CONDICIONES Y PLAN DE PAGO ACORDADO</div>
       <table class="fema"><thead><tr><th>Cuota</th><th>Vencimiento</th><th>Medio</th><th>Banco / Nº</th><th>Estado</th><th class="right">Importe</th></tr></thead>
       <tbody>${movs.map((m, i) => `<tr><td>${i + 1} / ${movs.length}</td><td>${fecha(m.vencimiento ?? m.fecha_emision)}</td>
         <td>${esc(TIPOS[m.tipo] ?? m.tipo ?? "—")}</td><td>${esc([m.banco, m.numero].filter(Boolean).join(" #") || "—")}</td>
         <td>${esc(ESTADOS[m.estado] ?? m.estado ?? "—")}</td><td class="right">${pesos(Number(m.monto))}</td></tr>`).join("")}
-      <tr><td colspan="5" class="right"><b>Total plan</b></td><td class="right"><b>${pesos(movs.reduce((a, m) => a + Number(m.monto || 0), 0))}</b></td></tr>
+      <tr class="tot"><td colspan="5" class="right"><b>Total plan</b></td><td class="right"><b>${pesos(movs.reduce((a, m) => a + Number(m.monto || 0), 0))}</b></td></tr>
       </tbody></table>` : "";
     const c = data.cliente ?? {};
-    const leyenda = oficial ? "" : `<div style="margin-top:6px;border:1px dashed #000;padding:4px 8px;text-align:center;font-weight:bold;font-size:11px">
+    const leyenda = oficial ? "" : `<div style="margin-top:8px;border:1.5px solid #000;background:#f2f2f2;padding:5px 8px;letter-spacing:.03em;text-align:center;font-weight:bold;font-size:11px">
       DOCUMENTO NO VÁLIDO COMO FACTURA — Pendiente de emisión del comprobante fiscal</div>`;
     return `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>${femaPrintCSS}
       html,body{background:#fff}
