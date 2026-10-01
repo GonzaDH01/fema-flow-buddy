@@ -73,26 +73,37 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       <td class="right">${pesos(Number(it.cantidad) * Number(it.precio_unitario))}</td></tr>`).join("");
     const presup: any[] = data.presup ?? [];
     const presupHTML = presup.length > 1 ? `
-      <div style="margin-top:14px;font-weight:bold;font-style:italic;text-decoration:underline">DETALLE POR PRESUPUESTO</div>
+      <div class="sec">DETALLE POR PRESUPUESTO</div>
       ${presup.map((p) => `<table class="fema"><thead><tr><th colspan="3">Presupuesto Nº ${esc(p.numero)} — ${fecha(p.fecha)}</th><th class="right">P. unitario</th><th class="right">Subtotal</th></tr></thead><tbody>
         ${p.items.map((i: any) => `<tr><td colspan="2">${esc(i.descripcion)}</td><td class="right">${Number(i.cantidad).toLocaleString("es-AR")}</td>
           <td class="right">${Number(i.precio_unitario) ? pesos(Number(i.precio_unitario)) : "Bonificado"}</td><td class="right">${pesos(Number(i.cantidad) * Number(i.precio_unitario))}</td></tr>`).join("")}
-        <tr><td colspan="4" class="right">Neto ${pesos(Number(p.neto))} · <b>Total c/ IVA</b></td><td class="right"><b>${pesos(Number(p.total))}</b></td></tr>
+        <tr class="tot"><td colspan="4" class="right">Neto ${pesos(Number(p.neto))} · <b>Total c/ IVA</b></td><td class="right"><b>${pesos(Number(p.total))}</b></td></tr>
       </tbody></table>`).join("")}` : "";
     const movs: any[] = data.movs;
     const planHTML = movs.length ? `
-      <div style="margin-top:14px;font-weight:bold;font-style:italic;text-decoration:underline">CONDICIONES Y PLAN DE PAGO ACORDADO</div>
+      <div class="sec">CONDICIONES Y PLAN DE PAGO ACORDADO</div>
       <table class="fema"><thead><tr><th>Cuota</th><th>Vencimiento</th><th>Medio</th><th>Banco / Nº</th><th>Estado</th><th class="right">Importe</th></tr></thead>
       <tbody>${movs.map((m, i) => `<tr><td>${i + 1} / ${movs.length}</td><td>${fecha(m.vencimiento ?? m.fecha_emision)}</td>
         <td>${esc(TIPOS[m.tipo] ?? m.tipo ?? "—")}</td><td>${esc([m.banco, m.numero].filter(Boolean).join(" #") || "—")}</td>
         <td>${esc(ESTADOS[m.estado] ?? m.estado ?? "—")}</td><td class="right">${pesos(Number(m.monto))}</td></tr>`).join("")}
-      <tr><td colspan="5" class="right"><b>Total plan</b></td><td class="right"><b>${pesos(movs.reduce((a, m) => a + Number(m.monto || 0), 0))}</b></td></tr>
+      <tr class="tot"><td colspan="5" class="right"><b>Total plan</b></td><td class="right"><b>${pesos(movs.reduce((a, m) => a + Number(m.monto || 0), 0))}</b></td></tr>
       </tbody></table>` : "";
     const c = data.cliente ?? {};
-    const leyenda = oficial ? "" : `<div style="margin-top:6px;border:1px dashed #000;padding:4px 8px;text-align:center;font-weight:bold;font-size:11px">
+    const leyenda = oficial ? "" : `<div style="margin-top:8px;border:1.5px solid #000;background:#f2f2f2;padding:5px 8px;letter-spacing:.03em;text-align:center;font-weight:bold;font-size:11px">
       DOCUMENTO NO VÁLIDO COMO FACTURA — Pendiente de emisión del comprobante fiscal</div>`;
     return `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>${femaPrintCSS}
-      html,body{background:#fff}</style></head><body><div class="fema-page liq-print">
+      html,body{background:#fff}
+      .liq-print table.fema{border:1.5px solid #000;margin-top:12px}
+      .liq-print table.fema thead th{border:1px solid #000;background:#e8e8e8;padding:5px 6px;text-transform:uppercase;font-size:9.5px;letter-spacing:.03em}
+      .liq-print table.fema tbody td{border:1px solid #000;padding:4px 6px}
+      .liq-print table.fema tbody tr:nth-child(even) td{background:#f6f6f6}
+      .liq-print table.fema tbody tr.tot td{background:#e8e8e8;border-top:1.5px solid #000}
+      .liq-print .sec{margin-top:14px;border:1.5px solid #000;border-bottom:0;background:#d9d9d9;padding:4px 8px;font-weight:bold;font-size:10.5px;letter-spacing:.04em}
+      .liq-print .sec + table.fema{margin-top:0}
+      .liq-print .fema-tot{border:2px solid #000}
+      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:2px solid #000}
+      .liq-print .fema-obs{min-height:90px}
+      </style></head><body><div class="fema-page liq-print">
       ${femaWatermarkHTML(absoluteAssetUrl(femaWatermarkUrl))}
       <div class="fema-content">
       ${femaHeaderHTML(titulo, [
@@ -110,6 +121,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       ${leyenda}
       <table class="fema"><thead><tr><th>Descripción</th><th>Unidad</th><th class="right">Cantidad</th><th class="right">P. unitario</th><th class="right">Subtotal</th></tr></thead>
       <tbody>${itemsHTML}</tbody></table>
+      ${presupHTML}
       ${planHTML}
       <div class="fema-spacer"></div>
       <div class="fema-bottom">
