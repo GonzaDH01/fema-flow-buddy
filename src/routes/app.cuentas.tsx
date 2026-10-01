@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
@@ -32,6 +34,8 @@ export type PagoDetalle = {
   fecha: string | null;
   estado: string;
   confirmado: boolean;
+  movId: string;
+  observaciones: string | null;
 };
 type Linea = Fact & {
   pagado: number;
@@ -126,7 +130,7 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
         (supabase as any)
           .from("fema_movimientos_pago")
           .select(
-            "id,instrumento,direccion,estado,numero,banco,contraparte,monto,fecha_emision,vencimiento,echeq_origen_id,factura_compra_id,factura_venta_id",
+            "id,instrumento,direccion,estado,numero,banco,contraparte,monto,fecha_emision,vencimiento,echeq_origen_id,observaciones,factura_compra_id,factura_venta_id",
           )
           .not(esCompra ? "factura_compra_id" : "factura_venta_id", "is", null),
         (supabase as any)
@@ -151,7 +155,6 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
         const partes = [
           m.numero ? `Nº ${m.numero}` : null,
           m.banco || null,
-          m.contraparte || null,
         ].filter(Boolean);
         const confirmado = esCompra
           ? CONFIRMADOS_COMPRA.has(m.estado)
@@ -164,6 +167,8 @@ function useCuentas(tipo: "compra" | "venta", anio: number) {
           fecha: fecha ?? m.vencimiento ?? m.fecha_emision ?? null,
           estado: ESTADO_LABEL[m.estado] ?? m.estado,
           confirmado,
+          movId: m.id,
+          observaciones: m.observaciones ?? null,
         };
       };
 
@@ -465,24 +470,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                            Sin {esCompra ? "pagos" : "cobros"} registrados
                                          </span>
                                        ) : (
-                                         <div className="flex flex-wrap gap-1.5">
-                                           {l.pagos.map((p) => (
-                                             <span
-                                               key={p.id}
-                                               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] ${
-                                                 p.confirmado
-                                                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                                                   : "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                                               }`}
-                                             >
-                                               <span className="font-medium">{p.etiqueta}</span>
-                                               <span>{formatPesos(p.monto)}</span>
-                                               {p.fecha && <span className="opacity-70">{formatFecha(p.fecha)}</span>}
-                                               {p.detalle && <span className="opacity-70">{p.detalle}</span>}
-                                               <span className="opacity-70">· {p.estado}</span>
-                                             </span>
-                                           ))}
-                                         </div>
+                                         <ExtractoPagos pagos={l.pagos} esCompra={esCompra} />
                                        )}
                                      </td>
                                    </tr>
@@ -519,5 +507,103 @@ function Page() {
         <Panel tipo="venta" anio={year} />
       </TabsContent>
     </Tabs>
+  );
+}
+function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: boolean }) {
+  const qc = useQueryClient();
+  const [editId, setEditId] = useState<string | null>(null);
+  const [texto, setTexto] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const total = pagos.reduce((a, p) => a + p.monto, 0);
+
+  const guardar = async (p: PagoDetalle) => {
+    setGuardando(true);
+    const { error } = await (supabase as any)
+      .from("fema_movimientos_pago")
+      .update({ observaciones: texto.trim() || null })
+      .eq("id", p.movId);
+    setGuardando(false);
+    if (error) return toast.error("No se pudo guardar la nota: " + error.message);
+    toast.success("Nota guardada");
+    setEditId(null);
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_corrientes"] });
+  };
+
+  return (
+    <div className="my-1 overflow-x-auto rounded-md border border-border/60 bg-muted/20">
+      <table className="w-full text-xs">
+        <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-1.5 text-left font-medium">Fecha</th>
+            <th className="px-3 py-1.5 text-left font-medium">Medio</th>
+            <th className="px-3 py-1.5 text-left font-medium">Banco / Nº</th>
+            <th className="px-3 py-1.5 text-left font-medium">Estado</th>
+            <th className="px-3 py-1.5 text-left font-medium">Observaciones</th>
+            <th className="px-3 py-1.5 text-right font-medium">Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pagos.map((p) => (
+            <tr key={p.id} className="border-t border-border/40 align-top">
+              <td className="whitespace-nowrap px-3 py-1.5">{p.fecha ? formatFecha(p.fecha) : "—"}</td>
+              <td className="whitespace-nowrap px-3 py-1.5 font-medium">{p.etiqueta}</td>
+              <td className="px-3 py-1.5 text-muted-foreground">{p.detalle || "—"}</td>
+              <td className="whitespace-nowrap px-3 py-1.5">
+                <Badge variant={p.confirmado ? "outline" : "secondary"} className="text-[10px]">
+                  {p.estado}
+                </Badge>
+              </td>
+              <td className="min-w-[200px] px-3 py-1.5">
+                {editId === p.id ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      value={texto}
+                      onChange={(e) => setTexto(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") guardar(p);
+                        if (e.key === "Escape") setEditId(null);
+                      }}
+                      className="h-7 text-xs"
+                      placeholder="Agregar una aclaración…"
+                    />
+                    <button type="button" disabled={guardando} onClick={() => guardar(p)} className="rounded p-1 hover:bg-muted" aria-label="Guardar nota">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setEditId(null)} className="rounded p-1 hover:bg-muted" aria-label="Cancelar">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditId(p.id);
+                      setTexto(p.observaciones ?? "");
+                    }}
+                    className="group flex w-full items-start gap-1.5 text-left"
+                    title="Editar nota"
+                  >
+                    <span className={p.observaciones ? "" : "italic text-muted-foreground/60"}>
+                      {p.observaciones || "Agregar nota"}
+                    </span>
+                    <Pencil className="mt-0.5 h-3 w-3 shrink-0 opacity-40 group-hover:opacity-100" />
+                  </button>
+                )}
+              </td>
+              <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums">{formatPesos(p.monto)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border/60 bg-muted/30">
+            <td colSpan={5} className="px-3 py-1.5 text-right text-muted-foreground">
+              Total {esCompra ? "abonado" : "cobrado"} ({pagos.length})
+            </td>
+            <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{formatPesos(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
