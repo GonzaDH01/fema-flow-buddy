@@ -28,14 +28,25 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
     queryKey: ["liquidacion_venta", id],
     enabled: !!id,
     queryFn: async () => {
-      const [cli, items, movs] = await Promise.all([
+      const nums = String(venta!.trabajo ?? "").match(/\d{4}-\d{8}/g) ?? [];
+      const [cli, items, movs, pres] = await Promise.all([
         venta!.cliente_id
           ? supabase.from("fema_clientes").select("nombre,cuit,domicilio,localidad,provincia,condicion_iva").eq("id", venta!.cliente_id).maybeSingle()
           : Promise.resolve({ data: null }),
         supabase.from("fema_venta_items").select("descripcion,unidad,cantidad,precio_unitario").eq("factura_venta_id", id!).order("orden"),
         (supabase as any).from("fema_movimientos_pago").select("*").eq("factura_venta_id", id!).order("vencimiento", { ascending: true }),
+        nums.length
+          ? (supabase as any).from("fema_presupuestos").select("id,numero,fecha,neto,total,cliente_id").in("numero", nums)
+          : Promise.resolve({ data: [] }),
       ]);
-      return { cliente: (cli as any).data, items: (items as any).data ?? [], movs: (movs as any).data ?? [] };
+      let presup: any[] = ((pres as any).data ?? []).filter((p: any) => !venta!.cliente_id || p.cliente_id === venta!.cliente_id);
+      if (presup.length) {
+        const { data: pit } = await (supabase as any).from("fema_presupuesto_items")
+          .select("presupuesto_id,descripcion,cantidad,precio_unitario,orden").in("presupuesto_id", presup.map((p) => p.id)).order("orden");
+        presup = presup.sort((a, b) => String(a.numero).localeCompare(String(b.numero)))
+          .map((p) => ({ ...p, items: (pit ?? []).filter((i: any) => i.presupuesto_id === p.id) }));
+      }
+      return { cliente: (cli as any).data, items: (items as any).data ?? [], movs: (movs as any).data ?? [], presup };
     },
   });
 
