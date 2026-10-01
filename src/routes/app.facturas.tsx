@@ -1247,6 +1247,7 @@ function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <LiquidacionVentaDialog venta={liq as any} onClose={() => setLiq(null)} />
     </div>
   );
 }
