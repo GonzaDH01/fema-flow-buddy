@@ -121,6 +121,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       ${leyenda}
       <table class="fema"><thead><tr><th>Descripción</th><th>Unidad</th><th class="right">Cantidad</th><th class="right">P. unitario</th><th class="right">Subtotal</th></tr></thead>
       <tbody>${itemsHTML}</tbody></table>
+      ${presupHTML}
       ${planHTML}
       <div class="fema-spacer"></div>
       <div class="fema-bottom">
