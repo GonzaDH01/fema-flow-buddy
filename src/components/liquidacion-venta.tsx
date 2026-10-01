@@ -92,7 +92,18 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
     const leyenda = oficial ? "" : `<div style="margin-top:6px;border:1px dashed #000;padding:4px 8px;text-align:center;font-weight:bold;font-size:11px">
       DOCUMENTO NO VÁLIDO COMO FACTURA — Pendiente de emisión del comprobante fiscal</div>`;
     return `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>${femaPrintCSS}
-      html,body{background:#fff}</style></head><body><div class="fema-page liq-print">
+      html,body{background:#fff}
+      .liq-print table.fema{border:1.5px solid #000;margin-top:12px}
+      .liq-print table.fema thead th{border:1px solid #000;background:#e8e8e8;padding:5px 6px;text-transform:uppercase;font-size:9.5px;letter-spacing:.03em}
+      .liq-print table.fema tbody td{border:1px solid #000;padding:4px 6px}
+      .liq-print table.fema tbody tr:nth-child(even) td{background:#f6f6f6}
+      .liq-print table.fema tbody tr.tot td{background:#e8e8e8;border-top:1.5px solid #000}
+      .liq-print .sec{margin-top:14px;border:1.5px solid #000;border-bottom:0;background:#d9d9d9;padding:4px 8px;font-weight:bold;font-size:10.5px;letter-spacing:.04em}
+      .liq-print .sec + table.fema{margin-top:0}
+      .liq-print .fema-tot{border:2px solid #000}
+      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:2px solid #000}
+      .liq-print .fema-obs{min-height:90px}
+      </style></head><body><div class="fema-page liq-print">
       ${femaWatermarkHTML(absoluteAssetUrl(femaWatermarkUrl))}
       <div class="fema-content">
       ${femaHeaderHTML(titulo, [
