@@ -29,6 +29,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import { LiquidacionVentaDialog } from "@/components/liquidacion-venta";
+
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
 const TIPOS_COMPROBANTE = ["Factura", "Recibo", "Nota de Crédito", "Nota de Débito", "Estimado"] as const;
@@ -157,6 +159,7 @@ function Page() {
   const [asociar, setAsociar] = useState<PlanillaRow | null>(null);
   const [asociarFacturaId, setAsociarFacturaId] = useState("");
   const [selPresup, setSelPresup] = useState<string[]>([]);
+  const [liq, setLiq] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -1142,6 +1145,9 @@ function Page() {
                         onClick={() => toggleCobrada(r)}
                       >
                         {r.estado === "cobrada" ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                      </Button>
+                      <Button size="icon" variant="ghost" title="Ver / imprimir / PDF" onClick={() => setLiq(r)}>
+                        <FileDown className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => { setEdit(r); setOpen(true); }}>
                         <Pencil className="h-4 w-4" />
