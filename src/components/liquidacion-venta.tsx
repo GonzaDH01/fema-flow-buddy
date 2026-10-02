@@ -27,6 +27,9 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
   const { data } = useQuery({
     queryKey: ["liquidacion_venta", id],
     enabled: !!id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const nums = String(venta!.trabajo ?? "").match(/\d{4}-\d{8}/g) ?? [];
       const [cli, items, movs, pres] = await Promise.all([
