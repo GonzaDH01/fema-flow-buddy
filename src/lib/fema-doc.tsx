@@ -149,9 +149,9 @@ const PDF_SAFE_CSS = `
   html, body { background-color: #ffffff !important; }
 `;
 
-export function femaPdfOptions(filename: string, rootSelector: string) {
+export function femaPdfOptions(filename: string, rootSelector: string, margin: number = 0) {
   return {
-    margin: 0,
+    margin,
     filename,
     image: { type: "jpeg" as const, quality: 0.98 },
     html2canvas: {
