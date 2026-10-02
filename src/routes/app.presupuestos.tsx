@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Printer, FileDown, FileText, Search, X, Settings2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Printer, Eye, FileDown, FileText, Search, X, Settings2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
@@ -102,6 +102,11 @@ function Page() {
   const [tab, setTab] = useState<"listado" | "nuevo">("listado");
   const [editing, setEditing] = useState<Presupuesto | null>(null);
   const [filter, setFilter] = useState("");
+  const [preview, setPreview] = useState<{ p: Presupuesto; html: string } | null>(null);
+  const openPreview = async (p: Presupuesto) => {
+    const { data: its } = await supabase.from("fema_presupuesto_items").select("*").eq("presupuesto_id", p.id).order("orden");
+    setPreview({ p, html: renderPrintHTML(p, (its ?? []) as any[]) });
+  };
 
   const { data: presupuestos, isLoading } = useQuery({
     queryKey: ["fema_presupuestos", year],
@@ -200,7 +205,7 @@ function Page() {
                   ) : filtered.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">No hay presupuestos</TableCell></TableRow>
                   ) : filtered.map((p) => (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} className="cursor-pointer" onClick={() => openPreview(p)}>
                       <TableCell className="font-mono text-xs">{p.numero ?? "—"}</TableCell>
                       <TableCell>{formatFecha(p.fecha)}</TableCell>
                       <TableCell className="font-medium">{p.cliente_nombre ?? "—"}</TableCell>
@@ -211,8 +216,11 @@ function Page() {
                           {p.estado ?? "Pendiente"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
+                          <Button size="icon" variant="ghost" title="Ver" onClick={() => openPreview(p)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button size="icon" variant="ghost" title="Imprimir" onClick={() => printPresupuesto(p.id)}>
                             <Printer className="h-4 w-4" />
                           </Button>
@@ -251,6 +259,28 @@ function Page() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Presupuesto {preview?.p.numero ?? ""} — {preview?.p.cliente_nombre ?? ""}</DialogTitle>
+            </DialogHeader>
+            {preview && <iframe title="Vista previa" srcDoc={preview.html} className="h-[75vh] w-full rounded border bg-background" />}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPreview(null)}>Cerrar</Button>
+              {preview && (preview.p.estado !== "Facturado" || esAdmin) && (
+                <Button variant="outline" onClick={() => { const p = preview.p; setPreview(null); handleEdit(p); }}>
+                  <Pencil className="mr-2 h-4 w-4" />Editar
+                </Button>
+              )}
+              {preview && (
+                <Button onClick={() => printPresupuesto(preview.p.id)}>
+                  <Printer className="mr-2 h-4 w-4" />Imprimir / PDF
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="nuevo" className="mt-4">
           <PresupuestoForm
