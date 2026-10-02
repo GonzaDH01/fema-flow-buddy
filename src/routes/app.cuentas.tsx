@@ -529,6 +529,24 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
     qc.invalidateQueries({ queryKey: ["fema_cuentas_corrientes"] });
   };
 
+  const [fechaEdit, setFechaEdit] = useState<string | null>(null);
+  const [fechaTxt, setFechaTxt] = useState("");
+  const guardarFecha = async (p: PagoDetalle) => {
+    if (!fechaTxt) return toast.error("Elegí una fecha");
+    setGuardando(true);
+    const { error } = await (supabase as any)
+      .from("fema_movimientos_pago")
+      .update({ vencimiento: fechaTxt })
+      .eq("id", p.movId);
+    setGuardando(false);
+    if (error) return toast.error("No se pudo cambiar la fecha: " + error.message);
+    toast.success("Fecha de vencimiento actualizada");
+    setFechaEdit(null);
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_corrientes"] });
+    qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
+    qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
+  };
+
   return (
     <div className="my-1 overflow-x-auto rounded-md border border-border/60 bg-muted/20">
       <table className="w-full text-xs">
@@ -545,7 +563,27 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
         <tbody>
           {pagos.map((p) => (
             <tr key={p.id} className="border-t border-border/40 align-top">
-              <td className="whitespace-nowrap px-3 py-1.5">{p.fecha ? formatFecha(p.fecha) : "—"}</td>
+              <td className="whitespace-nowrap px-3 py-1.5">
+                {fechaEdit === p.id ? (
+                  <div className="flex items-center gap-1">
+                    <Input type="date" autoFocus value={fechaTxt} onChange={(e) => setFechaTxt(e.target.value)}
+                      className="h-7 w-36 text-xs" />
+                    <button type="button" disabled={guardando} onClick={() => guardarFecha(p)} className="rounded p-1 hover:bg-muted" aria-label="Guardar fecha">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setFechaEdit(null)} className="rounded p-1 hover:bg-muted" aria-label="Cancelar">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : !p.confirmado ? (
+                  <button type="button" title="Cambiar fecha de vencimiento"
+                    onClick={() => { setFechaEdit(p.id); setFechaTxt(p.fecha ?? ""); }}
+                    className="group inline-flex items-center gap-1.5">
+                    {p.fecha ? formatFecha(p.fecha) : "—"}
+                    <Pencil className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                  </button>
+                ) : (p.fecha ? formatFecha(p.fecha) : "—")}
+              </td>
               <td className="whitespace-nowrap px-3 py-1.5 font-medium">{p.etiqueta}</td>
               <td className="px-3 py-1.5 text-muted-foreground">{p.detalle || "—"}</td>
               <td className="whitespace-nowrap px-3 py-1.5">
