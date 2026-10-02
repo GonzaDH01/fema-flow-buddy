@@ -1149,6 +1149,15 @@ function Page() {
                       <Button size="icon" variant="ghost" title="Ver / imprimir / PDF" onClick={() => setLiq(r)}>
                         <FileDown className="h-4 w-4" />
                       </Button>
+                      {(r as any).imagen_path && (
+                        <Button size="icon" variant="ghost" title="Ver factura ARCA adjunta" onClick={async () => {
+                          const { data, error } = await supabase.storage.from("facturas-img").createSignedUrl((r as any).imagen_path, 600);
+                          if (error || !data) return toast.error("No se pudo abrir el archivo");
+                          window.open(data.signedUrl, "_blank");
+                        }}>
+                          <Link2 className="h-4 w-4 text-primary" />
+                        </Button>
+                      )}
                       <Button size="icon" variant="ghost" onClick={() => { setEdit(r); setOpen(true); }}>
                         <Pencil className="h-4 w-4" />
                       </Button>

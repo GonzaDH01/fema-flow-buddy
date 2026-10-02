@@ -505,9 +505,16 @@ function Page() {
     setSaving(true);
     try {
       const path = await subirImagen();
-      const { error } = await supabase.from(tablaKind).update({ imagen_path: path }).eq("id", id);
+      // Completa solo los datos vacíos (número, fecha, letra) con lo leído por OCR; no toca importes ni cuotas.
+      const { data: actual } = await (supabase as any).from(tablaKind).select("numero, fecha, tipo").eq("id", id).maybeSingle();
+      const patch: Record<string, any> = { imagen_path: path };
+      const r: any = result;
+      if (r?.numero && !actual?.numero) patch.numero = String(r.numero).trim();
+      if (r?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) patch.fecha = r.fecha;
+      if (r?.letra && ["A", "B", "C", "M", "E"].includes(r.letra)) patch.tipo = r.letra;
+      const { error } = await (supabase as any).from(tablaKind).update(patch).eq("id", id);
       if (error) throw error;
-      toast.success("Imagen adjuntada al comprobante existente (sin duplicar)");
+      toast.success(patch.numero ? `Adjuntado y completado: Nº ${patch.numero}` : "Imagen adjuntada al comprobante existente (sin duplicar)");
       limpiar();
       setDupe(null);
       qc.invalidateQueries({ queryKey: ["ocr_sin_imagen", kind] });
