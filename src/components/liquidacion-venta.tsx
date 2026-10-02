@@ -89,7 +89,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       <tr class="tot"><td colspan="5" class="right"><b>Total plan</b></td><td class="right"><b>${pesos(movs.reduce((a, m) => a + Number(m.monto || 0), 0))}</b></td></tr>
       </tbody></table>` : "";
     const c = data.cliente ?? {};
-    const leyenda = oficial ? "" : `<div style="margin-top:8px;border:1.5px solid #000;background:#f2f2f2;padding:5px 8px;letter-spacing:.03em;text-align:center;font-weight:bold;font-size:11px">
+    const leyenda = oficial ? "" : `<div style="margin-top:8px;border:0.75px solid #000;background:#f2f2f2;padding:5px 8px;letter-spacing:.03em;text-align:center;font-weight:bold;font-size:11px">
       DOCUMENTO NO VÁLIDO COMO FACTURA — Pendiente de emisión del comprobante fiscal</div>`;
     return `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>${femaPrintCSS}
       @page{size:A4 portrait;margin:10mm}
@@ -101,17 +101,20 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       .liq-print .fema-hdr .r .ttl{font-size:15px}
       .liq-print .fema-hdr .r .meta{margin-top:6px;font-size:10px}
       .liq-print .fema-client{font-size:9.5px;padding:4px 8px;gap:2px 18px}
-      .liq-print table.fema{border:1.5px solid #000;margin-top:8px;font-size:9.5px}
-      .liq-print table.fema thead th{border:1px solid #000;background:#e8e8e8;padding:3px 5px;text-transform:uppercase;font-size:8.5px;letter-spacing:.03em}
-      .liq-print table.fema tbody td{border:1px solid #000;padding:2px 5px}
+      .liq-print .fema-hdr,.liq-print .fema-client{border-width:1px}
+      .liq-print .fema-hdr .x{border-left-width:1px;border-right-width:1px}
+      .liq-print table.fema{border:0.75px solid #000;margin-top:8px;font-size:9.5px;line-height:1.35}
+      .liq-print table.fema thead th{border:0.5px solid #555;background:#e8e8e8;padding:4px 5px;text-transform:uppercase;font-size:8.5px;letter-spacing:.03em;vertical-align:middle}
+      .liq-print table.fema tbody td{border:0.5px solid #888;padding:4px 5px 5px;vertical-align:middle}
       .liq-print table.fema tbody tr:nth-child(even) td{background:#f6f6f6}
-      .liq-print table.fema tbody tr.tot td{background:#e8e8e8;border-top:1.5px solid #000}
-      .liq-print .sec{margin-top:8px;border:1.5px solid #000;border-bottom:0;background:#d9d9d9;padding:3px 8px;font-weight:bold;font-size:9.5px;letter-spacing:.04em}
+      .liq-print table.fema tbody tr.tot td{background:#e8e8e8;border-top:0.75px solid #000}
+      .liq-print .sec{margin-top:8px;border:0.75px solid #000;border-bottom:0;background:#d9d9d9;padding:4px 8px;font-weight:bold;font-size:9.5px;letter-spacing:.04em}
       .liq-print .sec + table.fema{margin-top:0}
       .liq-print .fema-bottom{margin-top:10px;grid-template-columns:1fr 230px}
-      .liq-print .fema-tot{border:2px solid #000;font-size:9.5px}
+      .liq-print .fema-tot{border:0.75px solid #000;font-size:9.5px}
+      .liq-print .fema-obs{border-width:0.75px}
       .liq-print .fema-tot .row{padding:3px 8px}
-      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:2px solid #000;font-size:12px}
+      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:0.75px solid #000;font-size:12px}
       .liq-print .fema-obs{min-height:55px;font-size:9.5px;padding:6px 8px}
       .liq-print .fema-sign{margin-top:32px;font-size:9.5px}
       .liq-print tr{page-break-inside:avoid}
