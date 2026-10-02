@@ -626,7 +626,7 @@ function Page() {
                 <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
 
                 <TotalRow label="NETO (I − G + Ajustes)" values={data.neto} signed />
-                <TotalRow label={`SALDO INICIAL ${year} (bancos + fondos)`} values={[data.saldoInicial, ...Array(11).fill(0)]} signed totalMode="last" />
+                <TotalRow label={`SALDO INICIAL ${year} (bancos + fondos)`} values={[data.saldoInicial, ...Array(11).fill(0)]} signed />
                 <TotalRow label="ACUMULADO (saldo inicial + neto)" values={data.acumulado} signed bold totalMode="last" />
                 <TotalRow label="DISPONIBLE REAL EN CUENTAS (cierre de mes)" values={data.disponible} signed bold totalMode="last" />
               </>
