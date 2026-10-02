@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Printer, Eye, FileDown, FileText, Search, X, Settings2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Printer, Eye, FileDown, FileText, Search, X, Settings2, Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import * as XLSX from "xlsx";
@@ -212,9 +212,13 @@ function Page() {
                       <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">{p.descripcion ?? "—"}</TableCell>
                       <TableCell className="text-right font-semibold">{formatPesos(p.total)}</TableCell>
                       <TableCell>
-                        <Badge variant={p.estado === "Aprobado" ? "default" : p.estado === "Facturado" ? "secondary" : "outline"}>
-                          {p.estado ?? "Pendiente"}
-                        </Badge>
+                        {p.estado === "Facturado" ? (
+                          <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturado</Badge>
+                        ) : (
+                          <Badge variant={p.estado === "Aprobado" ? "default" : "outline"}>
+                            {p.estado ?? "Pendiente"}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
@@ -225,7 +229,14 @@ function Page() {
                             <Printer className="h-4 w-4" />
                           </Button>
                           {p.estado === "Facturado" && !esAdmin ? (
-                            <span className="px-2 text-xs text-muted-foreground">Bloqueado</span>
+                            <span className="flex items-center gap-1 px-2 text-xs text-muted-foreground" title="Facturado: solo un administrador puede modificarlo">
+                              <Lock className="h-3.5 w-3.5" /> Bloqueado
+                            </span>
+                          ) : p.estado === "Facturado" ? (
+                            <Button size="icon" variant="ghost" title="Facturado — editar como administrador"
+                              onClick={() => { if (confirm("Este presupuesto ya está facturado. Los cambios no modifican la factura ni el stock. ¿Editar igual?")) handleEdit(p); }}>
+                              <Lock className="h-4 w-4 text-primary" />
+                            </Button>
                           ) : (
                             <>
                               <Button size="icon" variant="ghost" title="Editar" onClick={() => handleEdit(p)}>
