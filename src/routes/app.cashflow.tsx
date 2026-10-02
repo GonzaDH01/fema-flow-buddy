@@ -537,13 +537,35 @@ async function loadCashflow(userId: string, anio: number) {
   }
   const ajustesNeto = empty12().map((_, i) => ajustesPos[i] - ajustesNeg[i]);
 
+  // Disponible real: saldo de bancos + fondos según los movimientos de Tesorería
+  // (conciliados con los extractos). Incluye traspasos entre cuentas propias.
+  const { data: ledger } = await supabase
+    .from("fema_caja_mov" as any)
+    .select("fecha,tipo,monto,cuenta:fema_cuentas_bancarias(activa)")
+    .lte("fecha", `${anio}-12-31`)
+    .limit(20000);
+  let saldoInicial = 0;
+  const deltaMes = empty12();
+  for (const m of (ledger ?? []) as any[]) {
+    if (m.cuenta && m.cuenta.activa === false) continue;
+    const v = (m.tipo === "ingreso" ? 1 : -1) * Number(m.monto || 0);
+    const f = String(m.fecha ?? "");
+    if (f < `${anio}-01-01`) saldoInicial += v;
+    else {
+      const mes = Number(f.slice(5, 7));
+      if (mes >= 1 && mes <= 12) deltaMes[mes - 1] += v;
+    }
+  }
+  const disponible: number[] = [];
+  deltaMes.reduce((acc, v) => { const n = acc + v; disponible.push(n); return n; }, saldoInicial);
+
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
   const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesNeto[i]);
   const acumulado: number[] = [];
-  neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, 0);
+  neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, saldoInicial);
 
-  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado };
+  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado, saldoInicial, disponible };
 }
 
 function Page() {
@@ -604,7 +626,9 @@ function Page() {
                 <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
 
                 <TotalRow label="NETO (I − G + Ajustes)" values={data.neto} signed />
-                <TotalRow label="ACUMULADO" values={data.acumulado} signed bold totalMode="last" />
+                <TotalRow label={`SALDO INICIAL ${year} (bancos + fondos)`} values={[data.saldoInicial, ...Array(11).fill(0)]} signed totalMode="last" />
+                <TotalRow label="ACUMULADO (saldo inicial + neto)" values={data.acumulado} signed bold totalMode="last" />
+                <TotalRow label="DISPONIBLE REAL EN CUENTAS (cierre de mes)" values={data.disponible} signed bold totalMode="last" />
               </>
             )}
           </tbody>
