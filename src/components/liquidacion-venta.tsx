@@ -92,17 +92,29 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
     const leyenda = oficial ? "" : `<div style="margin-top:8px;border:1.5px solid #000;background:#f2f2f2;padding:5px 8px;letter-spacing:.03em;text-align:center;font-weight:bold;font-size:11px">
       DOCUMENTO NO VÁLIDO COMO FACTURA — Pendiente de emisión del comprobante fiscal</div>`;
     return `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>${femaPrintCSS}
+      @page{size:A4 portrait;margin:10mm}
       html,body{background:#fff}
-      .liq-print table.fema{border:1.5px solid #000;margin-top:12px}
-      .liq-print table.fema thead th{border:1px solid #000;background:#e8e8e8;padding:5px 6px;text-transform:uppercase;font-size:9.5px;letter-spacing:.03em}
-      .liq-print table.fema tbody td{border:1px solid #000;padding:4px 6px}
+      .liq-print{font-size:9.5px}
+      .liq-print.fema-page,.liq-print .fema-content{min-height:0}
+      .liq-print .fema-hdr .l img{height:40px}
+      .liq-print .fema-hdr .l,.liq-print .fema-hdr .r{padding:6px 8px}
+      .liq-print .fema-hdr .r .ttl{font-size:15px}
+      .liq-print .fema-hdr .r .meta{margin-top:6px;font-size:10px}
+      .liq-print .fema-client{font-size:9.5px;padding:4px 8px;gap:2px 18px}
+      .liq-print table.fema{border:1.5px solid #000;margin-top:8px;font-size:9.5px}
+      .liq-print table.fema thead th{border:1px solid #000;background:#e8e8e8;padding:3px 5px;text-transform:uppercase;font-size:8.5px;letter-spacing:.03em}
+      .liq-print table.fema tbody td{border:1px solid #000;padding:2px 5px}
       .liq-print table.fema tbody tr:nth-child(even) td{background:#f6f6f6}
       .liq-print table.fema tbody tr.tot td{background:#e8e8e8;border-top:1.5px solid #000}
-      .liq-print .sec{margin-top:14px;border:1.5px solid #000;border-bottom:0;background:#d9d9d9;padding:4px 8px;font-weight:bold;font-size:10.5px;letter-spacing:.04em}
+      .liq-print .sec{margin-top:8px;border:1.5px solid #000;border-bottom:0;background:#d9d9d9;padding:3px 8px;font-weight:bold;font-size:9.5px;letter-spacing:.04em}
       .liq-print .sec + table.fema{margin-top:0}
-      .liq-print .fema-tot{border:2px solid #000}
-      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:2px solid #000}
-      .liq-print .fema-obs{min-height:90px}
+      .liq-print .fema-bottom{margin-top:10px;grid-template-columns:1fr 230px}
+      .liq-print .fema-tot{border:2px solid #000;font-size:9.5px}
+      .liq-print .fema-tot .row{padding:3px 8px}
+      .liq-print .fema-tot .row.total{background:#e8e8e8;border-top:2px solid #000;font-size:12px}
+      .liq-print .fema-obs{min-height:55px;font-size:9.5px;padding:6px 8px}
+      .liq-print .fema-sign{margin-top:32px;font-size:9.5px}
+      .liq-print tr{page-break-inside:avoid}
       </style></head><body><div class="fema-page liq-print">
       ${femaWatermarkHTML(absoluteAssetUrl(femaWatermarkUrl))}
       <div class="fema-content">
@@ -144,16 +156,30 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
   };
 
   const pdf = async () => {
+    // Área útil A4 con márgenes de 10 mm: 190 x 277 mm
     const holder = document.createElement("div");
-    holder.style.cssText = "position:fixed;left:-10000px;top:0;width:210mm;background:#fff";
+    holder.style.cssText = "position:fixed;left:-10000px;top:0;width:190mm;background:#fff";
     const doc = new DOMParser().parseFromString(html, "text/html");
     holder.innerHTML = `<style>${doc.head.querySelector("style")?.textContent ?? ""}</style>${doc.body.innerHTML}`;
     document.body.appendChild(holder);
     try {
+      const root = holder.querySelector(".liq-print") as HTMLElement;
+      // Ajuste a una sola hoja: si el contenido es más alto que la hoja, se ensancha
+      // el lienzo para que, al escalarse al ancho A4, todo entre en una carilla.
+      const target = 277 / 190;
+      let wmm = 190;
+      for (let i = 0; i < 6; i++) {
+        const ratio = root.scrollHeight / root.scrollWidth;
+        if (ratio <= target) break;
+        wmm = Math.min(wmm * Math.min(ratio / target, 1.25), 400);
+        holder.style.width = `${wmm}mm`;
+      }
       const html2pdf = (await import("html2pdf.js")).default;
       const cli = (data?.cliente?.nombre ?? "cliente").replace(/[^\w]+/g, "_");
       const name = `${oficial ? "FACTURA" : "LIQUIDACION"}_${cli}_${fecha(venta?.fecha).replace(/\//g, "-")}.pdf`;
-      await html2pdf().set(femaPdfOptions(name, ".liq-print")).from(holder.querySelector(".liq-print") as HTMLElement).save();
+      const opts: any = femaPdfOptions(name, ".liq-print", 10);
+      opts.pagebreak = { mode: ["avoid-all"] };
+      await html2pdf().set(opts).from(root).save();
     } catch (e: any) {
       toast.error("Error generando PDF: " + (e?.message ?? ""));
     } finally { holder.remove(); }
