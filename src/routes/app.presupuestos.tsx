@@ -276,7 +276,7 @@ function Page() {
             <DialogHeader>
               <DialogTitle>Presupuesto {preview?.p.numero ?? ""} — {preview?.p.cliente_nombre ?? ""}</DialogTitle>
             </DialogHeader>
-            {preview && <iframe title="Vista previa" srcDoc={preview.html} className="h-[75vh] w-full rounded border bg-background" />}
+            {preview && <iframe title="Vista previa" srcDoc={preview.html} className="h-[75vh] w-full rounded border bg-card" style={{ colorScheme: "light", backgroundColor: "white" }} />}
             <DialogFooter>
               <Button variant="outline" onClick={() => setPreview(null)}>Cerrar</Button>
               {preview && (preview.p.estado !== "Facturado" || esAdmin) && (
