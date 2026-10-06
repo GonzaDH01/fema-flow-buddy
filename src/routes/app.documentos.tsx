@@ -157,6 +157,7 @@ type CuotaDraft = {
   pagada: boolean;
   fecha_pago: string;
   forma_pago: string;
+  moneda: string;
 };
 
 function FormDoc({
@@ -208,6 +209,7 @@ function FormDoc({
             pagada: c.estado === "pagada",
             fecha_pago: c.fecha_pago ?? c.fecha_vencimiento,
             forma_pago: c.forma_pago ?? "Transferencia",
+            moneda: c.moneda || doc?.moneda || "ARS",
           }))
       : [],
   );
@@ -245,7 +247,9 @@ function FormDoc({
   const set = (k: string, val: string) => setV((p) => ({ ...p, [k]: val }));
 
   const financiado = Math.max(0, n(v.monto_total) - n(v.entrega));
-  const sumaCuotas = cuotas.reduce((s, c) => s + n(c.monto), 0);
+  const sumaCuotas = cuotas.filter((c) => (c.moneda || v.moneda) === v.moneda).reduce((s, c) => s + n(c.monto), 0);
+  const otraMoneda = v.moneda === "USD" ? "ARS" : "USD";
+  const sumaOtra = cuotas.filter((c) => (c.moneda || v.moneda) === otraMoneda).reduce((s, c) => s + n(c.monto), 0);
 
   function generarCuotas() {
     const cant = Math.max(1, Math.round(n(v.cantidad_cuotas)));
@@ -263,6 +267,7 @@ function FormDoc({
         pagada: previa?.pagada ?? false,
         fecha_pago: previa?.fecha_pago || vto,
         forma_pago: previa?.forma_pago || v.forma_pago || "Transferencia",
+        moneda: previa?.moneda || v.moneda,
       });
     }
     setCuotas(filas);
@@ -358,7 +363,7 @@ function FormDoc({
           numero_pagare: c.numero_pagare || null,
           fecha_vencimiento: c.fecha_vencimiento,
           monto: n(c.monto),
-          moneda: v.moneda,
+          moneda: c.moneda || v.moneda,
           // Cuotas históricas: se marcan abonadas sin tocar el saldo del banco
           estado: c.pagada ? "pagada" : "pendiente",
           fecha_pago: c.pagada ? (c.fecha_pago || c.fecha_vencimiento) : null,
@@ -604,7 +609,7 @@ function FormDoc({
               <RefreshCw className="mr-2 h-4 w-4" /> Generar cuotas
             </Button>
             <span className="text-xs text-muted-foreground">
-              A financiar: {money(financiado, v.moneda)} · Suma cuotas: {money(sumaCuotas, v.moneda)}
+              A financiar: {money(financiado, v.moneda)} · Suma cuotas: {money(sumaCuotas, v.moneda)}{sumaOtra > 0 && ` + ${money(sumaOtra, otraMoneda)}`}
             </span>
           </div>
 
@@ -621,6 +626,7 @@ function FormDoc({
                 <TableRow>
                   <TableHead className="w-16">Cuota</TableHead>
                   <TableHead className="w-44">Vencimiento</TableHead>
+                  <TableHead className="w-28">Moneda</TableHead>
                   <TableHead className="w-40">Importe</TableHead>
                   <TableHead className="w-36">N° pagaré</TableHead>
                   <TableHead className="w-64">Ya abonada</TableHead>
@@ -640,6 +646,18 @@ function FormDoc({
                           type="date" disabled={pagada} value={c.fecha_vencimiento}
                           onChange={(e) => setCuotas((p) => p.map((x, j) => j === i ? { ...x, fecha_vencimiento: e.target.value } : x))}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          disabled={pagada} value={c.moneda || v.moneda}
+                          onValueChange={(x) => setCuotas((p) => p.map((y, j) => j === i ? { ...y, moneda: x } : y))}
+                        >
+                          <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">US$</SelectItem>
+                            <SelectItem value="ARS">$ ARS</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Input
