@@ -70,7 +70,10 @@ export function FemaWatermark() {
 
 export const femaPrintCSS = `
   @page { size: A4 portrait; margin: 12mm; }
+  :root { color-scheme: light; }
+  html, body { background: #fff; }
   body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; font-size: 11px; }
+  @media screen { body { padding: 12px; } }
   .fema-page { position: relative; min-height: 273mm; display: flex; flex-direction: column; }
   .fema-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0.15; z-index: 0; pointer-events: none; }
   .fema-watermark img { width: 55%; max-width: 380px; }
