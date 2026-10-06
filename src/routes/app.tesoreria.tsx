@@ -38,7 +38,7 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
         supabase.from("fema_gastos_fijos_mov").select("gasto_fijo_id,anio,mes,pagado"),
         (supabase as any).from("fema_v_saldos_compra").select("factura_id,pagado,programado"),
         (supabase as any).from("fema_v_saldos_venta").select("factura_id,cobrado,programado"),
-        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria,tipo_comprobante"),
+        supabase.from("fema_facturas_compra").select("id,fecha,numero,total,proveedor_id,categoria,tipo_comprobante,estado,sin_caja"),
         supabase.from("fema_facturas_venta").select("id,fecha,numero,total,cliente_id"),
         supabase.from("fema_proveedores").select("id,nombre"),
         supabase.from("fema_clientes").select("id,nombre"),
@@ -122,6 +122,8 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
         for (const r of (sc.data ?? []) as any[]) mc[r.factura_id] = r;
         for (const f of (fc.data ?? []) as any[]) {
           if (f.categoria === "Franco_Particular") continue;
+          // Ya abonadas o sin impacto en caja (canje/pago particular): no generan deuda.
+          if (f.estado === "pagada" || f.sin_caja) continue;
           // Notas de crédito/débito: informativas, no generan deuda.
           if (esComprobanteInformativo(f.tipo_comprobante)) continue;
           const s = mc[f.id] ?? {};
