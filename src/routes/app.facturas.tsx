@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { LiquidacionVentaDialog } from "@/components/liquidacion-venta";
+import { RetencionesFacturaDialog } from "@/components/retenciones-factura";
+import { BadgePercent } from "lucide-react";
 
 export const Route = createFileRoute("/app/facturas")({ component: Page });
 
@@ -160,6 +162,7 @@ function Page() {
   const [asociarFacturaId, setAsociarFacturaId] = useState("");
   const [selPresup, setSelPresup] = useState<string[]>([]);
   const [liq, setLiq] = useState<Row | null>(null);
+  const [retFact, setRetFact] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fema_facturas_venta", user?.id, year],
@@ -1146,6 +1149,9 @@ function Page() {
                       >
                         {r.estado === "cobrada" ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                       </Button>
+                      <Button size="icon" variant="ghost" title="Certificados de retención" onClick={() => setRetFact(r)}>
+                        <BadgePercent className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" title="Ver / imprimir / PDF" onClick={() => setLiq(r)}>
                         <FileDown className="h-4 w-4" />
                       </Button>
@@ -1257,6 +1263,13 @@ function Page() {
         </DialogContent>
       </Dialog>
       <LiquidacionVentaDialog venta={liq as any} onClose={() => setLiq(null)} />
+      {retFact && (
+        <RetencionesFacturaDialog
+          factura={retFact as any}
+          clienteNombre={retFact.cliente_id ? clientesMap[retFact.cliente_id] : undefined}
+          onClose={() => setRetFact(null)}
+        />
+      )}
     </div>
   );
 }
