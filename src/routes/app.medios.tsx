@@ -2328,8 +2328,35 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               <p className="text-[11px] text-muted-foreground">Los echeqs seleccionados pasarán a estado "Cedido" y quedarán vinculados a esta factura de compra.</p>
             </div>
           )}
+          <div className="flex justify-between pt-1">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPaso(1)}>← Volver</Button>
+            <Button type="button" size="sm" disabled={!pasoDestinoOk} onClick={() => setPaso(3)}>Continuar al plan de {tipo === "cobro_cliente" ? "cobro" : "pago"} →</Button>
+          </div>
+          </>)}
 
-          <>
+          {paso === 3 && (<>
+          {facturaActual && (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm uppercase truncate">{facturaActual.proveedor ?? "Cliente"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Factura {facturaActual.numero ?? "s/n"} · {formatFecha(facturaActual.fecha)}
+                    {multiActivo && facturasSeleccionadas.length > 1 ? ` · +${facturasSeleccionadas.length - 1} factura(s)` : ""}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono text-emerald-400 text-base">{formatPesos(totalFactura)}</div>
+                  {!initial && <button type="button" className="text-[11px] text-primary underline" onClick={() => setPaso(2)}>Cambiar factura</button>}
+                </div>
+              </div>
+              {planCargado && (
+                <div className="mt-2 text-[11px] text-sky-400">
+                  Plan de {planOriginalIds.length} cuota(s) cargado. Editá importes, vencimientos y datos del echeq, agregá filas si el cliente entrega más cheques o quitá las que no correspondan.
+                </div>
+              )}
+            </div>
+          )}
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
             Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
           </div>
@@ -2615,7 +2642,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </FormField>
             </div>
           </div>
-          </>
+          <div className="flex justify-start pt-1">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPaso(2)}>← Volver a la factura</Button>
+          </div>
+          </>)}
         </div>
       )}
 
