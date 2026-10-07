@@ -214,11 +214,24 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     monto: "", detalle: "", forma_pago: "Transferencia",
     factura_id: "none", descontar: "",
   });
-  const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
+  const [cuentaIdState, setCuentaId] = useState<string>("");
+  const set = (k: keyof typeof v | "cuenta_id", val: string) => {
+    if (k === "cuenta_id") return setCuentaId(val);
+    setV((s) => ({ ...s, [k]: val }));
+  };
   const { data: empleados } = useEmpleadosMin();
   const { data: facturas } = useFacturasCompraAsociar();
   const { data: prestamos } = usePrestamos();
   const { data: prestamoMovs } = usePrestamoMovs();
+  const { data: cuentas } = useQuery({
+    queryKey: ["fema_cuentas_bancarias", "vista"],
+    queryFn: async () => {
+      const { data } = await supabase.from("fema_cuentas_bancarias")
+        .select("id,banco,alias,saldo,tipo_cuenta").eq("activa", true).neq("tipo_cuenta", "fondo");
+      return data ?? [];
+    },
+  });
+  const cuentaSel = cuentaIdState || (v.forma_pago === "Efectivo" ? "none" : cuentas?.[0]?.id ?? "none");
 
   // Deuda pendiente del empleado (compras a cuenta / préstamos) para descontar del pago.
   const prestamosEmp = useMemo(() => {
@@ -298,6 +311,22 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
         restante -= aplicar;
       }
       invalidarPrestamos(qc);
+    }
+    // Débito bancario solo en pagos nuevos con cuenta de la empresa.
+    if (!pago && cuentaSel !== "none") {
+      const { data: cta } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("id", cuentaSel).maybeSingle();
+      if (cta) {
+        const neto = monto - Number(v.descontar || 0);
+        const nuevo = Math.round((Number(cta.saldo || 0) - neto) * 100) / 100;
+        await supabase.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cta.id);
+        await supabase.from("fema_caja_mov").insert({
+          user_id: user!.id, fecha: v.fecha, cuenta_id: cta.id, tipo: "egreso", monto: neto,
+          concepto: `${TIPO_LABEL[v.tipo]} empleado — ${emp?.nombre ?? ""}`, saldo_resultante: nuevo,
+        });
+        for (const k of ["fema_cuentas_bancarias", "fema_caja_mov", "cashflow-matrix"]) qc.invalidateQueries({ queryKey: [k] });
+      }
+    } else if (!pago && pagoId) {
+      await supabase.from("fema_pagos_empleado").update({ observaciones: "Pago sin mover banco (efectivo)" }).eq("id", pagoId);
     }
     if (v.factura_id !== "none") {
       await supabase.from("fema_facturas_compra").update({ empleado_id: v.empleado_id }).eq("id", v.factura_id);
@@ -398,6 +427,28 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
               <Input type="date" value={v.fecha} onChange={(e) => set("fecha", e.target.value)} />
             </div>
           </div>
+
+          {!pago && (
+            <div className="space-y-1.5">
+              <Label>¿De dónde sale el dinero?</Label>
+              <Select value={cuentaSel} onValueChange={(x) => set("cuenta_id", x)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(cuentas ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      Cuenta empresa — {c.banco} {c.alias ?? ""} ({formatPesos(Number(c.saldo ?? 0))})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="none">Efectivo / sin mover banco</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {cuentaSel === "none"
+                  ? "El empleado queda pagado, pero el saldo del banco no cambia."
+                  : "Se descuenta del saldo de la cuenta seleccionada."}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
