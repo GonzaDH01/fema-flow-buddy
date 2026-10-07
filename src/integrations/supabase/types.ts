@@ -3015,6 +3015,82 @@ export type Database = {
           },
         ]
       }
+      fema_retenciones_venta: {
+        Row: {
+          alicuota: number
+          archivo_path: string | null
+          base_imponible: number
+          created_at: string
+          factura_venta_id: string
+          fecha: string
+          id: string
+          importe: number
+          jurisdiccion: string | null
+          movimiento_pago_id: string | null
+          numero_certificado: string
+          observaciones: string | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alicuota?: number
+          archivo_path?: string | null
+          base_imponible?: number
+          created_at?: string
+          factura_venta_id: string
+          fecha: string
+          id?: string
+          importe: number
+          jurisdiccion?: string | null
+          movimiento_pago_id?: string | null
+          numero_certificado: string
+          observaciones?: string | null
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alicuota?: number
+          archivo_path?: string | null
+          base_imponible?: number
+          created_at?: string
+          factura_venta_id?: string
+          fecha?: string
+          id?: string
+          importe?: number
+          jurisdiccion?: string | null
+          movimiento_pago_id?: string | null
+          numero_certificado?: string
+          observaciones?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_retenciones_venta_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_venta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_retenciones_venta_factura_venta_id_fkey"
+            columns: ["factura_venta_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_venta"
+            referencedColumns: ["factura_id"]
+          },
+          {
+            foreignKeyName: "fema_retenciones_venta_movimiento_pago_id_fkey"
+            columns: ["movimiento_pago_id"]
+            isOneToOne: false
+            referencedRelation: "fema_movimientos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_solicitudes_factura_empleado: {
         Row: {
           anio: number | null
