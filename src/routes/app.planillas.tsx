@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, ImagePlus, X, Printer } from "lucide-react";
 import { imprimirPlanilla } from "@/lib/planilla-print";
+import { LiquidadorTerceros } from "@/components/liquidador-terceros";
 
 export const Route = createFileRoute("/app/planillas")({ component: Page });
 
@@ -398,6 +399,7 @@ function Page() {
         <TabsList>
           <TabsTrigger value="planillas">Planillas cargadas</TabsTrigger>
           <TabsTrigger value="reporte">Reporte de viajes</TabsTrigger>
+          <TabsTrigger value="liquidador">Liquidador contratistas / terceros</TabsTrigger>
         </TabsList>
 
         <TabsContent value="planillas">
@@ -472,6 +474,10 @@ function Page() {
         <TabsContent value="reporte" className="space-y-4">
           {tablaResumen("Equipos propios de la empresa", resumen.propios, "Todavía no hay viajes registrados con maquinaria propia.")}
           {tablaResumen("Contratistas / Terceros", resumen.terceros, "Todavía no hay viajes registrados de terceros.")}
+        </TabsContent>
+
+        <TabsContent value="liquidador">
+          <LiquidadorTerceros planillas={planillas as any} equipos={equiposPlanilla as any} />
         </TabsContent>
       </Tabs>
 
