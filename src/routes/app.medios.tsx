@@ -1562,6 +1562,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [mostrarCesion, setMostrarCesion] = useState(false);
   const [mostrarGenerador, setMostrarGenerador] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Edición de un movimiento vinculado a factura: se edita el plan completo.
+  const editandoPlan = !!initial && !!(initial.factura_venta_id || initial.factura_compra_id);
+  const [paso, setPaso] = useState<1 | 2 | 3>(initial ? 3 : 1);
   // Saldos de cuentas bancarias, visibles en el panel de resumen mientras se carga el pago.
   const { data: cuentasSaldos } = useQuery({
     queryKey: ["fema_cuentas_bancarias_resumen"],
@@ -1726,7 +1729,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
   // Cargar plan de cuotas existente al seleccionar una factura (alta nueva)
   useEffect(() => {
-    if (initial) return; // edición de un único movimiento
+    if (initial && !editandoPlan) return; // edición de un movimiento suelto
     if (tipo !== "cobro_cliente" && tipo !== "pago_proveedor") return;
     if (facturasMulti.length > 1) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     if (!facturaSel) { setPlanOriginalIds([]); setPlanCargado(false); return; }
@@ -1753,7 +1756,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         setPlanCargado(true);
         toast.message(`Plan de ${data.length} cuotas cargado desde la factura. Podés editarlo antes de confirmar.`);
       });
-  }, [facturaSel, tipo, initial, facturasMulti.length]);
+  }, [facturaSel, tipo, initial, editandoPlan, facturasMulti.length]);
 
   const facturasFiltradas = useMemo(() => {
     const list = tipo === "cobro_cliente" ? facturasVenta : tipo === "pago_proveedor" ? facturasCompra : [];
@@ -1965,7 +1968,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (filasValidas.length > 0) {
           const esMulti = esMultiObjetivo;
           const colF = colImputacion;
-          if (initial) {
+          if (initial && !editandoPlan) {
             // edición: actualiza única fila
             const c = filasValidas[0];
             const payload: any = {
@@ -2247,7 +2250,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
               {facturasFiltradas.map(f => (
                 <button key={f.id} type="button"
-                  onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: Number(f.total), obs: "" }]); }}
+                  onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: Number(f.total), obs: "" }]); setPaso(3); }}
                   className="w-full text-left p-3 hover:bg-muted/50">
                   <div className="flex justify-between items-start">
                     <div>
