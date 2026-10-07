@@ -1562,6 +1562,9 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [mostrarCesion, setMostrarCesion] = useState(false);
   const [mostrarGenerador, setMostrarGenerador] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Edición de un movimiento vinculado a factura: se edita el plan completo.
+  const editandoPlan = !!initial && !!(initial.factura_venta_id || initial.factura_compra_id);
+  const [paso, setPaso] = useState<1 | 2 | 3>(initial ? 3 : 1);
   // Saldos de cuentas bancarias, visibles en el panel de resumen mientras se carga el pago.
   const { data: cuentasSaldos } = useQuery({
     queryKey: ["fema_cuentas_bancarias_resumen"],
@@ -1726,7 +1729,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
   // Cargar plan de cuotas existente al seleccionar una factura (alta nueva)
   useEffect(() => {
-    if (initial) return; // edición de un único movimiento
+    if (initial && !editandoPlan) return; // edición de un movimiento suelto
     if (tipo !== "cobro_cliente" && tipo !== "pago_proveedor") return;
     if (facturasMulti.length > 1) { setPlanOriginalIds([]); setPlanCargado(false); return; }
     if (!facturaSel) { setPlanOriginalIds([]); setPlanCargado(false); return; }
@@ -1753,7 +1756,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         setPlanCargado(true);
         toast.message(`Plan de ${data.length} cuotas cargado desde la factura. Podés editarlo antes de confirmar.`);
       });
-  }, [facturaSel, tipo, initial, facturasMulti.length]);
+  }, [facturaSel, tipo, initial, editandoPlan, facturasMulti.length]);
 
   const facturasFiltradas = useMemo(() => {
     const list = tipo === "cobro_cliente" ? facturasVenta : tipo === "pago_proveedor" ? facturasCompra : [];
@@ -1965,7 +1968,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         if (filasValidas.length > 0) {
           const esMulti = esMultiObjetivo;
           const colF = colImputacion;
-          if (initial) {
+          if (initial && !editandoPlan) {
             // edición: actualiza única fila
             const c = filasValidas[0];
             const payload: any = {
@@ -2103,30 +2106,33 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         </DialogDescription>
         {esOperacionConFactura && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-            <PasoChip n={1} label="Operación" ok={true} />
+            <PasoChip n={1} label="Operación" ok={true} active={paso === 1} onClick={() => !initial && setPaso(1)} />
             <span className="text-muted-foreground">→</span>
-            <PasoChip n={2} label={tipo === "cobro_cliente" ? "Factura del cliente" : "Facturas del proveedor"} ok={pasoDestinoOk} />
+            <PasoChip n={2} label={tipo === "cobro_cliente" ? "Factura del cliente" : "Facturas del proveedor"} ok={pasoDestinoOk} active={paso === 2} onClick={() => !initial && setPaso(2)} />
             <span className="text-muted-foreground">→</span>
-            <PasoChip n={3} label="Medio de pago e importe" ok={pasoDestinoOk && pasoMedioOk} />
+            <PasoChip n={3} label="Plan de cobro / echeqs" ok={pasoDestinoOk && pasoMedioOk} active={paso === 3} onClick={() => pasoDestinoOk && setPaso(3)} />
           </div>
         )}
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-2 sm:space-y-4 sm:px-6">
+      {(!esOperacionConFactura || paso === 1) && (
       <div>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
           {esOperacionConFactura ? "Paso 1 · ¿Qué querés registrar?" : "¿Qué querés registrar?"}
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => setTipo("cobro_cliente")} />
-          <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => setTipo("pago_proveedor")} />
+          <TipoBtn icon={<FileText className="w-4 h-4" />} label="Cobro de cliente" sub="Facturas de servicio" active={tipo === "cobro_cliente"} onClick={() => { setTipo("cobro_cliente"); setPaso(2); }} />
+          <TipoBtn icon={<ShoppingCart className="w-4 h-4" />} label="Pago a proveedor" sub="Facturas de compra" active={tipo === "pago_proveedor"} onClick={() => { setTipo("pago_proveedor"); setPaso(2); }} />
           <TipoBtn icon={<Edit3 className="w-4 h-4" />} label="Libre" sub="Sin comprobante" active={tipo === "libre"} onClick={() => setTipo("libre")} />
         </div>
       </div>
+      )}
 
       {(tipo === "cobro_cliente" || tipo === "pago_proveedor") && (
         <div className="space-y-3">
+          {paso === 2 && (<>
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
             Paso 2 · {tipo === "cobro_cliente" ? "¿Qué factura estás cobrando?" : "¿Qué facturas estás pagando?"}
           </div>
@@ -2244,7 +2250,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               {facturasFiltradas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Sin facturas</div>}
               {facturasFiltradas.map(f => (
                 <button key={f.id} type="button"
-                  onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: Number(f.total), obs: "" }]); }}
+                  onClick={() => { setFacturaSel(f.id); setMonto(Number(f.total)); setContraparte(f.proveedor ?? ""); setCuotas([{ numero: "", banco: "", vencimiento: "", monto: Number(f.total), obs: "" }]); setPaso(3); }}
                   className="w-full text-left p-3 hover:bg-muted/50">
                   <div className="flex justify-between items-start">
                     <div>
@@ -2328,8 +2334,35 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               <p className="text-[11px] text-muted-foreground">Los echeqs seleccionados pasarán a estado "Cedido" y quedarán vinculados a esta factura de compra.</p>
             </div>
           )}
+          <div className="flex justify-between pt-1">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPaso(1)}>← Volver</Button>
+            <Button type="button" size="sm" disabled={!pasoDestinoOk} onClick={() => setPaso(3)}>Continuar al plan de {tipo === "cobro_cliente" ? "cobro" : "pago"} →</Button>
+          </div>
+          </>)}
 
-          <>
+          {paso === 3 && (<>
+          {facturaActual && (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm uppercase truncate">{facturaActual.proveedor ?? "Cliente"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Factura {facturaActual.numero ?? "s/n"} · {formatFecha(facturaActual.fecha)}
+                    {multiActivo && facturasSeleccionadas.length > 1 ? ` · +${facturasSeleccionadas.length - 1} factura(s)` : ""}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono text-emerald-400 text-base">{formatPesos(totalFactura)}</div>
+                  {!initial && <button type="button" className="text-[11px] text-primary underline" onClick={() => setPaso(2)}>Cambiar factura</button>}
+                </div>
+              </div>
+              {planCargado && (
+                <div className="mt-2 text-[11px] text-sky-400">
+                  Plan de {planOriginalIds.length} cuota(s) cargado. Editá importes, vencimientos y datos del echeq, agregá filas si el cliente entrega más cheques o quitá las que no correspondan.
+                </div>
+              )}
+            </div>
+          )}
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
             Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
           </div>
@@ -2615,7 +2648,10 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               </FormField>
             </div>
           </div>
-          </>
+          <div className="flex justify-start pt-1">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPaso(2)}>← Volver a la factura</Button>
+          </div>
+          </>)}
         </div>
       )}
 
@@ -2823,12 +2859,13 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   );
 }
 
-function PasoChip({ n, label, ok }: { n: number; label: string; ok: boolean }) {
+function PasoChip({ n, label, ok, active, onClick }: { n: number; label: string; ok: boolean; active?: boolean; onClick?: () => void }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${ok ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground"}`}>
-      <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${ok ? "bg-emerald-500 text-background" : "bg-muted"}`}>{ok ? "✓" : n}</span>
+    <button type="button" onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors ${active ? "border-primary bg-primary/15 text-foreground ring-1 ring-primary/40" : ok ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground hover:bg-muted/50"}`}>
+      <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${active ? "bg-primary text-primary-foreground" : ok ? "bg-emerald-500 text-background" : "bg-muted"}`}>{ok && !active ? "✓" : n}</span>
       {label}
-    </span>
+    </button>
   );
 }
 
