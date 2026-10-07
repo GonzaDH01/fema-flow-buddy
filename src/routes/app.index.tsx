@@ -33,7 +33,7 @@ async function loadKPIs(_userId: string, anio: number) {
       .eq("anio", anio),
     supabase.from("fema_movimientos_pago")
       .select("instrumento,direccion,estado,monto,factura_venta_id,factura_compra_id,anio,mes,vencimiento,fecha_emision")
-      ,
+      .neq("instrumento", "retencion"),
   ]);
   if (ventas.error) throw ventas.error;
   if (compras.error) throw compras.error;

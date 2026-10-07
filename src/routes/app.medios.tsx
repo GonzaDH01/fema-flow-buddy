@@ -104,7 +104,7 @@ async function reconciliarFactura(facturaId: string | null | undefined, tipo: "v
 
 const INSTRUMENT_LABEL: Record<string, string> = {
   echeq: "Echeq", cheque_fisico: "Cheque físico", transferencia: "Transferencia",
-  cesion: "Cesión echeq", efectivo: "Efectivo", otro: "Otro",
+  cesion: "Cesión echeq", efectivo: "Efectivo", otro: "Otro", retencion: "Retención",
 };
 const ESTADO_VARIANT: Record<string, string> = {
   en_cartera: "bg-blue-500/15 text-blue-400 border-blue-500/30",

@@ -843,6 +843,13 @@ function Page() {
                   origen: "Venta", numero: f.numero || "—",
                   percep: Number(f.percepciones || 0), otros: 0,
                 })),
+              ...(((data as any)?.mov ?? []) as any[])
+                .filter((m) => m.instrumento === "retencion" && (resumen.fv as any[]).some((f) => f.id === m.factura_venta_id))
+                .map((m) => ({
+                  id: `r-${m.id}`, fecha: m.fecha_emision, agente: m.contraparte || "—",
+                  origen: "Retención", numero: `Cert. ${m.numero ?? "—"}`,
+                  percep: Number(m.monto || 0), otros: 0,
+                })),
             ].sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
             const tPercep = filas.reduce((a, f) => a + f.percep, 0);
             const tOtros = filas.reduce((a, f) => a + f.otros, 0);
