@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { saldoFactura, esComprobanteInformativo } from "@/lib/finanzas";
+import { PlanPagosEditor } from "@/components/plan-pagos-editor";
 
 export const Route = createFileRoute("/app/cuentas")({ component: Page });
 
@@ -273,6 +274,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
   const [q, setQ] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
   const [verTodas, setVerTodas] = useState(false);
+  const [planEdit, setPlanEdit] = useState<{ id: string; numero: string | null; total: number; nombre: string } | null>(null);
   const esCompra = tipo === "compra";
 
   const rows = useMemo(() => {
@@ -300,6 +302,10 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
 
   return (
     <div className="space-y-4">
+      {planEdit && (
+        <PlanPagosEditor facturaId={planEdit.id} numero={planEdit.numero} total={planEdit.total}
+          esCompra={tipo === "compra"} contraparte={planEdit.nombre} onClose={() => setPlanEdit(null)} />
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1">
@@ -466,12 +472,22 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                          <span className="text-[11px] text-muted-foreground">
                                            Nota de crédito / débito emitida por el {esCompra ? "proveedor" : "cliente"} — no requiere pago
                                          </span>
-                                       ) : l.pagos.length === 0 ? (
-                                         <span className="text-[11px] text-muted-foreground">
-                                           Sin {esCompra ? "pagos" : "cobros"} registrados
-                                         </span>
                                        ) : (
-                                         <ExtractoPagos pagos={l.pagos} esCompra={esCompra} />
+                                         <>
+                                           <div className="mb-1 flex justify-end">
+                                             <Button size="sm" variant="outline" className="h-7 text-xs"
+                                               onClick={() => setPlanEdit({ id: l.id, numero: l.numero, total: l.total, nombre: c.nombre })}>
+                                               <Pencil className="mr-1 h-3 w-3" /> Editar plan de pagos
+                                             </Button>
+                                           </div>
+                                           {l.pagos.length === 0 ? (
+                                             <span className="text-[11px] text-muted-foreground">
+                                               Sin {esCompra ? "pagos" : "cobros"} registrados
+                                             </span>
+                                           ) : (
+                                             <ExtractoPagos pagos={l.pagos} esCompra={esCompra} />
+                                           )}
+                                         </>
                                        )}
                                      </td>
                                    </tr>
