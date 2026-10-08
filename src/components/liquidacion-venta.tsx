@@ -54,7 +54,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
   });
 
   const oficial = !!venta?.numero && venta.tipo_comprobante !== "Estimado";
-  const titulo = oficial ? `FACTURA ${venta?.tipo ?? ""}`.trim() : "LIQUIDACIÓN DE SERVICIOS";
+  const titulo = "DETALLE DE TRABAJO Y PLAN DE PAGO";
 
   const html = useMemo(() => {
     if (!venta || !data) return "";
@@ -127,7 +127,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       ${femaWatermarkHTML(absoluteAssetUrl(femaWatermarkUrl))}
       <div class="fema-content">
       ${femaHeaderHTML(titulo, [
-        { label: oficial ? "Nº:" : "Ref.:", value: oficial ? esc(v.numero) : `LIQ-${v.id.slice(0, 8).toUpperCase()}` },
+        { label: oficial ? `Factura ARCA ${esc(v.tipo ?? "")}:`.replace(" :", ":") : "Ref.:", value: oficial ? esc(v.numero) : `LIQ-${v.id.slice(0, 8).toUpperCase()}` },
         { label: "Fecha:", value: fecha(v.fecha) },
       ], absoluteAssetUrl(femaLogoUrl))}
       ${femaClientHTML([
@@ -186,7 +186,7 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
       }
       const html2pdf = (await import("html2pdf.js")).default;
       const cli = (data?.cliente?.nombre ?? "cliente").replace(/[^\w]+/g, "_");
-      const name = `${oficial ? "FACTURA" : "LIQUIDACION"}_${cli}_${fecha(venta?.fecha).replace(/\//g, "-")}.pdf`;
+      const name = `DETALLE_Y_PLAN_DE_PAGO_${cli}_${fecha(venta?.fecha).replace(/\//g, "-")}.pdf`;
       const opts: any = femaPdfOptions(name, ".liq-print", 10);
       opts.pagebreak = { mode: ["avoid-all"] };
       await html2pdf().set(opts).from(root).save();
@@ -199,9 +199,9 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
     <Dialog open={!!venta} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{oficial ? "Factura" : "Liquidación de servicios"}</DialogTitle>
+          <DialogTitle>Detalle de trabajo y plan de pago</DialogTitle>
           <DialogDescription>
-            {oficial ? "Vista previa del comprobante." : "Documento interno, no válido como factura hasta cargar el número fiscal."}
+            {oficial ? "Resumen para el cliente. Se adjunta junto a la factura oficial de ARCA." : "Documento interno, no válido como factura hasta cargar el número fiscal."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-hidden rounded-md border bg-muted">
