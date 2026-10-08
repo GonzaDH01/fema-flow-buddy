@@ -565,7 +565,21 @@ async function loadCashflow(userId: string, anio: number) {
   const acumulado: number[] = [];
   neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, saldoInicial);
 
-  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado, saldoInicial, disponible };
+  // Saldo simple: neto del mes + saldo del mes anterior sólo si fue positivo.
+  // Un mes negativo indica el fondeo (aporte) necesario; no arrastra deuda.
+  const saldoAnt: number[] = [];
+  const saldoFinal: number[] = [];
+  const fondeo: number[] = [];
+  let prev = Math.max(saldoInicial, 0);
+  for (let i = 0; i < 12; i++) {
+    saldoAnt.push(prev);
+    const fin = prev + neto[i];
+    saldoFinal.push(fin);
+    fondeo.push(fin < 0 ? -fin : 0);
+    prev = Math.max(fin, 0);
+  }
+
+  return { ingCobrados, ingPendientes, ingEstimados, egPagados, egPendientes, ajustesRows, totalIng, totalEg, neto, acumulado, saldoInicial, disponible, saldoAnt, saldoFinal, fondeo };
 }
 
 function Page() {
@@ -625,10 +639,11 @@ function Page() {
 
                 <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
 
-                <TotalRow label="NETO (I − G + Ajustes)" values={data.neto} signed />
-                <TotalRow label={`SALDO INICIAL ${year} (bancos + fondos)`} values={[data.saldoInicial, ...Array(11).fill(0)]} signed />
-                <TotalRow label="ACUMULADO (saldo inicial + neto)" values={data.acumulado} signed bold totalMode="last" />
-                <TotalRow label="DISPONIBLE REAL EN CUENTAS (cierre de mes)" values={data.disponible} signed bold totalMode="last" />
+                <TotalRow label="NETO DEL MES (Ingresos − Gastos)" values={data.neto} signed />
+                <TotalRow label="(+) SALDO DEL MES ANTERIOR (si es positivo)" values={data.saldoAnt} signed />
+                <TotalRow label="(=) SALDO FINAL DEL MES" values={data.saldoFinal} signed bold totalMode="last" />
+                <TotalRow label="⚠ FONDEO NECESARIO (aporte a ingresar)" values={data.fondeo} positive={false} bold />
+                <TotalRow label="Disponible real en cuentas (control banco)" values={data.disponible} signed totalMode="last" />
               </>
             )}
           </tbody>
