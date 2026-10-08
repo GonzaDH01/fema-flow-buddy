@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useYear } from "@/lib/year-context";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -547,8 +548,11 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
     qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
   };
 
+  const [echeqEdit, setEcheqEdit] = useState<PagoDetalle | null>(null);
+
   return (
     <div className="my-1 overflow-x-auto rounded-md border border-border/60 bg-muted/20">
+      {echeqEdit && <EcheqDialog pago={echeqEdit} onClose={() => setEcheqEdit(null)} />}
       <table className="w-full text-xs">
         <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -585,7 +589,15 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
                 ) : (p.fecha ? formatFecha(p.fecha) : "—")}
               </td>
               <td className="whitespace-nowrap px-3 py-1.5 font-medium">{p.etiqueta}</td>
-              <td className="px-3 py-1.5 text-muted-foreground">{p.detalle || "—"}</td>
+              <td className="px-3 py-1.5 text-muted-foreground">
+                {!p.confirmado ? (
+                  <button type="button" title="Completar datos de e-cheq" onClick={() => setEcheqEdit(p)}
+                    className="group inline-flex items-center gap-1.5 text-left">
+                    <span>{p.detalle || "Completar e-cheq"}</span>
+                    <Pencil className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                  </button>
+                ) : (p.detalle || "—")}
+              </td>
               <td className="whitespace-nowrap px-3 py-1.5">
                 <Badge variant={p.confirmado ? "outline" : "secondary"} className="text-[10px]">
                   {p.estado}
@@ -642,6 +654,65 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
           </tr>
         </tfoot>
       </table>
+    </div>
+  );
+}
+
+function EcheqDialog({ pago, onClose }: { pago: PagoDetalle; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { data: mov } = useQuery({
+    queryKey: ["mov_echeq_edit", pago.movId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_movimientos_pago")
+        .select("id,numero,banco,vencimiento,monto,estado,instrumento,fecha_emision").eq("id", pago.movId).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const [f, setF] = useState<any>(null);
+  const v = f ?? (mov ? { numero: mov.numero ?? "", banco: mov.banco ?? "", vencimiento: mov.vencimiento ?? "", monto: Number(mov.monto ?? 0), fecha_emision: mov.fecha_emision ?? new Date().toISOString().slice(0, 10) } : null);
+  const set = (k: string, val: any) => setF({ ...v, [k]: val });
+  const [saving, setSaving] = useState(false);
+
+  const guardar = async () => {
+    if (!v) return;
+    if (!v.numero) return toast.error("Ingresá el Nº de e-cheq");
+    if (!v.vencimiento) return toast.error("Ingresá la fecha de pago del e-cheq");
+    if (!(Number(v.monto) > 0)) return toast.error("Monto inválido");
+    setSaving(true);
+    const { error } = await (supabase as any).from("fema_movimientos_pago").update({
+      instrumento: "echeq", numero: v.numero, banco: v.banco || null,
+      vencimiento: v.vencimiento, fecha_emision: v.fecha_emision || null,
+      monto: Number(v.monto), estado: "en_cartera",
+    }).eq("id", pago.movId);
+    setSaving(false);
+    if (error) return toast.error("No se pudo guardar: " + error.message);
+    toast.success("E-cheq registrado en cartera");
+    for (const k of ["fema_cuentas_corrientes", "fema_movimientos_pago", "cashflow-matrix", "mov_echeq_edit"]) qc.invalidateQueries({ queryKey: [k] });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-md space-y-3 rounded-lg border bg-card p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <div className="text-sm font-semibold">Completar datos de e-cheq</div>
+          <div className="text-xs text-muted-foreground">{pago.etiqueta} · {formatPesos(pago.monto)}</div>
+        </div>
+        {!v ? <div className="text-xs text-muted-foreground">Cargando…</div> : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1"><Label className="text-xs">Nº e-cheq</Label><Input value={v.numero} onChange={(e) => set("numero", e.target.value)} /></div>
+            <div className="space-y-1"><Label className="text-xs">Banco emisor</Label><Input value={v.banco} onChange={(e) => set("banco", e.target.value)} /></div>
+            <div className="space-y-1"><Label className="text-xs">Fecha emisión</Label><Input type="date" value={v.fecha_emision} onChange={(e) => set("fecha_emision", e.target.value)} /></div>
+            <div className="space-y-1"><Label className="text-xs">Fecha de pago</Label><Input type="date" value={v.vencimiento} onChange={(e) => set("vencimiento", e.target.value)} /></div>
+            <div className="col-span-2 space-y-1"><Label className="text-xs">Monto ($)</Label><Input type="number" value={v.monto} onChange={(e) => set("monto", e.target.value)} /></div>
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" disabled={saving || !v} onClick={guardar}>Guardar e-cheq</Button>
+        </div>
+      </div>
     </div>
   );
 }
