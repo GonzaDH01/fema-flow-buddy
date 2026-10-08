@@ -455,6 +455,32 @@ function Page() {
             }}>Limpiar filtros</Button>
           </div>
         </div>
+        {(() => {
+          const reales = filtered.filter((r) => !esInfo(r));
+          const total = reales.reduce((s, r) => s + Number(r.total || 0), 0);
+          const pagado = reales.reduce((s, r) => s + pagadoDe(r.id), 0);
+          const programado = reales.reduce((s, r) => s + programadoDe(r.id), 0);
+          const deuda = reales.reduce((s, r) => s + Math.max(0, saldoDe(r)), 0);
+          const conDeuda = reales.filter((r) => saldoDe(r) > 0.01).length;
+          const periodo = fechaDesde || fechaHasta
+            ? `${fechaDesde ? formatFecha(fechaDesde) : "inicio"} → ${fechaHasta ? formatFecha(fechaHasta) : "hoy"}`
+            : "Todo el período";
+          const kpi = (label: string, valor: string, cls: string, sub?: string) => (
+            <div className="rounded-md border border-border bg-muted/20 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+              <p className={`font-mono text-lg font-semibold ${cls}`}>{valor}</p>
+              {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+            </div>
+          );
+          return (
+            <div className="grid grid-cols-2 gap-2 px-4 pb-4 lg:grid-cols-4">
+              {kpi("Total facturado", formatPesos(total), "text-foreground", `${reales.length} comprobante(s) · ${periodo}`)}
+              {kpi("Pagado", formatPesos(pagado), "text-primary")}
+              {kpi("Programado", formatPesos(programado), "text-muted-foreground", "Cheques / cuotas a pagar")}
+              {kpi("Deuda pendiente", formatPesos(deuda), "text-destructive", `${conDeuda} factura(s) con saldo`)}
+            </div>
+          );
+        })()}
         <CardContent className="p-0">
           <Table>
             <TableHeader>
