@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { saldoFactura, esComprobanteInformativo } from "@/lib/finanzas";
+import { PlanPagosEditor } from "@/components/plan-pagos-editor";
 
 export const Route = createFileRoute("/app/cuentas")({ component: Page });
 
@@ -273,6 +274,7 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
   const [q, setQ] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
   const [verTodas, setVerTodas] = useState(false);
+  const [planEdit, setPlanEdit] = useState<{ id: string; numero: string | null; total: number; nombre: string } | null>(null);
   const esCompra = tipo === "compra";
 
   const rows = useMemo(() => {
@@ -300,6 +302,10 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
 
   return (
     <div className="space-y-4">
+      {planEdit && (
+        <PlanPagosEditor facturaId={planEdit.id} numero={planEdit.numero} total={planEdit.total}
+          esCompra={tipo === "compra"} contraparte={planEdit.nombre} onClose={() => setPlanEdit(null)} />
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1">
