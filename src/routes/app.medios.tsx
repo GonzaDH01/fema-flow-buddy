@@ -1051,6 +1051,8 @@ function Page() {
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
               qc.invalidateQueries({ queryKey: ["fema_imputaciones"] });
+              qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+              qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
               qc.invalidateQueries({ queryKey: ["fema_pagos_por_compra"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_compra"] });
               qc.invalidateQueries({ queryKey: ["fema_facturas_venta_pendientes"] });
