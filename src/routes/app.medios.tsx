@@ -2725,7 +2725,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">Sin impacto en banco</SelectItem>
-                    {cuentas.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nombre ?? c.banco ?? c.id}</SelectItem>)}
+                    {cuentas.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </FormField>
