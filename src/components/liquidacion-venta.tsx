@@ -61,7 +61,9 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
     const v = venta;
     const total = Number(v.total) || 0;
     const neto = Number(v.subtotal ?? v.neto ?? 0) || 0;
-    const iva = Number(v.iva ?? v.iva_monto ?? 0) || 0;
+    const iva21 = Number(v.iva_21 ?? 0) || 0;
+    const iva105 = Number(v.iva_105 ?? 0) || 0;
+    const iva = Number(v.iva ?? v.iva_monto ?? 0) || (iva21 + iva105);
     const ha = Number(v.hectareas ?? 0) || 0;
     const mt = Number(v.metros_bolsa ?? 0) || 0;
     const servicios: any[] = [
@@ -146,7 +148,9 @@ export function LiquidacionVentaDialog({ venta, onClose }: { venta: Venta | null
         <div class="fema-obs"><div class="t">OBSERVACIONES:</div>${esc(v.observaciones ?? "").replace(/\n/g, "<br>")}</div>
         <div class="fema-tot">
           ${neto ? `<div class="row"><span>Neto:</span><span>${pesos(neto)}</span></div>` : ""}
-          ${iva ? `<div class="row"><span>IVA:</span><span>${pesos(iva)}</span></div>` : ""}
+          ${iva21 ? `<div class="row"><span>IVA 21%:</span><span>${pesos(iva21)}</span></div>` : ""}
+          ${iva105 ? `<div class="row"><span>IVA 10,5%:</span><span>${pesos(iva105)}</span></div>` : ""}
+          ${iva && !iva21 && !iva105 ? `<div class="row"><span>IVA:</span><span>${pesos(iva)}</span></div>` : ""}
           <div class="row total"><span>Total</span><span>${pesos(total)}</span></div>
         </div>
       </div>
