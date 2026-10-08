@@ -547,8 +547,11 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
     qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
   };
 
+  const [echeqEdit, setEcheqEdit] = useState<PagoDetalle | null>(null);
+
   return (
     <div className="my-1 overflow-x-auto rounded-md border border-border/60 bg-muted/20">
+      {echeqEdit && <EcheqDialog pago={echeqEdit} onClose={() => setEcheqEdit(null)} />}
       <table className="w-full text-xs">
         <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -585,7 +588,15 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
                 ) : (p.fecha ? formatFecha(p.fecha) : "—")}
               </td>
               <td className="whitespace-nowrap px-3 py-1.5 font-medium">{p.etiqueta}</td>
-              <td className="px-3 py-1.5 text-muted-foreground">{p.detalle || "—"}</td>
+              <td className="px-3 py-1.5 text-muted-foreground">
+                {!p.confirmado ? (
+                  <button type="button" title="Completar datos de e-cheq" onClick={() => setEcheqEdit(p)}
+                    className="group inline-flex items-center gap-1.5 text-left">
+                    <span>{p.detalle || "Completar e-cheq"}</span>
+                    <Pencil className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                  </button>
+                ) : (p.detalle || "—")}
+              </td>
               <td className="whitespace-nowrap px-3 py-1.5">
                 <Badge variant={p.confirmado ? "outline" : "secondary"} className="text-[10px]">
                   {p.estado}
