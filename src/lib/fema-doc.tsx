@@ -98,10 +98,10 @@ export const femaPrintCSS = `
   table.fema thead th.right { text-align: right; }
   table.fema tbody td { padding: 3px 6px; border-bottom: 1px solid #ccc; }
   table.fema tbody td.right { text-align: right; }
-  .fema-bottom { display: grid; grid-template-columns: 1fr 260px; gap: 12px; margin-top: 16px; }
+  .fema-bottom { display: grid; grid-template-columns: 1fr 260px; gap: 12px; margin-top: 16px; align-items: start; }
   .fema-obs { border: 2px solid #000; padding: 8px 10px; font-size: 10.5px; min-height: 110px; background: #fff; }
   .fema-obs .t { font-style: italic; font-weight: bold; text-decoration: underline; margin-bottom: 4px; }
-  .fema-tot { font-size: 10.5px; background: #fff; }
+  .fema-tot { font-size: 10.5px; background: #fff; border: 2px solid #000; }
   .fema-tot .row { display: flex; justify-content: space-between; padding: 4px 8px; border-bottom: 1px solid #bbb; }
   .fema-tot .row.total { background: #fff; border-top: 1px solid #000; border-bottom: 0; font-weight: bold; font-size: 13px; padding-top: 6px; }
   .fema-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 60px; font-size: 10.5px; text-align: center; }
