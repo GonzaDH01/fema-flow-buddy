@@ -1046,6 +1046,7 @@ function Page() {
             facturasVenta={facturasVentaPend}
             facturasCompra={facturasCompraPend}
             echeqsCartera={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro" && m.estado === "en_cartera")}
+            cuentas={cuentas}
             onClose={() => { setOpenMov(false); setEditMov(null); }}
             onSaved={() => {
               qc.invalidateQueries({ queryKey: ["fema_movimientos_pago"] });
@@ -1509,10 +1510,10 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
 
 type Tipo = "cobro_cliente"|"pago_proveedor"|"ceder_echeq"|"libre";
 
-function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra, echeqsCartera, onClose, onSaved }: {
+function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra, echeqsCartera, cuentas = [], onClose, onSaved }: {
   initial: Mov | null;
   userId: string; year: number;
-  facturasVenta: any[]; facturasCompra: any[]; echeqsCartera: Mov[];
+  facturasVenta: any[]; facturasCompra: any[]; echeqsCartera: Mov[]; cuentas?: any[];
   onClose: () => void; onSaved: () => void;
 }) {
   const [tipo, setTipo] = useState<Tipo>(initial?.tipo_movimiento ?? "cobro_cliente");
@@ -1541,6 +1542,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [estado, setEstado] = useState<string>(initial?.estado ?? "en_cartera");
   const [mes, setMes] = useState<number>(initial?.mes ?? (new Date().getMonth() + 1));
   const [observaciones, setObservaciones] = useState(initial?.observaciones ?? "");
+  const [cuentaLibre, setCuentaLibre] = useState<string>("");
 
   // ceder echeq
   const [echeqId, setEcheqId] = useState<string>(initial?.echeq_origen_id ?? "");
@@ -2056,11 +2058,25 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           monto: Number(monto), estado, observaciones: conTag(observaciones || null),
           anio: year, mes,
         };
-        const op = initial
-          ? sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id)
-          : sb.from("fema_movimientos_pago").insert(payload);
-        const { error } = await op;
-        if (error) throw error;
+        const impacta = !initial && !!cuentaLibre && (instrumento === "transferencia" || instrumento === "efectivo");
+        if (initial) {
+          const { error } = await sb.from("fema_movimientos_pago").update(payload).eq("id", initial.id);
+          if (error) throw error;
+        } else if (impacta) {
+          if (!vencimiento) payload.vencimiento = fechaEmision;
+          payload.estado = "en_cartera";
+          const { data: ins, error } = await sb.from("fema_movimientos_pago").insert(payload).select("id").single();
+          if (error) throw error;
+          const esPago = direccion === "pago";
+          const { error: e2 } = await (sb as any).rpc("fema_impactar_caja", {
+            _mov_id: ins.id, _nuevo_estado: esPago ? "pagado" : "cobrado",
+            _cuenta_id: cuentaLibre, _es_pago: esPago,
+          });
+          if (e2) throw e2;
+        } else {
+          const { error } = await sb.from("fema_movimientos_pago").insert(payload);
+          if (error) throw error;
+        }
       }
       toast.success("Movimiento guardado");
       // Reconcilia estado de la(s) factura(s) afectada(s)
@@ -2689,6 +2705,31 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
       {tipo === "libre" && (
         <div className="grid grid-cols-2 gap-3">
+          {!initial && (
+            <div className="col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2 text-xs">
+              <span className="text-muted-foreground">Atajo:</span>
+              <Button type="button" size="sm" variant="secondary" onClick={() => {
+                setInstrumento("transferencia"); setDireccion("cobro"); setEstado("cobrado");
+                setContraparte(contraparte || "Aporte de socios");
+                setObservaciones(observaciones || "Aporte de socios para gastos corrientes");
+                setVencimiento(vencimiento || fechaEmision);
+              }}>Aporte de socios</Button>
+            </div>
+          )}
+          {!initial && (instrumento === "transferencia" || instrumento === "efectivo") && (
+            <div className="col-span-2">
+              <FormField label="Cuenta bancaria (impacta saldo y Caja)">
+                <Select value={cuentaLibre || "__none"} onValueChange={(v) => setCuentaLibre(v === "__none" ? "" : v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sin impacto en banco</SelectItem>
+                    {cuentas.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nombre ?? c.banco ?? c.id}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              {cuentaLibre && <p className="mt-1 text-[11px] text-muted-foreground">Se registrará como {direccion === "pago" ? "pagado (egreso)" : "cobrado (ingreso)"} en la cuenta, con fecha {vencimiento || fechaEmision}.</p>}
+            </div>
+          )}
           <FormField label="Instrumento">
             <Select value={instrumento} onValueChange={setInstrumento}>
               <SelectTrigger><SelectValue /></SelectTrigger>
