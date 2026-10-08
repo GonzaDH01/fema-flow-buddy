@@ -466,12 +466,22 @@ function Panel({ tipo, anio }: { tipo: "compra" | "venta"; anio: number }) {
                                          <span className="text-[11px] text-muted-foreground">
                                            Nota de crédito / débito emitida por el {esCompra ? "proveedor" : "cliente"} — no requiere pago
                                          </span>
-                                       ) : l.pagos.length === 0 ? (
-                                         <span className="text-[11px] text-muted-foreground">
-                                           Sin {esCompra ? "pagos" : "cobros"} registrados
-                                         </span>
                                        ) : (
-                                         <ExtractoPagos pagos={l.pagos} esCompra={esCompra} />
+                                         <>
+                                           <div className="mb-1 flex justify-end">
+                                             <Button size="sm" variant="outline" className="h-7 text-xs"
+                                               onClick={() => setPlanEdit({ id: l.id, numero: l.numero, total: l.total, nombre: c.nombre })}>
+                                               <Pencil className="mr-1 h-3 w-3" /> Editar plan de pagos
+                                             </Button>
+                                           </div>
+                                           {l.pagos.length === 0 ? (
+                                             <span className="text-[11px] text-muted-foreground">
+                                               Sin {esCompra ? "pagos" : "cobros"} registrados
+                                             </span>
+                                           ) : (
+                                             <ExtractoPagos pagos={l.pagos} esCompra={esCompra} />
+                                           )}
+                                         </>
                                        )}
                                      </td>
                                    </tr>
