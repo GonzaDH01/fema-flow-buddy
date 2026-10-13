@@ -2040,18 +2040,28 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             // Cuando el pago se reparte en varias cuotas, cada cuota debe imputar
             // sobre el saldo que dejaron las cuotas anteriores del mismo plan.
             for (const c of filasValidas) {
+              const instC = c.instrumento || instrumento;
+              const esDinero = !esValorInst(instC);
+              const estadoPagado = tipo === "cobro_cliente" ? "cobrado" : "pagado";
+              const yaConfirmada = !!c.id && ["pagado", "cobrado", "cedido"].includes(c.estado ?? "");
+              // Transferencia/efectivo nueva con cuenta elegida: se inserta pendiente y luego impacta caja.
+              const impactaCaja = !c.id && esDinero && !!cuentaLibre && !sinCaja;
+              const estadoC = yaConfirmada ? c.estado!
+                : impactaCaja ? "en_cartera"
+                : esDinero ? estadoPagado
+                : estado;
               const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
-                instrumento: instrumento as any,
+                instrumento: instC as any,
                 direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
                 tipo_movimiento: tipo,
                 fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-                vencimiento: c.vencimiento || null,
+                vencimiento: c.vencimiento || (esDinero ? (fechaEmision || hoyISO()) : null),
                 numero: c.numero || null,
                 banco: c.banco || bancoGlobal || null,
                 contraparte: contraparte || (fact?.proveedor ?? null),
                 monto: m,
-                estado,
-                observaciones: conTag([c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null),
+                estado: estadoC,
+                observaciones: conTag([c.obs || observaciones || "", obsExtra, impactaCaja ? `[OP:${opToken}]` : ""].filter(Boolean).join(" · ") || null),
                 factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
                 factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
                 anio: year, mes,
