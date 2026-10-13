@@ -1675,8 +1675,51 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const totalFactura = multiActivo && facturasSeleccionadas.length > 0
     ? netoAPagar
     : Number(facturaActual?.total ?? monto ?? 0);
+  // Pagos / documentos ya registrados sobre las facturas elegidas que NO están en la tabla actual.
+  const idsFacturasObjetivo = useMemo(
+    () => (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []),
+    [multiActivo, facturasMulti, facturaSel]);
+  const aplicadoQ = useQuery({
+    queryKey: ["fema_aplicado_previo", tipo, idsFacturasObjetivo.join(",")],
+    enabled: (tipo === "cobro_cliente" || tipo === "pago_proveedor") && idsFacturasObjetivo.length > 0,
+    queryFn: async () => {
+      const col = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+      const [{ data: movs }, { data: imps }] = await Promise.all([
+        sb.from("fema_movimientos_pago").select("id,monto,estado").in(col, idsFacturasObjetivo),
+        sb.from("fema_imputaciones").select("monto,movimiento_pago_id").in(col, idsFacturasObjetivo),
+      ]);
+      return { movs: (movs ?? []) as any[], imps: (imps ?? []) as any[] };
+    },
+  });
+  const { yaPagado, yaProgramado } = useMemo(() => {
+    const enTabla = new Set(cuotas.map(c => c.id).filter(Boolean) as string[]);
+    let pag = 0, prog = 0;
+    for (const m of aplicadoQ.data?.movs ?? []) {
+      if (enTabla.has(m.id) || m.estado === "anulado" || m.estado === "vencido") continue;
+      if (["pagado", "cobrado", "cedido"].includes(m.estado)) pag += Number(m.monto || 0);
+      else prog += Number(m.monto || 0);
+    }
+    for (const i of aplicadoQ.data?.imps ?? []) {
+      if (i.movimiento_pago_id && enTabla.has(i.movimiento_pago_id)) continue;
+      pag += Number(i.monto || 0);
+    }
+    return { yaPagado: redondear(pag), yaProgramado: redondear(prog) };
+  }, [aplicadoQ.data, cuotas]);
+  const yaAplicado = yaPagado + yaProgramado;
+  const saldoPendiente = redondear(Math.max(0, totalFactura - yaAplicado));
+  // Si la fila inicial quedó con el total de la factura, se ajusta al saldo pendiente real.
+  useEffect(() => {
+    if (yaAplicado <= 0) return;
+    setCuotas(prev => (prev.length === 1 && !prev[0].id && Math.abs(Number(prev[0].monto) - totalFactura) < 0.01)
+      ? [{ ...prev[0], monto: saldoPendiente }] : prev);
+  }, [yaAplicado, totalFactura, saldoPendiente]);
   const totalCombinado = totalCargado + totalCedidos;
-  const diferencia = totalFactura - totalCombinado;
+  const diferencia = saldoPendiente - totalCombinado;
+
+  // Instrumento por fila (permite combinar transferencia + echeq en la misma orden).
+  const instFila = (c: Cuota) => c.instrumento || instrumento;
+  const esValorInst = (i: string) => i === "echeq" || i === "cheque_fisico";
+  const hayFilasDinero = cuotas.some(c => Number(c.monto) > 0 && !c.id && !esValorInst(instFila(c)));
 
   // --- Guía paso a paso (sólo presentación) ---
   const esOperacionConFactura = tipo === "cobro_cliente" || tipo === "pago_proveedor";
@@ -1686,21 +1729,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     const f: string[] = [];
     if (!pasoDestinoOk) f.push(tipo === "cobro_cliente" ? "Elegí la factura del cliente que estás cobrando" : "Elegí la/las facturas del proveedor que estás pagando");
     if (!pasoMedioOk) f.push("Cargá el importe del pago en la tabla de abajo (o seleccioná echeqs de cartera)");
-    if (pasoMedioOk && (instrumento === "echeq" || instrumento === "cheque_fisico") && cuotas.some(c => Number(c.monto || 0) > 0 && !c.vencimiento))
+    if (pasoMedioOk && cuotas.some(c => Number(c.monto || 0) > 0 && esValorInst(c.instrumento || instrumento) && !c.vencimiento))
       f.push("Completá la fecha de vencimiento de cada cheque / echeq");
     return f;
   }, [pasoDestinoOk, pasoMedioOk, tipo, instrumento, cuotas]);
-  const etiquetaNumero = instrumento === "echeq" ? "Nº Echeq"
-    : instrumento === "cheque_fisico" ? "Nº Cheque"
-    : instrumento === "transferencia" ? "Nº comprobante / referencia"
-    : "Referencia";
-  const etiquetaFecha = (instrumento === "transferencia" || instrumento === "efectivo")
-    ? "Fecha del pago" : "Vencimiento";
-  const esValor = instrumento === "echeq" || instrumento === "cheque_fisico";
+  const etiquetaNumero = "Nº / referencia";
+  const etiquetaFecha = "Fecha / vencimiento";
+  const esValor = true;
+
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
-    const base = totalFactura > 0 ? totalFactura : Number(monto || 0);
+    const base = saldoPendiente > 0 ? saldoPendiente : Number(monto || 0);
     const cuotaMonto = Math.round((base / genCuotas) * 100) / 100;
     const start = genPrimerVto ? new Date(genPrimerVto + "T00:00:00") : new Date();
     const arr: Cuota[] = [];
@@ -1807,6 +1847,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         });
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
+        const opToken = Math.random().toString(36).slice(2, 10);
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
         // Pago a proveedor: pueden coexistir cesiones de cartera + cuotas (transferencia/emisión de echeqs)
         const cesionesAProcesar = (tipo === "pago_proveedor" && !initial) ? echeqsCedidos : [];
@@ -2000,18 +2041,28 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             // Cuando el pago se reparte en varias cuotas, cada cuota debe imputar
             // sobre el saldo que dejaron las cuotas anteriores del mismo plan.
             for (const c of filasValidas) {
+              const instC = c.instrumento || instrumento;
+              const esDinero = !esValorInst(instC);
+              const estadoPagado = tipo === "cobro_cliente" ? "cobrado" : "pagado";
+              const yaConfirmada = !!c.id && ["pagado", "cobrado", "cedido"].includes(c.estado ?? "");
+              // Transferencia/efectivo nueva con cuenta elegida: se inserta pendiente y luego impacta caja.
+              const impactaCaja = !c.id && esDinero && !!cuentaLibre && !sinCaja;
+              const estadoC = yaConfirmada ? c.estado!
+                : impactaCaja ? "en_cartera"
+                : esDinero ? estadoPagado
+                : estado;
               const mkBase = (facturaId: string | null, m: number, obsExtra?: string): any => ({
-                instrumento: instrumento as any,
+                instrumento: instC as any,
                 direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
                 tipo_movimiento: tipo,
                 fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
-                vencimiento: c.vencimiento || null,
+                vencimiento: c.vencimiento || (esDinero ? (fechaEmision || hoyISO()) : null),
                 numero: c.numero || null,
                 banco: c.banco || bancoGlobal || null,
                 contraparte: contraparte || (fact?.proveedor ?? null),
                 monto: m,
-                estado,
-                observaciones: conTag([c.obs || observaciones || "", obsExtra].filter(Boolean).join(" · ") || null),
+                estado: estadoC,
+                observaciones: conTag([c.obs || observaciones || "", obsExtra, impactaCaja ? `[OP:${opToken}]` : ""].filter(Boolean).join(" · ") || null),
                 factura_venta_id: tipo === "cobro_cliente" ? facturaId : null,
                 factura_compra_id: tipo === "pago_proveedor" ? facturaId : null,
                 anio: year, mes,
@@ -2051,6 +2102,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           _updates: opUpdate,
         });
         if (rpcErr) throw rpcErr;
+        // Filas de transferencia/efectivo nuevas: se debitan/acreditan en la cuenta elegida.
+        const { data: paraCaja } = await sb.from("fema_movimientos_pago")
+          .select("id,observaciones").ilike("observaciones", `%[OP:${opToken}]%`);
+        for (const r of (paraCaja ?? []) as any[]) {
+          const { error: eCaja } = await rpcResiliente("fema_impactar_caja", {
+            _mov_id: r.id, _nuevo_estado: tipo === "cobro_cliente" ? "cobrado" : "pagado",
+            _cuenta_id: cuentaLibre, _es_pago: tipo !== "cobro_cliente",
+          });
+          if (eCaja) throw eCaja;
+          const limpio = (r.observaciones ?? "").replace(` · [OP:${opToken}]`, "").replace(`[OP:${opToken}]`, "").trim() || null;
+          await sb.from("fema_movimientos_pago").update({ observaciones: limpio }).eq("id", r.id);
+        }
       } else {
         // libre
         const payload: any = {
@@ -2385,7 +2448,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Tipo documento">
+            <FormField label="Medio por defecto (filas nuevas)">
               <Select value={instrumento} onValueChange={setInstrumento}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -2399,7 +2462,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             <FormField label="Banco (todas las filas)">
               <Input placeholder="— Banco —" value={bancoGlobal} onChange={(e) => setBancoGlobal(e.target.value)} />
             </FormField>
-            <FormField label="Estado inicial">
+            <FormField label="Estado inicial de echeqs / cheques">
               <Select value={estado} onValueChange={setEstado}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -2411,7 +2474,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </FormField>
           </div>
 
-          {(instrumento === "transferencia" || instrumento === "efectivo") && (
+          {(instrumento === "transferencia" || instrumento === "efectivo" || hayFilasDinero) && (
             <label className="flex items-start gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 p-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -2430,6 +2493,25 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 </span>
               </span>
             </label>
+          )}
+
+          {!initial && hayFilasDinero && !sinCaja && (
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-1">
+              <FormField label={tipo === "cobro_cliente" ? "Cuenta donde ingresa la transferencia / efectivo" : "Cuenta de origen de la transferencia / efectivo"}>
+                <Select value={cuentaLibre || "__none"} onValueChange={(v) => setCuentaLibre(v === "__none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Elegí la cuenta" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— Sin mover saldo de cuenta —</SelectItem>
+                    {(cuentasSaldos ?? []).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{c.banco}{c.alias ? ` · ${c.alias}` : ""} ({formatPesos(Number(c.saldo || 0))})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <p className="text-[11px] text-muted-foreground">
+                Las filas de transferencia/efectivo quedan pagadas y {cuentaLibre ? "se descuentan/suman en esa cuenta" : "no mueven saldo de cuenta"}. Los echeqs quedan programados hasta su débito.
+              </p>
+            </div>
           )}
 
           {!mostrarGenerador ? (
@@ -2488,6 +2570,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
+                    <TableHead>Medio</TableHead>
                     <TableHead>{etiquetaNumero}</TableHead>
                     <TableHead>Banco</TableHead>
                     <TableHead>{etiquetaFecha}</TableHead>
@@ -2500,6 +2583,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   {cuotas.map((c, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
+                      <TableCell>
+                        <Select value={instFila(c)} onValueChange={(v) => updFila(i, { instrumento: v })} disabled={!!c.id && ["pagado","cobrado","cedido"].includes(c.estado ?? "")}>
+                          <SelectTrigger className="h-8 min-w-[120px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="echeq">Echeq</SelectItem>
+                            <SelectItem value="cheque_fisico">Cheque físico</SelectItem>
+                            <SelectItem value="transferencia">Transferencia</SelectItem>
+                            <SelectItem value="efectivo">Efectivo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {c.id && c.estado && <div className="mt-0.5 text-[10px] text-muted-foreground">{ESTADO_LABEL[c.estado] ?? c.estado}</div>}
+                      </TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder={esValor ? "Nº" : "Ref. (opcional)"} value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[140px]" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
@@ -2804,9 +2899,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 </span>
               </div>
             )}
+            {yaPagado > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Ya {tipo === "cobro_cliente" ? "cobrado" : "pagado"}</span>
+                <span className="font-mono text-sky-400">−{formatPesos(yaPagado)}</span>
+              </div>
+            )}
+            {yaProgramado > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Ya programado (echeqs)</span>
+                <span className="font-mono text-sky-400">−{formatPesos(yaProgramado)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t pt-1.5 text-sm">
-              <span className="font-semibold">A cancelar</span>
-              <span className="font-mono font-semibold text-emerald-400">{formatPesos(totalFactura)}</span>
+              <span className="font-semibold">{yaAplicado > 0 ? "Saldo pendiente" : "A cancelar"}</span>
+              <span className="font-mono font-semibold text-emerald-400">{formatPesos(saldoPendiente)}</span>
             </div>
           </div>
 
