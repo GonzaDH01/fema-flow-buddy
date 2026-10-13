@@ -288,7 +288,9 @@ export type Database = {
           created_at: string
           estado: string
           fecha_compra: string | null
+          fecha_lectura_uso: string | null
           id: string
+          lectura_uso: number | null
           mantenimiento: string | null
           marca: string | null
           modelo: string | null
@@ -301,6 +303,7 @@ export type Database = {
           responsable_empleado_id: string | null
           tipo: string
           ubicacion: string | null
+          unidad_uso: string | null
           updated_at: string
           user_id: string
           valor_compra: number | null
@@ -310,7 +313,9 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha_compra?: string | null
+          fecha_lectura_uso?: string | null
           id?: string
+          lectura_uso?: number | null
           mantenimiento?: string | null
           marca?: string | null
           modelo?: string | null
@@ -323,6 +328,7 @@ export type Database = {
           responsable_empleado_id?: string | null
           tipo?: string
           ubicacion?: string | null
+          unidad_uso?: string | null
           updated_at?: string
           user_id: string
           valor_compra?: number | null
@@ -332,7 +338,9 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha_compra?: string | null
+          fecha_lectura_uso?: string | null
           id?: string
+          lectura_uso?: number | null
           mantenimiento?: string | null
           marca?: string | null
           modelo?: string | null
@@ -345,6 +353,7 @@ export type Database = {
           responsable_empleado_id?: string | null
           tipo?: string
           ubicacion?: string | null
+          unidad_uso?: string | null
           updated_at?: string
           user_id?: string
           valor_compra?: number | null

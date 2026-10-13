@@ -1,0 +1,1 @@
+ALTER TABLE public.fema_activos ADD COLUMN IF NOT EXISTS unidad_uso text, ADD COLUMN IF NOT EXISTS lectura_uso numeric, ADD COLUMN IF NOT EXISTS fecha_lectura_uso date;
