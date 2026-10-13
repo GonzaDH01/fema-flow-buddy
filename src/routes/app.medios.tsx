@@ -1847,6 +1847,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
         });
         if (error) throw error;
       } else if (tipo === "cobro_cliente" || tipo === "pago_proveedor") {
+        const opToken = Math.random().toString(36).slice(2, 10);
         const fact = (tipo === "cobro_cliente" ? facturasVenta : facturasCompra).find(f => f.id === facturaSel);
         // Pago a proveedor: pueden coexistir cesiones de cartera + cuotas (transferencia/emisión de echeqs)
         const cesionesAProcesar = (tipo === "pago_proveedor" && !initial) ? echeqsCedidos : [];
@@ -2101,6 +2102,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           _updates: opUpdate,
         });
         if (rpcErr) throw rpcErr;
+        // Filas de transferencia/efectivo nuevas: se debitan/acreditan en la cuenta elegida.
+        const { data: paraCaja } = await sb.from("fema_movimientos_pago")
+          .select("id,observaciones").ilike("observaciones", `%[OP:${opToken}]%`);
+        for (const r of (paraCaja ?? []) as any[]) {
+          const { error: eCaja } = await rpcResiliente("fema_impactar_caja", {
+            _mov_id: r.id, _nuevo_estado: tipo === "cobro_cliente" ? "cobrado" : "pagado",
+            _cuenta_id: cuentaLibre, _es_pago: tipo !== "cobro_cliente",
+          });
+          if (eCaja) throw eCaja;
+          const limpio = (r.observaciones ?? "").replace(` · [OP:${opToken}]`, "").replace(`[OP:${opToken}]`, "").trim() || null;
+          await sb.from("fema_movimientos_pago").update({ observaciones: limpio }).eq("id", r.id);
+        }
       } else {
         // libre
         const payload: any = {
