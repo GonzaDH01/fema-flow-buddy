@@ -36,7 +36,16 @@ type Activo = {
   mantenimiento: string | null;
   proximo_service: string | null;
   observaciones: string | null;
+  unidad_uso: string | null;
+  lectura_uso: number | null;
+  fecha_lectura_uso: string | null;
 };
+const usoTxt = (a: Pick<Activo, "unidad_uso" | "lectura_uso" | "fecha_lectura_uso">) =>
+  a.lectura_uso == null
+    ? "—"
+    : `${Number(a.lectura_uso).toLocaleString("es-AR")} ${a.unidad_uso === "km" ? "km" : "hs"}${
+        a.fecha_lectura_uso ? ` (al ${a.fecha_lectura_uso.split("-").reverse().join("/")})` : ""
+      }`;
 type Imagen = {
   id: string;
   activo_id: string;
@@ -238,6 +247,7 @@ export function Inventario() {
                     {(porActivo[a.id]?.length ?? 0)} imagen(es)
                     {(docsPorActivo[a.id]?.length ?? 0) > 0 ? ` · ${docsPorActivo[a.id].length} PDF` : ""}
                     {a.ubicacion ? ` · ${a.ubicacion}` : ""}
+                    {a.lectura_uso != null ? ` · ${usoTxt(a)}` : ""}
                   </p>
                 </div>
               </button>
@@ -457,6 +467,9 @@ function ActivoForm({
     proximo_service: initial?.proximo_service ?? "",
     mantenimiento: initial?.mantenimiento ?? "",
     observaciones: initial?.observaciones ?? "",
+    unidad_uso: initial?.unidad_uso ?? (initial?.tipo === "Rodado" ? "km" : "hs"),
+    lectura_uso: initial?.lectura_uso != null ? String(initial.lectura_uso) : "",
+    fecha_lectura_uso: initial?.fecha_lectura_uso ?? "",
   });
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
   const [nuevas, setNuevas] = useState<File[]>([]);
@@ -601,6 +614,9 @@ function ActivoForm({
       proximo_service: v.proximo_service || null,
       mantenimiento: v.mantenimiento || null,
       observaciones: v.observaciones || null,
+      unidad_uso: v.lectura_uso ? v.unidad_uso : null,
+      lectura_uso: v.lectura_uso ? Number(v.lectura_uso) : null,
+      fecha_lectura_uso: v.lectura_uso ? v.fecha_lectura_uso || new Date().toISOString().slice(0, 10) : null,
     };
 
     try {
@@ -662,7 +678,11 @@ function ActivoForm({
       toast.success(initial ? "Bien actualizado" : "Bien cargado");
       onDone();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudieron guardar los cambios");
+      const msg =
+        error && typeof error === "object" && "message" in error && (error as { message?: string }).message
+          ? (error as { message: string }).message
+          : "revisá tu conexión e intentá de nuevo";
+      toast.error(`No se pudieron guardar los cambios: ${msg}`);
     } finally {
       setSaving(false);
     }
