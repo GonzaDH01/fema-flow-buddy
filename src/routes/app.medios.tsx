@@ -2448,7 +2448,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             Paso 3 · ¿Cómo se {tipo === "cobro_cliente" ? "cobra" : "paga"}?
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FormField label="Tipo documento">
+            <FormField label="Medio por defecto (filas nuevas)">
               <Select value={instrumento} onValueChange={setInstrumento}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -2462,7 +2462,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             <FormField label="Banco (todas las filas)">
               <Input placeholder="— Banco —" value={bancoGlobal} onChange={(e) => setBancoGlobal(e.target.value)} />
             </FormField>
-            <FormField label="Estado inicial">
+            <FormField label="Estado inicial de echeqs / cheques">
               <Select value={estado} onValueChange={setEstado}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -2474,7 +2474,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             </FormField>
           </div>
 
-          {(instrumento === "transferencia" || instrumento === "efectivo") && (
+          {(instrumento === "transferencia" || instrumento === "efectivo" || hayFilasDinero) && (
             <label className="flex items-start gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 p-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -2493,6 +2493,25 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 </span>
               </span>
             </label>
+          )}
+
+          {!initial && hayFilasDinero && !sinCaja && (
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-1">
+              <FormField label={tipo === "cobro_cliente" ? "Cuenta donde ingresa la transferencia / efectivo" : "Cuenta de origen de la transferencia / efectivo"}>
+                <Select value={cuentaLibre || "__none"} onValueChange={(v) => setCuentaLibre(v === "__none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Elegí la cuenta" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— Sin mover saldo de cuenta —</SelectItem>
+                    {(cuentasSaldos ?? []).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{c.banco}{c.alias ? ` · ${c.alias}` : ""} ({formatPesos(Number(c.saldo || 0))})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <p className="text-[11px] text-muted-foreground">
+                Las filas de transferencia/efectivo quedan pagadas y {cuentaLibre ? "se descuentan/suman en esa cuenta" : "no mueven saldo de cuenta"}. Los echeqs quedan programados hasta su débito.
+              </p>
+            </div>
           )}
 
           {!mostrarGenerador ? (
@@ -2551,6 +2570,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
+                    <TableHead>Medio</TableHead>
                     <TableHead>{etiquetaNumero}</TableHead>
                     <TableHead>Banco</TableHead>
                     <TableHead>{etiquetaFecha}</TableHead>
@@ -2563,6 +2583,18 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   {cuotas.map((c, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs text-muted-foreground">{i+1}</TableCell>
+                      <TableCell>
+                        <Select value={instFila(c)} onValueChange={(v) => updFila(i, { instrumento: v })} disabled={!!c.id && ["pagado","cobrado","cedido"].includes(c.estado ?? "")}>
+                          <SelectTrigger className="h-8 min-w-[120px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="echeq">Echeq</SelectItem>
+                            <SelectItem value="cheque_fisico">Cheque físico</SelectItem>
+                            <SelectItem value="transferencia">Transferencia</SelectItem>
+                            <SelectItem value="efectivo">Efectivo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {c.id && c.estado && <div className="mt-0.5 text-[10px] text-muted-foreground">{ESTADO_LABEL[c.estado] ?? c.estado}</div>}
+                      </TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder={esValor ? "Nº" : "Ref. (opcional)"} value={c.numero} onChange={(e) => updFila(i, { numero: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[110px]" placeholder="— Banco —" value={c.banco} onChange={(e) => updFila(i, { banco: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[140px]" type="date" value={c.vencimiento} onChange={(e) => updFila(i, { vencimiento: e.target.value })} /></TableCell>
