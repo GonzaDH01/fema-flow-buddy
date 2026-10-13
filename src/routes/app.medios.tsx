@@ -1675,8 +1675,51 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const totalFactura = multiActivo && facturasSeleccionadas.length > 0
     ? netoAPagar
     : Number(facturaActual?.total ?? monto ?? 0);
+  // Pagos / documentos ya registrados sobre las facturas elegidas que NO están en la tabla actual.
+  const idsFacturasObjetivo = useMemo(
+    () => (multiActivo && facturasMulti.length > 0) ? facturasMulti : (facturaSel ? [facturaSel] : []),
+    [multiActivo, facturasMulti, facturaSel]);
+  const aplicadoQ = useQuery({
+    queryKey: ["fema_aplicado_previo", tipo, idsFacturasObjetivo.join(",")],
+    enabled: (tipo === "cobro_cliente" || tipo === "pago_proveedor") && idsFacturasObjetivo.length > 0,
+    queryFn: async () => {
+      const col = tipo === "cobro_cliente" ? "factura_venta_id" : "factura_compra_id";
+      const [{ data: movs }, { data: imps }] = await Promise.all([
+        sb.from("fema_movimientos_pago").select("id,monto,estado").in(col, idsFacturasObjetivo),
+        sb.from("fema_imputaciones").select("monto,movimiento_pago_id").in(col, idsFacturasObjetivo),
+      ]);
+      return { movs: (movs ?? []) as any[], imps: (imps ?? []) as any[] };
+    },
+  });
+  const { yaPagado, yaProgramado } = useMemo(() => {
+    const enTabla = new Set(cuotas.map(c => c.id).filter(Boolean) as string[]);
+    let pag = 0, prog = 0;
+    for (const m of aplicadoQ.data?.movs ?? []) {
+      if (enTabla.has(m.id) || m.estado === "anulado" || m.estado === "vencido") continue;
+      if (["pagado", "cobrado", "cedido"].includes(m.estado)) pag += Number(m.monto || 0);
+      else prog += Number(m.monto || 0);
+    }
+    for (const i of aplicadoQ.data?.imps ?? []) {
+      if (i.movimiento_pago_id && enTabla.has(i.movimiento_pago_id)) continue;
+      pag += Number(i.monto || 0);
+    }
+    return { yaPagado: redondear(pag), yaProgramado: redondear(prog) };
+  }, [aplicadoQ.data, cuotas]);
+  const yaAplicado = yaPagado + yaProgramado;
+  const saldoPendiente = redondear(Math.max(0, totalFactura - yaAplicado));
+  // Si la fila inicial quedó con el total de la factura, se ajusta al saldo pendiente real.
+  useEffect(() => {
+    if (yaAplicado <= 0) return;
+    setCuotas(prev => (prev.length === 1 && !prev[0].id && Math.abs(Number(prev[0].monto) - totalFactura) < 0.01)
+      ? [{ ...prev[0], monto: saldoPendiente }] : prev);
+  }, [yaAplicado, totalFactura, saldoPendiente]);
   const totalCombinado = totalCargado + totalCedidos;
-  const diferencia = totalFactura - totalCombinado;
+  const diferencia = saldoPendiente - totalCombinado;
+
+  // Instrumento por fila (permite combinar transferencia + echeq en la misma orden).
+  const instFila = (c: Cuota) => c.instrumento || instrumento;
+  const esValorInst = (i: string) => i === "echeq" || i === "cheque_fisico";
+  const hayFilasDinero = cuotas.some(c => Number(c.monto) > 0 && !c.id && !esValorInst(instFila(c)));
 
   // --- Guía paso a paso (sólo presentación) ---
   const esOperacionConFactura = tipo === "cobro_cliente" || tipo === "pago_proveedor";
@@ -1686,17 +1729,14 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
     const f: string[] = [];
     if (!pasoDestinoOk) f.push(tipo === "cobro_cliente" ? "Elegí la factura del cliente que estás cobrando" : "Elegí la/las facturas del proveedor que estás pagando");
     if (!pasoMedioOk) f.push("Cargá el importe del pago en la tabla de abajo (o seleccioná echeqs de cartera)");
-    if (pasoMedioOk && (instrumento === "echeq" || instrumento === "cheque_fisico") && cuotas.some(c => Number(c.monto || 0) > 0 && !c.vencimiento))
+    if (pasoMedioOk && cuotas.some(c => Number(c.monto || 0) > 0 && esValorInst(c.instrumento || instrumento) && !c.vencimiento))
       f.push("Completá la fecha de vencimiento de cada cheque / echeq");
     return f;
   }, [pasoDestinoOk, pasoMedioOk, tipo, instrumento, cuotas]);
-  const etiquetaNumero = instrumento === "echeq" ? "Nº Echeq"
-    : instrumento === "cheque_fisico" ? "Nº Cheque"
-    : instrumento === "transferencia" ? "Nº comprobante / referencia"
-    : "Referencia";
-  const etiquetaFecha = (instrumento === "transferencia" || instrumento === "efectivo")
-    ? "Fecha del pago" : "Vencimiento";
-  const esValor = instrumento === "echeq" || instrumento === "cheque_fisico";
+  const etiquetaNumero = "Nº / referencia";
+  const etiquetaFecha = "Fecha / vencimiento";
+  const esValor = true;
+
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
