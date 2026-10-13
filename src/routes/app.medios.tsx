@@ -2899,9 +2899,21 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 </span>
               </div>
             )}
+            {yaPagado > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Ya {tipo === "cobro_cliente" ? "cobrado" : "pagado"}</span>
+                <span className="font-mono text-sky-400">−{formatPesos(yaPagado)}</span>
+              </div>
+            )}
+            {yaProgramado > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Ya programado (echeqs)</span>
+                <span className="font-mono text-sky-400">−{formatPesos(yaProgramado)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t pt-1.5 text-sm">
-              <span className="font-semibold">A cancelar</span>
-              <span className="font-mono font-semibold text-emerald-400">{formatPesos(totalFactura)}</span>
+              <span className="font-semibold">{yaAplicado > 0 ? "Saldo pendiente" : "A cancelar"}</span>
+              <span className="font-mono font-semibold text-emerald-400">{formatPesos(saldoPendiente)}</span>
             </div>
           </div>
 
