@@ -1740,7 +1740,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
 
   const generarCuotas = () => {
     if (!genCuotas || genCuotas < 1) return;
-    const base = totalFactura > 0 ? totalFactura : Number(monto || 0);
+    const base = saldoPendiente > 0 ? saldoPendiente : Number(monto || 0);
     const cuotaMonto = Math.round((base / genCuotas) * 100) / 100;
     const start = genPrimerVto ? new Date(genPrimerVto + "T00:00:00") : new Date();
     const arr: Cuota[] = [];
