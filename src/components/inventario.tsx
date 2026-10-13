@@ -321,6 +321,7 @@ function DetalleActivo({
     ["Modelo", activo.modelo ?? "—"],
     ["Año", activo.anio ? String(activo.anio) : "—"],
     ["Número de serie", activo.numero_serie ?? "—"],
+    [activo.unidad_uso === "km" ? "Kilómetros" : "Horas de uso", usoTxt(activo)],
     ["Estado", activo.estado],
     ["Ubicación", activo.ubicacion ?? "—"],
     ["Responsable", activo.responsable ?? "—"],
@@ -745,6 +746,25 @@ function ActivoForm({
           </FormField>
           <FormField label="Número de serie">
             <Input value={v.numero_serie} onChange={set("numero_serie")} />
+          </FormField>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FormField label="Uso medido en">
+            <Select value={v.unidad_uso} onValueChange={(x) => setV((s) => ({ ...s, unidad_uso: x }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hs">Horas de motor (hs)</SelectItem>
+                <SelectItem value="km">Kilómetros (km)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label={v.unidad_uso === "km" ? "Kilómetros actuales" : "Horas actuales"}>
+            <Input type="number" step="0.1" value={v.lectura_uso} onChange={set("lectura_uso")} />
+          </FormField>
+          <FormField label="Fecha de la lectura">
+            <Input type="date" value={v.fecha_lectura_uso} onChange={set("fecha_lectura_uso")} />
           </FormField>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
