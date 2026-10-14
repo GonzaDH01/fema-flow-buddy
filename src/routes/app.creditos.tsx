@@ -270,6 +270,23 @@ function Page() {
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8">→ Gastos fijos</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Pasar a Gastos Fijos?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Las cuotas (pagadas y pendientes) se copian a Gastos Fijos con sus fechas e importes, y el plan se quita de Créditos. No mueve saldos del banco.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => pasarAGastosFijos(c)}>Pasar</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
                               <Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
