@@ -150,6 +150,32 @@ function Page() {
     },
   });
 
+  // Aplicaciones de NC: movimientos "Nota de crédito Nº X aplicada" con sus imputaciones.
+  const { data: aplicacionesNC } = useQuery({
+    queryKey: ["fema_nc_aplicaciones", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("fema_movimientos_pago")
+        .select("numero,monto,fecha_emision,observaciones,fema_imputaciones(monto,factura_compra_id,fema_facturas_compra(numero))")
+        .ilike("observaciones", "Nota de crédito%");
+      if (error) throw error;
+      const map: Record<string, { monto: number; fecha: string | null; facturas: string[] }> = {};
+      for (const m of (data ?? []) as any[]) {
+        const k = String(m.numero ?? "");
+        const prev = map[k] ?? { monto: 0, fecha: m.fecha_emision, facturas: [] };
+        prev.monto += Number(m.monto || 0);
+        for (const i of m.fema_imputaciones ?? []) {
+          const n = i.fema_facturas_compra?.numero;
+          if (n && !prev.facturas.includes(n)) prev.facturas.push(n);
+        }
+        map[k] = prev;
+      }
+      return map;
+    },
+  });
+  const aplicacionDe = (r: Row) => (r.numero ? aplicacionesNC?.[r.numero] ?? null : null);
+
   const { data: vinculos } = useQuery({
     queryKey: ["fema_compra_activos"],
     queryFn: async () => {
