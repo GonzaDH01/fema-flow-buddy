@@ -572,10 +572,45 @@ export function PagosEmpleadoTab() {
   const totalSel = seleccionados.reduce((a, r) => a + Number(r.monto), 0);
   const empleadosSel = new Set(seleccionados.map((r) => r.empleado_id));
 
-  const marcarPagado = async (id: string) => {
-    const { error } = await supabase.from("fema_pagos_empleado").update({ estado: "pagado" }).eq("id", id);
+  const [pagarRow, setPagarRow] = useState<any>(null);
+  const [pagarCuenta, setPagarCuenta] = useState("none");
+  const [pagarFecha, setPagarFecha] = useState(new Date().toISOString().slice(0, 10));
+  const { data: cuentasPago } = useQuery({
+    queryKey: ["fema_cuentas_bancarias", "vista"],
+    queryFn: async () => {
+      const { data } = await supabase.from("fema_cuentas_bancarias")
+        .select("id,banco,alias,saldo,tipo_cuenta").eq("activa", true).neq("tipo_cuenta", "fondo");
+      return data ?? [];
+    },
+  });
+  const marcarPagado = (id: string) => {
+    setPagarRow(rows.find((r) => r.id === id) ?? null);
+    setPagarCuenta(cuentasPago?.[0]?.id ?? "none");
+    setPagarFecha(new Date().toISOString().slice(0, 10));
+  };
+  const confirmarPago = async () => {
+    const r = pagarRow; if (!r) return;
+    const d = new Date(pagarFecha + "T00:00:00");
+    const { error } = await supabase.from("fema_pagos_empleado").update({
+      estado: "pagado", fecha: pagarFecha, anio: d.getFullYear(), mes: d.getMonth() + 1,
+      observaciones: pagarCuenta === "none" ? "Pago sin mover banco (efectivo)" : r.observaciones,
+    }).eq("id", r.id).eq("estado", "pendiente");
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["fema_pagos_empleado"] });
+    if (pagarCuenta !== "none") {
+      const { data: cta } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("id", pagarCuenta).maybeSingle();
+      if (cta) {
+        const { data: u } = await supabase.auth.getUser();
+        const nuevo = Math.round((Number(cta.saldo || 0) - Number(r.monto)) * 100) / 100;
+        await supabase.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cta.id);
+        await supabase.from("fema_caja_mov").insert({
+          user_id: u.user!.id, fecha: pagarFecha, cuenta_id: cta.id, tipo: "egreso", monto: Number(r.monto),
+          concepto: `${TIPO_LABEL[r.tipo_pago ?? "sueldo"] ?? "Pago"} empleado — ${(r.empleado_id ? empMap[r.empleado_id] : "") ?? ""}`, saldo_resultante: nuevo,
+        });
+      }
+    }
+    toast.success("Pago confirmado");
+    setPagarRow(null);
+    for (const k of ["fema_pagos_empleado", "fema_cuentas_bancarias", "fema_caja_mov", "cashflow-matrix", "dashboard"]) qc.invalidateQueries({ queryKey: [k] });
   };
   const eliminar = async (id: string) => {
     const { error } = await supabase.from("fema_pagos_empleado").delete().eq("id", id);
