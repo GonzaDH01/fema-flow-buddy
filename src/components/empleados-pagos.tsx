@@ -215,6 +215,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     factura_id: "none", descontar: "",
   });
   const [cuentaIdState, setCuentaId] = useState<string>("");
+  const [programado, setProgramado] = useState(false);
   const set = (k: keyof typeof v | "cuenta_id", val: string) => {
     if (k === "cuenta_id") return setCuentaId(val);
     setV((s) => ({ ...s, [k]: val }));
@@ -289,7 +290,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     };
     const res = pago
       ? await supabase.from("fema_pagos_empleado").update(payload).eq("id", pago.id).select("id").maybeSingle()
-      : await supabase.from("fema_pagos_empleado").insert({ ...payload, user_id: user!.id, horas: 0, estado: "pagado" }).select("id").maybeSingle();
+      : await supabase.from("fema_pagos_empleado").insert({ ...payload, user_id: user!.id, horas: 0, estado: programado ? "pendiente" : "pagado" }).select("id").maybeSingle();
     const error = res.error;
     if (error) return toast.error(error.message);
     const pagoId = res.data?.id ?? pago?.id ?? null;
@@ -313,7 +314,9 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
       invalidarPrestamos(qc);
     }
     // Débito bancario solo en pagos nuevos con cuenta de la empresa.
-    if (!pago && cuentaSel !== "none") {
+    if (!pago && programado) {
+      // Sueldo programado: no mueve banco hasta confirmar el pago.
+    } else if (!pago && cuentaSel !== "none") {
       const { data: cta } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("id", cuentaSel).maybeSingle();
       if (cta) {
         const neto = monto - Number(v.descontar || 0);
@@ -429,6 +432,20 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
           </div>
 
           {!pago && (
+            <div className="space-y-1.5">
+              <Label>Estado</Label>
+              <Select value={programado ? "pendiente" : "pagado"} onValueChange={(x) => setProgramado(x === "pendiente")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pagado">Pagado (ya se abonó)</SelectItem>
+                  <SelectItem value="pendiente">Programado / pendiente de pago</SelectItem>
+                </SelectContent>
+              </Select>
+              {programado && <p className="text-xs text-muted-foreground">Figura en Cash Flow como egreso pendiente. El banco se mueve recién al tocar «Pagar».</p>}
+            </div>
+          )}
+
+          {!pago && !programado && (
             <div className="space-y-1.5">
               <Label>¿De dónde sale el dinero?</Label>
               <Select value={cuentaSel} onValueChange={(x) => set("cuenta_id", x)}>

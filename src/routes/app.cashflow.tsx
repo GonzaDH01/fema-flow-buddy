@@ -41,7 +41,7 @@ async function loadCashflow(userId: string, anio: number) {
       .select("id,mes,total,estado,numero,categoria,tipo_comprobante,sin_caja,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_pagos_empleado")
-      .select("fecha,mes,anio,monto,tipo_pago,empleado:fema_empleados(nombre)")
+      .select("fecha,mes,anio,monto,tipo_pago,estado,empleado:fema_empleados(nombre)")
       .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_impuestos")
       .select("mes,periodo,iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
@@ -302,8 +302,8 @@ async function loadCashflow(userId: string, anio: number) {
   for (const s of (sueldos.data ?? []) as any[]) {
     const mes = Number(s.mes ?? new Date(s.fecha).getMonth() + 1);
     const total = Number(s.monto ?? 0);
-    egPagados.push({
-      label: `${s.empleado?.nombre ?? "Empleado"} · ${TIPO_PAGO_LABEL[s.tipo_pago] ?? "Sueldo"}`,
+    (s.estado === "pendiente" ? egPendientes : egPagados).push({
+      label: `${s.empleado?.nombre ?? "Empleado"} · ${TIPO_PAGO_LABEL[s.tipo_pago] ?? "Sueldo"}${s.estado === "pendiente" ? " (programado)" : ""}`,
       ent: s.empleado?.nombre ?? "Empleado",
       cat: "Sueldos",
       values: placeAt(mes, total),
