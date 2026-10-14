@@ -160,6 +160,42 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["cashflow-matrix"] });
   };
 
+  const pasarAGastosFijos = async (c: Credito) => {
+    const list = [...(cuotasByCred.get(c.id) ?? [])].sort((a, b) => a.numero_cuota - b.numero_cuota);
+    if (!list.length) { toast.error("El crédito no tiene cuotas"); return; }
+    const last = list[list.length - 1];
+    const { data: g, error } = await supabase.from("fema_gastos_fijos" as any).insert({
+      user_id: user!.id,
+      concepto: c.descripcion ? `${c.acreedor.trim()} — ${c.descripcion}` : c.acreedor.trim(),
+      categoria: "Impuestos / Planes de pago",
+      monto_mensual: Number(last.monto),
+      dia_vencimiento: Number(last.fecha_vencimiento.slice(8, 10)),
+      mes_inicio: list[0].fecha_vencimiento.slice(0, 8) + "01",
+      mes_fin: last.fecha_vencimiento,
+      activo: true,
+      observaciones: [c.observaciones, "Migrado desde Créditos / Financiación"].filter(Boolean).join(" · "),
+    }).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    const gid = (g as any).id;
+    const { error: e2 } = await supabase.from("fema_gastos_fijos_mov" as any).insert(list.map((q) => ({
+      user_id: user!.id, gasto_fijo_id: gid,
+      anio: Number(q.fecha_vencimiento.slice(0, 4)), mes: Number(q.fecha_vencimiento.slice(5, 7)),
+      monto: Number(q.monto), pagado: q.estado === "pagada", fecha_pago: q.fecha_pago,
+      forma_pago: q.forma_pago, fecha_vencimiento: q.fecha_vencimiento,
+      observaciones: `Cuota ${q.numero_cuota}/${list.length}`,
+    })));
+    if (e2) {
+      await supabase.from("fema_gastos_fijos" as any).delete().eq("id", gid);
+      toast.error(e2.message); return;
+    }
+    const { error: e3 } = await supabase.from("fema_creditos" as any).delete().eq("id", c.id);
+    if (e3) { toast.error(e3.message); return; }
+    toast.success("Plan movido a Gastos Fijos");
+    for (const k of ["fema_creditos", "fema_creditos_cuotas", "fema_gastos_fijos", "fema_gastos_fijos_mov", "cashflow-matrix"])
+      qc.invalidateQueries({ queryKey: [k] });
+  };
+
+
   const pagarCuota = async (q: Cuota) => {
     const nuevo = q.estado === "pagada" ? "pendiente" : "pagada";
     const { error } = await supabase.from("fema_creditos_cuotas" as any).update({
@@ -232,6 +268,23 @@ function Page() {
                           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEdit(c); setOpen(true); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8">→ Gastos fijos</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Pasar a Gastos Fijos?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Las cuotas (pagadas y pendientes) se copian a Gastos Fijos con sus fechas e importes, y el plan se quita de Créditos. No mueve saldos del banco.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => pasarAGastosFijos(c)}>Pasar</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-3 w-3" /></Button>

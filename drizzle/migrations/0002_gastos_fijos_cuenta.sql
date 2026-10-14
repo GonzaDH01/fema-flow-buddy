@@ -1,0 +1,1 @@
+ALTER TABLE public.fema_gastos_fijos_mov ADD COLUMN IF NOT EXISTS cuenta_id uuid, ADD COLUMN IF NOT EXISTS caja_mov_id uuid, ADD COLUMN IF NOT EXISTS fecha_vencimiento date;
