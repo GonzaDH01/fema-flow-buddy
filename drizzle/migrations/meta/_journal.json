@@ -15,6 +15,13 @@
       "when": 1791895220977,
       "tag": "0001_activos_uso",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791985877205,
+      "tag": "0002_gastos_fijos_cuenta",
+      "breakpoints": true
     }
   ]
 }

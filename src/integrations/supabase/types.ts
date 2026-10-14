@@ -1819,8 +1819,11 @@ export type Database = {
       fema_gastos_fijos_mov: {
         Row: {
           anio: number
+          caja_mov_id: string | null
           created_at: string
+          cuenta_id: string | null
           fecha_pago: string | null
+          fecha_vencimiento: string | null
           forma_pago: string | null
           gasto_fijo_id: string
           id: string
@@ -1833,8 +1836,11 @@ export type Database = {
         }
         Insert: {
           anio: number
+          caja_mov_id?: string | null
           created_at?: string
+          cuenta_id?: string | null
           fecha_pago?: string | null
+          fecha_vencimiento?: string | null
           forma_pago?: string | null
           gasto_fijo_id: string
           id?: string
@@ -1847,8 +1853,11 @@ export type Database = {
         }
         Update: {
           anio?: number
+          caja_mov_id?: string | null
           created_at?: string
+          cuenta_id?: string | null
           fecha_pago?: string | null
+          fecha_vencimiento?: string | null
           forma_pago?: string | null
           gasto_fijo_id?: string
           id?: string
