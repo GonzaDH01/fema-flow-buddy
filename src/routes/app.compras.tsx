@@ -589,7 +589,7 @@ function Page() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className={`text-right font-semibold ${r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
+                  <TableCell className={`text-right font-semibold ${esInfo(r) ? (aplicacionDe(r) ? "text-primary" : "text-amber-500") : r.estado === "pagada" ? "text-primary" : "text-destructive"}`}>
                     {formatPesos(Number(r.total))}
                     {leerUsd(r.observaciones).monto && (
                       <div className="text-[11px] font-normal text-muted-foreground">
@@ -610,10 +610,21 @@ function Page() {
                   </TableCell>
                   <TableCell>
                     {esInfo(r)
-                      ? <Badge variant="outline" className="border-sky-500/40 text-sky-500"
-                          title="Nota de crédito / débito: solo informativa, impacta en Auditoría (IVA e impuestos) y no requiere pago.">
-                          ● Informativa
-                        </Badge>
+                      ? aplicacionDe(r)
+                        ? <div className="space-y-1">
+                            <Badge className="bg-primary/15 text-primary border-primary/30"
+                              title="La nota ya fue compensada en una orden de pago.">● Compensada</Badge>
+                            <div className="text-[11px] text-muted-foreground">
+                              {aplicacionDe(r)!.facturas.length > 0
+                                ? `Aplicada a ${aplicacionDe(r)!.facturas.join(", ")}`
+                                : "Aplicada en orden de pago"}
+                              {aplicacionDe(r)!.fecha ? ` · ${formatFecha(aplicacionDe(r)!.fecha!)}` : ""}
+                            </div>
+                          </div>
+                        : <Badge variant="outline" className="border-amber-500/40 text-amber-500"
+                            title="Todavía no se aplicó a ninguna factura. Se compensa desde la orden de pago del proveedor (Medios de Pago).">
+                            ● Disponible para compensar
+                          </Badge>
                       : r.estado === "pagada"
                       ? programadoDe(r.id) > 0.01
                         ? <Badge className="bg-primary/15 text-primary border-primary/30" title="Cancelada con documentos propios pendientes de débito">
