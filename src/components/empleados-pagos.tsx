@@ -700,6 +700,34 @@ export function PagosEmpleadoTab() {
 
   return (
     <div className="rounded-lg border bg-card">
+      <Dialog open={!!pagarRow} onOpenChange={(o) => !o && setPagarRow(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Confirmar pago programado</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">{pagarRow?.empleado_id ? empMap[pagarRow.empleado_id] : ""} · {formatPesos(Number(pagarRow?.monto ?? 0))}</p>
+            <div className="space-y-1.5">
+              <Label>Fecha real de pago</Label>
+              <Input type="date" value={pagarFecha} onChange={(e) => setPagarFecha(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>¿De dónde sale el dinero?</Label>
+              <Select value={pagarCuenta} onValueChange={setPagarCuenta}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(cuentasPago ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>Cuenta empresa — {c.banco} {c.alias ?? ""} ({formatPesos(Number(c.saldo ?? 0))})</SelectItem>
+                  ))}
+                  <SelectItem value="none">Efectivo / sin mover banco</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setPagarRow(null)}>Cancelar</Button>
+              <Button onClick={confirmarPago}>Confirmar pago</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
         <div>
           <h3 className="font-medium">Pagos a empleados</h3>
