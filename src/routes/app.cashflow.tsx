@@ -105,10 +105,20 @@ async function loadCashflow(userId: string, anio: number) {
     }
   }
 
+  const ncPorFactura = new Map<string, number>();
+  const esAplicacionNC = (m: any) =>
+    !!m && /^nota de (cr[eé]dito|d[eé]bito)/i.test(String(m.observaciones ?? "").trim());
   // Pagos/cobros distribuidos entre varias facturas (conciliación automática).
   for (const i of (imputaciones.data ?? []) as any[]) {
     const base = i.movimiento_pago_id ? movsById.get(i.movimiento_pago_id) : null;
     if (base && !ACTIVOS.has(base.estado)) continue;
+    // Aplicación de Nota de Crédito: cancela deuda sin mover caja.
+    // Se descuenta del total de la factura en lugar de contarse como pago/cobro.
+    if (esAplicacionNC(base)) {
+      const k = i.factura_compra_id ?? i.factura_venta_id;
+      if (k) ncPorFactura.set(k, (ncPorFactura.get(k) ?? 0) + Number(i.monto));
+      continue;
+    }
     const item = {
       instrumento: base?.instrumento ?? "imputacion",
       direccion: base?.direccion,
@@ -225,7 +235,8 @@ async function loadCashflow(userId: string, anio: number) {
   }
   for (const v of (ventas.data ?? []) as any[]) {
     const linked = movsByFV.get(v.id) ?? [];
-    const total = Number(v.total);
+    const total = Number(v.total) - (ncPorFactura.get(v.id) ?? 0);
+    if (total <= 0.01 && linked.length === 0) continue;
     const facturaMes = Number(v.mes);
     let values: number[];
     let sub: string;
@@ -267,7 +278,8 @@ async function loadCashflow(userId: string, anio: number) {
     // Pago diversificado / canje: se saldó sin salida de banco.
     if (c.sin_caja) continue;
     const linked = movsByFC.get(c.id) ?? [];
-    const total = Number(c.total);
+    const total = Number(c.total) - (ncPorFactura.get(c.id) ?? 0);
+    if (total <= 0.01 && linked.length === 0) continue;
     const facturaMes = Number(c.mes);
     let values: number[];
     let sub: string;
