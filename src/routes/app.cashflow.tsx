@@ -345,17 +345,19 @@ async function loadCashflow(userId: string, anio: number) {
   }
   for (const g of (gFijos.data ?? []) as any[]) {
     if (!g.activo) continue;
-    const mIni = new Date(g.mes_inicio);
-    const mFin = g.mes_fin ? new Date(g.mes_fin) : null;
+    // Leer año/mes del texto para evitar desfase de zona horaria (UTC-3).
+    const ym = (s: string) => Number(String(s).slice(0, 4)) * 12 + Number(String(s).slice(5, 7)) - 1;
+    const iniYM = ym(g.mes_inicio);
+    const finYM = g.mes_fin ? ym(g.mes_fin) : null;
     const valsPag = empty12();
     const valsProy = empty12();
     const tipsPag: (string | undefined)[] = empty12().map(() => undefined);
     const tipsProy: (string | undefined)[] = empty12().map(() => undefined);
     let hasPag = false, hasProy = false;
     for (let mes = 1; mes <= 12; mes++) {
-      const d = new Date(anio, mes - 1, 1);
-      if (d < new Date(mIni.getFullYear(), mIni.getMonth(), 1)) continue;
-      if (mFin && d > new Date(mFin.getFullYear(), mFin.getMonth(), 1)) continue;
+      const dYM = anio * 12 + mes - 1;
+      if (dYM < iniYM) continue;
+      if (finYM !== null && dYM > finYM) continue;
       const ov = movsMap.get(`${g.id}|${mes}`);
       const monto = ov ? ov.monto : Number(g.monto_mensual);
       const pagado = ov?.pagado ?? false;
@@ -571,6 +573,21 @@ async function loadCashflow(userId: string, anio: number) {
   const disponible: number[] = [];
   deltaMes.reduce((acc, v) => { const n = acc + v; disponible.push(n); return n; }, saldoInicial);
 
+  // La operatoria registrada en FEMAFlow comienza en julio 2026: meses previos quedan vacíos.
+  const mesInicioIdx = anio < 2026 ? 12 : anio === 2026 ? 6 : 0;
+  if (mesInicioIdx > 0) {
+    for (const r of [...ingCobrados, ...ingPendientes, ...ingEstimados, ...egPagados, ...egPendientes, ...ajustesRows]) {
+      for (let i = 0; i < mesInicioIdx; i++) { r.values[i] = 0; if (r.tooltips) r.tooltips[i] = undefined; }
+    }
+    for (let i = 0; i < mesInicioIdx; i++) { ajustesNeto[i] = 0; }
+  }
+  const quitarVacias = (a: Row[]) => a.filter((r) => r.values.some((v) => v !== 0));
+  ingCobrados.splice(0, ingCobrados.length, ...quitarVacias(ingCobrados));
+  ingPendientes.splice(0, ingPendientes.length, ...quitarVacias(ingPendientes));
+  ingEstimados.splice(0, ingEstimados.length, ...quitarVacias(ingEstimados));
+  egPagados.splice(0, egPagados.length, ...quitarVacias(egPagados));
+  egPendientes.splice(0, egPendientes.length, ...quitarVacias(egPendientes));
+  ajustesRows.splice(0, ajustesRows.length, ...quitarVacias(ajustesRows));
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
   const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesNeto[i]);
