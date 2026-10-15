@@ -647,15 +647,12 @@ function Page() {
                 <Section id="ep" title="EGRESOS PAGADOS (por categoría)" rows={data.egPagados} />
                 <Section id="epp" title="EGRESOS PENDIENTES (estim.)" rows={data.egPendientes} />
 
-                <TotalRow label="TOTAL EGRESOS" values={data.totalEg} positive={false} />
+                <TotalRow label="TOTAL GASTOS" values={data.totalEg} positive={false} />
 
                 <Section id="aj" title="AJUSTES DE CAJA" rows={data.ajustesRows} />
 
-                <TotalRow label="NETO DEL MES (Ingresos − Gastos)" values={data.neto} signed />
-                <TotalRow label="(+) SALDO DEL MES ANTERIOR (si es positivo)" values={data.saldoAnt} signed />
-                <TotalRow label="(=) SALDO FINAL DEL MES" values={data.saldoFinal} signed bold totalMode="last" />
-                <TotalRow label="⚠ FONDEO NECESARIO (aporte a ingresar)" values={data.fondeo} positive={false} bold />
-                <TotalRow label="Disponible real en cuentas (control banco)" values={data.disponible} signed totalMode="last" />
+                <TotalRow label="NETO (I − G)" values={data.neto} signed />
+                <TotalRow label="TOTAL ACUMULADO" values={data.acumulado} signed bold totalMode="last" />
               </>
             )}
           </tbody>
