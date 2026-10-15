@@ -574,8 +574,19 @@ async function loadCashflow(userId: string, anio: number) {
   const totalIng = empty12().map((_, i) => sum([...ingCobrados, ...ingPendientes, ...ingEstimados].map((r) => r.values[i])));
   const totalEg = empty12().map((_, i) => sum([...egPagados, ...egPendientes].map((r) => r.values[i])));
   const neto = totalIng.map((v, i) => v - totalEg[i] + ajustesNeto[i]);
+  // Total acumulado: en meses ya cerrados con movimientos de Tesorería se usa el
+  // saldo real consolidado (bancos + fondos FIMA, conciliado con extractos).
+  // Desde el mes en curso se proyecta: último saldo real + neto del mes.
+  const hoy = new Date();
+  const mesActualIdx = hoy.getFullYear() > anio ? 12 : hoy.getFullYear() < anio ? 0 : hoy.getMonth();
+  const primerMesLedger = deltaMes.findIndex((v) => v !== 0);
   const acumulado: number[] = [];
-  neto.reduce((acc, v) => { const next = acc + v; acumulado.push(next); return next; }, saldoInicial);
+  let accAcum = saldoInicial;
+  for (let i = 0; i < 12; i++) {
+    const cerrado = i < mesActualIdx && (saldoInicial !== 0 || (primerMesLedger >= 0 && i >= primerMesLedger));
+    accAcum = cerrado ? disponible[i] : accAcum + neto[i];
+    acumulado.push(accAcum);
+  }
 
   // Saldo simple: neto del mes + saldo del mes anterior sólo si fue positivo.
   // Un mes negativo indica el fondeo (aporte) necesario; no arrastra deuda.
