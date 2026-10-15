@@ -307,7 +307,7 @@ async function loadCashflow(userId: string, anio: number) {
       ent: c.proveedor?.nombre ?? "Sin proveedor",
       sub,
       badge: planBadge(linked, null, total) ?? undefined,
-      cat: c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
+      cat: c.empleado_id ? "Sueldos" : c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
       values,
       tooltips,
       sign: "-",
