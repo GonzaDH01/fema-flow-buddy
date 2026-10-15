@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useMemo, useState } from "react";
+
+const FoldCtx = createContext<boolean[]>(Array(12).fill(false));
+function Folded({ i }: { i: number }) {
+  return <td key={i} className="bg-muted/20 p-0" />;
+}
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -635,6 +640,13 @@ function Page() {
     enabled: !!user,
     queryFn: () => loadCashflow(user!.id, year),
   });
+  const [fold, setFold] = useState<boolean[]>(Array(12).fill(false));
+  const vacios = useMemo(
+    () => MESES.map((_, i) => !!data && data.totalIng[i] === 0 && data.totalEg[i] === 0 && (data.acumulado[i] ?? 0) === 0),
+    [data],
+  );
+  useEffect(() => { if (data) setFold(vacios); }, [data, vacios]);
+  const toggle = (i: number) => setFold((f) => f.map((x, j) => (j === i ? !x : x)));
 
   return (
     <div className="p-4 md:p-6">
@@ -645,12 +657,18 @@ function Page() {
         </p>
       </header>
 
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Hacé click en un mes para plegarlo o abrirlo.</span>
+        <button className="rounded border border-border px-2 py-1 hover:bg-muted" onClick={() => setFold(vacios)}>Ocultar meses sin movimientos</button>
+        <button className="rounded border border-border px-2 py-1 hover:bg-muted" onClick={() => setFold(Array(12).fill(false))}>Ver todos</button>
+      </div>
+      <FoldCtx.Provider value={fold}>
       <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--shadow-sm)]">
-        <table className="w-full min-w-[1200px] border-collapse text-xs [&_td]:border-r [&_td]:border-border/40 [&_th]:border-r [&_th]:border-border/60 [&_td:last-child]:border-r-0 [&_th:last-child]:border-r-0 [&_tbody_tr:not(.no-stripe)_td:nth-child(2n+3)]:bg-muted/10">
+        <table className="w-full table-fixed border-collapse text-xs [&_td]:border-r [&_td]:border-border/40 [&_th]:border-r [&_th]:border-border/60 [&_td:last-child]:border-r-0 [&_th:last-child]:border-r-0 [&_tbody_tr:not(.no-stripe)_td:nth-child(2n+3)]:bg-muted/10" style={{ minWidth: 240 + fold.reduce((a, f) => a + (f ? 30 : 125), 0) + 135 }}>
           <colgroup>
-            <col style={{ width: "220px" }} />
-            {MESES.map((m) => <col key={m} style={{ width: "78px" }} />)}
-            <col style={{ width: "100px" }} />
+            <col style={{ width: "240px" }} />
+            {MESES.map((m, i) => <col key={m} style={{ width: fold[i] ? "30px" : "125px" }} />)}
+            <col style={{ width: "135px" }} />
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b-2 border-border bg-muted/70 text-[10px] uppercase tracking-wide text-foreground">
@@ -658,9 +676,15 @@ function Page() {
               {MESES.map((m, i) => (
                 <th
                   key={m}
-                  className={`px-2 py-2 text-right font-semibold ${i % 2 === 1 ? "bg-muted/40" : ""}`}
+                  onClick={() => toggle(i)}
+                  title={fold[i] ? `Abrir ${m}` : `Plegar ${m}`}
+                  className={`cursor-pointer select-none py-2 font-semibold hover:bg-muted ${fold[i] ? "px-0 text-center" : "px-3 text-right"} ${i % 2 === 1 ? "bg-muted/40" : ""}`}
                 >
-                  {m}
+                  {fold[i] ? (
+                    <span className="inline-block [writing-mode:vertical-rl] rotate-180">{m.slice(0, 3)}</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1"><ChevronDown className="h-3 w-3" />{m}</span>
+                  )}
                 </th>
               ))}
               <th className="px-3 py-2 text-right font-bold">Total</th>
@@ -691,6 +715,7 @@ function Page() {
           </tbody>
         </table>
       </div>
+      </FoldCtx.Provider>
     </div>
   );
 }
@@ -701,6 +726,7 @@ function cell(n: number) {
 
 /** Sección colapsable: categoría ➔ proveedor/cliente consolidado ➔ comprobantes. */
 function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }) {
+  const fold = useContext(FoldCtx);
   const [open, setOpen] = useState(true);
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
   const [entesAbiertos, setEntesAbiertos] = useState<Record<string, boolean>>({});
@@ -753,8 +779,8 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
             </span>
           </span>
         </td>
-        {totales.map((v, i) => (
-          <td key={i} className="px-2 py-2 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">
+        {totales.map((v, i) => fold[i] ? <Folded key={i} i={i} /> : (
+          <td key={i} className="px-3 py-2 text-right whitespace-nowrap text-[11px] font-semibold tabular-nums text-muted-foreground">
             {cell(v)}
           </td>
         ))}
@@ -782,8 +808,8 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
                       <span className="text-[10px] text-muted-foreground">({g.rows.length})</span>
                     </span>
                   </td>
-                  {g.values.map((v, i) => (
-                    <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${v === 0 ? "" : color}`}>{cell(v)}</td>
+                  {g.values.map((v, i) => fold[i] ? <Folded key={i} i={i} /> : (
+                    <td key={i} className={`px-3 py-1.5 text-right whitespace-nowrap tabular-nums ${v === 0 ? "" : color}`}>{cell(v)}</td>
                   ))}
                   <td className={`px-3 py-1.5 text-right font-semibold tabular-nums ${color}`}>{cell(sum(g.values))}</td>
                 </tr>
@@ -809,8 +835,8 @@ function Section({ id, title, rows }: { id: string; title: string; rows: Row[] }
                                 </span>
                               </span>
                             </td>
-                            {e.values.map((v, i) => (
-                              <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${v === 0 ? "" : color}`}>
+                            {e.values.map((v, i) => fold[i] ? <Folded key={i} i={i} /> : (
+                              <td key={i} className={`px-3 py-1.5 text-right whitespace-nowrap tabular-nums ${v === 0 ? "" : color}`}>
                                 {cell(v)}
                               </td>
                             ))}
@@ -842,6 +868,7 @@ function EmptyRow() {
 }
 
 function DataRow({ row, indent, detalle }: { row: Row; indent?: boolean; detalle?: boolean }) {
+  const fold = useContext(FoldCtx);
   const color = row.sign === "+" ? "text-primary" : "text-destructive";
   const total = sum(row.values);
   return (
@@ -858,12 +885,13 @@ function DataRow({ row, indent, detalle }: { row: Row; indent?: boolean; detalle
         {row.sub && <div className="text-[10px] text-muted-foreground">{row.sub}</div>}
       </td>
       {row.values.map((v, i) => {
+        if (fold[i]) return <Folded key={i} i={i} />;
         const tip = row.tooltips?.[i];
         return (
           <td
             key={i}
             title={tip}
-            className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : color} ${tip ? "cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4" : ""}`}
+            className={`px-3 py-2 text-right whitespace-nowrap tabular-nums ${v === 0 ? "" : color} ${tip ? "cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4" : ""}`}
           >
             {cell(v)}
           </td>
@@ -878,6 +906,7 @@ function TotalRow({
   label, values, positive, signed, bold, totalMode = "sum",
 }: { label: string; values: number[]; positive?: boolean; signed?: boolean; bold?: boolean; totalMode?: "sum" | "last" }) {
   // El acumulado no se suma: la columna Total es el saldo de cierre del año.
+  const fold = useContext(FoldCtx);
   const total = totalMode === "last" ? (values[values.length - 1] ?? 0) : sum(values);
   const baseColor = signed
     ? ""
@@ -886,8 +915,8 @@ function TotalRow({
   return (
     <tr className={`border-t border-border bg-muted/30 ${bold ? "font-bold" : "font-semibold"}`}>
       <td className="sticky left-0 z-10 bg-muted/30 px-3 py-2">{label}</td>
-      {values.map((v, i) => (
-        <td key={i} className={`px-2 py-2 text-right tabular-nums ${v === 0 ? "" : colorFor(v)}`}>{cell(v)}</td>
+      {values.map((v, i) => fold[i] ? <Folded key={i} i={i} /> : (
+        <td key={i} className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${v === 0 ? "" : colorFor(v)}`}>{cell(v)}</td>
       ))}
       <td className={`px-3 py-2 text-right tabular-nums ${colorFor(total)}`}>{cell(total)}</td>
     </tr>
