@@ -38,10 +38,10 @@ async function loadCashflow(userId: string, anio: number) {
       .select("id,mes,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
       .eq("anio", anio),
     supabase.from("fema_facturas_compra")
-      .select("id,mes,total,estado,numero,categoria,tipo_comprobante,sin_caja,proveedor:fema_proveedores(nombre)")
+      .select("id,mes,total,estado,numero,categoria,tipo_comprobante,sin_caja,empleado_id,proveedor:fema_proveedores(nombre)")
       .eq("anio", anio),
     supabase.from("fema_pagos_empleado")
-      .select("fecha,mes,anio,monto,tipo_pago,estado,empleado:fema_empleados(nombre)")
+      .select("fecha,mes,anio,monto,tipo_pago,estado,factura_compra_id,empleado:fema_empleados(nombre)")
       .gte("fecha", `${anio}-01-01`).lte("fecha", `${anio}-12-31`),
     supabase.from("fema_impuestos")
       .select("mes,periodo,iva_debito,iva_credito,ingresos_brutos,ganancias_estimadas")
@@ -270,7 +270,12 @@ async function loadCashflow(userId: string, anio: number) {
 
   const egPagados: Row[] = [];
   const egPendientes: Row[] = [];
+  // Facturas que respaldan un pago a empleado: el egreso se computa en Sueldos.
+  const fcConSueldo = new Set<string>(
+    ((sueldos.data ?? []) as any[]).map((s) => s.factura_compra_id).filter(Boolean),
+  );
   for (const c of (compras.data ?? []) as any[]) {
+    if (fcConSueldo.has(c.id)) continue;
     // Franco paga con tarjeta personal: no impacta en caja de la empresa.
     if (c.categoria === "Franco_Particular") continue;
     // Notas de crédito/débito: informativas, no mueven caja.
