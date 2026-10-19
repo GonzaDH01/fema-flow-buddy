@@ -128,7 +128,8 @@ export function RetencionesFacturaDialog({ factura, clienteNombre, onClose }: {
       });
       if (e2) { await sb.from("fema_movimientos_pago").delete().eq("id", mov.id); throw e2; }
       toast.success("Certificado de retención registrado");
-      setNumero(""); setBase(0); setAlicuota(0); setImporte(0); setArchivo(null); setJurisdiccion("");
+      if (cola.length) { aplicar(cola[0]); setCola(cola.slice(1)); toast.info("Siguiente retención del mismo certificado cargada."); }
+      else { setNumero(""); setBase(0); setAlicuota(0); setImporte(0); setArchivo(null); setJurisdiccion(""); }
       refrescar();
     } catch (e: any) {
       toast.error(e.message ?? "No se pudo guardar");
@@ -190,7 +191,9 @@ export function RetencionesFacturaDialog({ factura, clienteNombre, onClose }: {
         </Table>
 
         <div className="rounded-md border p-3 space-y-3">
-          <p className="text-sm font-medium">Nuevo certificado</p>
+          <p className="text-sm font-medium">Nuevo certificado <span className="font-normal text-muted-foreground">— subí el PDF o foto y se completa solo. Si el cliente hizo 2 retenciones, registrá una y se carga la siguiente.</span></p>
+          {leyendo && <p className="text-sm text-primary">Leyendo certificado…</p>}
+          {cola.length > 0 && <p className="text-sm text-muted-foreground">Quedan {cola.length} retención(es) más de este archivo por registrar.</p>}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FormField label="Impuesto">
               <Select value={tipo} onValueChange={setTipo}>
@@ -210,7 +213,7 @@ export function RetencionesFacturaDialog({ factura, clienteNombre, onClose }: {
             <FormField label="Alícuota %"><Input type="number" step="0.01" value={alicuota || ""} onChange={(e) => { const v = Number(e.target.value); setAlicuota(v); calc(base, v); }} /></FormField>
             <FormField label="Importe retenido"><Input type="number" step="0.01" value={importe || ""} onChange={(e) => setImporte(Number(e.target.value))} /></FormField>
             <FormField label="Certificado (PDF / imagen)">
-              <Input type="file" accept="application/pdf,image/*" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
+              <Input type="file" accept="application/pdf,image/*" disabled={leyendo} onChange={(e) => leerArchivo(e.target.files?.[0] ?? null)} />
             </FormField>
           </div>
           <div className="flex justify-end gap-2">
