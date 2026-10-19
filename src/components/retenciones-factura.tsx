@@ -36,6 +36,46 @@ export function RetencionesFacturaDialog({ factura, clienteNombre, onClose }: {
   const [importe, setImporte] = useState<number>(0);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [leyendo, setLeyendo] = useState(false);
+  const [cola, setCola] = useState<any[]>([]);
+
+  const aplicar = (r: any) => {
+    if (["iibb", "ganancias", "iva", "suss"].includes(r.tipo)) setTipo(r.tipo);
+    setJurisdiccion(r.jurisdiccion ?? "");
+    setNumero(r.numero_certificado ?? "");
+    if (r.fecha) setFecha(r.fecha);
+    setBase(Number(r.base_imponible) || 0);
+    setAlicuota(Number(r.alicuota) || 0);
+    setImporte(Number(r.importe) || 0);
+  };
+
+  const leerArchivo = async (file: File | null) => {
+    setArchivo(file);
+    setCola([]);
+    if (!file) return;
+    if (file.size > 3_500_000) return toast.error("Archivo muy grande para leer (máx 3MB). Cargá los datos a mano.");
+    setLeyendo(true);
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      const mimeType = file.type === "application/pdf" ? "application/pdf" : (["image/png", "image/webp"].includes(file.type) ? file.type : "image/jpeg");
+      const { data: s } = await supabase.auth.getSession();
+      const res = await fetch("/api/public/ocr-retencion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${s.session?.access_token ?? ""}` },
+        body: JSON.stringify({ image: btoa(bin), mimeType }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "No se pudo leer el certificado");
+      const lista = (j.data?.retenciones ?? []).filter((r: any) => r && (r.importe || r.numero_certificado));
+      if (!lista.length) return toast.error("No se encontraron retenciones. Cargá los datos a mano.");
+      aplicar(lista[0]);
+      setCola(lista.slice(1));
+      toast.success(lista.length > 1 ? `Se leyeron ${lista.length} retenciones. Revisá y registrá cada una.` : "Datos leídos. Revisalos antes de registrar.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo leer el certificado");
+    } finally { setLeyendo(false); }
+  };
 
   const key = ["fema_retenciones_venta", factura.id];
   const { data: rets = [] } = useQuery({
