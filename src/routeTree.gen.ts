@@ -44,6 +44,7 @@ import { Route as ApiPublicOcrDniRouteImport } from './routes/api/public/ocr-dni
 import { Route as ApiPublicOcrFacturaRouteImport } from './routes/api/public/ocr-factura'
 import { Route as ApiPublicOcrPagareRouteImport } from './routes/api/public/ocr-pagare'
 import { Route as ApiPublicOcrPlanillaRouteImport } from './routes/api/public/ocr-planilla'
+import { Route as ApiPublicOcrRetencionRouteImport } from './routes/api/public/ocr-retencion'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -221,6 +222,11 @@ const ApiPublicOcrPlanillaRoute = ApiPublicOcrPlanillaRouteImport.update({
   path: '/api/public/ocr-planilla',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOcrRetencionRoute = ApiPublicOcrRetencionRouteImport.update({
+  id: '/api/public/ocr-retencion',
+  path: '/api/public/ocr-retencion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
   '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
+  '/api/public/ocr-retencion': typeof ApiPublicOcrRetencionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
   '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
+  '/api/public/ocr-retencion': typeof ApiPublicOcrRetencionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/api/public/ocr-factura': typeof ApiPublicOcrFacturaRoute
   '/api/public/ocr-pagare': typeof ApiPublicOcrPagareRoute
   '/api/public/ocr-planilla': typeof ApiPublicOcrPlanillaRoute
+  '/api/public/ocr-retencion': typeof ApiPublicOcrRetencionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-factura'
     | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
+    | '/api/public/ocr-retencion'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-factura'
     | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
+    | '/api/public/ocr-retencion'
   id:
     | '__root__'
     | '/'
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | '/api/public/ocr-factura'
     | '/api/public/ocr-pagare'
     | '/api/public/ocr-planilla'
+    | '/api/public/ocr-retencion'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   ApiPublicOcrFacturaRoute: typeof ApiPublicOcrFacturaRoute
   ApiPublicOcrPagareRoute: typeof ApiPublicOcrPagareRoute
   ApiPublicOcrPlanillaRoute: typeof ApiPublicOcrPlanillaRoute
+  ApiPublicOcrRetencionRoute: typeof ApiPublicOcrRetencionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -706,6 +719,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicOcrPlanillaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/ocr-retencion': {
+      id: '/api/public/ocr-retencion'
+      path: '/api/public/ocr-retencion'
+      fullPath: '/api/public/ocr-retencion'
+      preLoaderRoute: typeof ApiPublicOcrRetencionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -778,6 +798,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicOcrFacturaRoute: ApiPublicOcrFacturaRoute,
   ApiPublicOcrPagareRoute: ApiPublicOcrPagareRoute,
   ApiPublicOcrPlanillaRoute: ApiPublicOcrPlanillaRoute,
+  ApiPublicOcrRetencionRoute: ApiPublicOcrRetencionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
