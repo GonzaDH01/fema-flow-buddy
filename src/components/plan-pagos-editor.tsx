@@ -185,7 +185,7 @@ export function PlanPagosEditor({
                       ) : (
                         <select value={r.estado} onChange={(e) => upd(i, "estado", e.target.value)} className="h-8 rounded-md border bg-background px-2">
                           <option value="en_cartera">En cartera</option>
-                          <option value="pendiente">Pendiente</option>
+                          
                         </select>
                       )}
                     </td>
