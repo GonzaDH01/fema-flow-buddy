@@ -1370,7 +1370,8 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
   );
 }
 
-function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDepositar }: {
+function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDepositar, onEdit }: {
+  onEdit?: (m: Mov) => void;
   rows: Mov[]; onCeder: (m: Mov) => void; onCobrar: (m: Mov) => void; onRevertir: (m: Mov) => void;
   cuentas?: any[]; onDepositar?: (m: Mov) => void;
 }) {
