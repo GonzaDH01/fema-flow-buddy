@@ -495,6 +495,33 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
+  // Cobro / venta anticipada: fija la fecha real de acreditación y registra el costo financiero.
+  const cobrarConFecha = async (m: Mov, cuentaId: string | null, fecha: string, neto: number) => {
+    const [y, mo] = fecha.split("-").map(Number);
+    const costo = redondear(Number(m.monto) - neto);
+    const notaVenta = costo > 0.009 ? ` [VENTA ${formatFecha(fecha)} neto ${formatPesos(neto)}]` : "";
+    const obsBase = `${m.observaciones ?? ""}${notaVenta}`.trim() || null;
+    const { error } = await sb.from("fema_movimientos_pago")
+      .update({ vencimiento: fecha, anio: y, mes: mo, observaciones: obsBase }).eq("id", m.id);
+    if (error) { toast.error(`No se pudo actualizar la fecha: ${error.message}`); return; }
+    await aplicarCobro({ ...m, vencimiento: fecha, observaciones: obsBase }, cuentaId);
+    if (cuentaId && costo > 0.009) {
+      const { data: cta } = await sb.from("fema_cuentas_bancarias").select("saldo").eq("id", cuentaId).maybeSingle();
+      const nuevo = Number(cta?.saldo || 0) - costo;
+      await sb.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cuentaId);
+      await sb.from("fema_caja_mov").insert({
+        user_id: user!.id, fecha, cuenta_id: cuentaId, tipo: "egreso", monto: costo,
+        concepto: `Gastos bancarios · costo venta echeq${m.numero ? ` Nº ${m.numero}` : ""} ${m.contraparte ?? ""}`.trim(),
+        saldo_resultante: nuevo,
+      });
+      toast.success(`Costo financiero ${formatPesos(costo)} registrado como gasto bancario`);
+    }
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+    await movsQ.refetch();
+  };
+
+
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
     const { error } = await rpcResiliente("fema_revertir_caja", {
@@ -997,10 +1024,11 @@ function Page() {
           <CarteraEcheqs
             rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro")}
             onCeder={ceder}
-            onCobrar={cobrar}
+            onCobrar={(m) => setDepositoMov(m)}
             onRevertir={revertir}
             cuentas={cuentas}
             onDepositar={(m) => setDepositoMov(m)}
+            onEdit={(m) => { setEditMov(m); setOpenMov(true); }}
           />
             </CollapsibleContent>
           </Collapsible>
@@ -1029,10 +1057,11 @@ function Page() {
             mov={depositoMov}
             cuentas={cuentas}
             onClose={() => setDepositoMov(null)}
-            onConfirm={async (cuentaId) => {
+            onConfirm={async (cuentaId, fecha, neto) => {
               const m = depositoMov;
               setDepositoMov(null);
-              await aplicarCobro(m, cuentaId);
+              if (fecha) await cobrarConFecha(m, cuentaId, fecha, neto ?? Number(m.monto));
+              else await aplicarCobro(m, cuentaId);
             }}
           />
         )}
