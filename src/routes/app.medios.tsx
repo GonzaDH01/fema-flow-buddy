@@ -3269,7 +3269,7 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
 
 function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   mov: Mov; cuentas: any[];
-  onClose: () => void; onConfirm: (cuentaId: string | null) => void;
+  onClose: () => void; onConfirm: (cuentaId: string | null, fecha?: string, neto?: number) => void;
 }) {
   const activas = cuentas.filter((c: any) => c.activa !== false);
   const vista = activas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista");
