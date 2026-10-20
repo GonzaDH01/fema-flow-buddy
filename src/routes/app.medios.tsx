@@ -3275,25 +3275,46 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   const vista = activas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista");
   const lista = vista.length ? vista : activas;
   const [cuentaId, setCuentaId] = useState<string>(lista[0]?.id ?? "");
+  const [fecha, setFecha] = useState<string>(mov.vencimiento && mov.vencimiento <= hoyISO() ? mov.vencimiento : hoyISO());
+  const [neto, setNeto] = useState<number>(Number(mov.monto));
   const cta = cuentas.find((c: any) => c.id === cuentaId);
   const esPago = mov.direccion === "pago";
-  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(mov.monto) : 0;
+  const importe = esPago ? Number(mov.monto) : neto;
+  const costo = esPago ? 0 : Math.max(0, Number(mov.monto) - neto);
+  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * importe : 0;
+  const anticipado = !!mov.vencimiento && fecha < mov.vencimiento;
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>{esPago ? "Debitar de caja" : "Marcar como cobrado"}</DialogTitle>
+        <DialogTitle>{esPago ? "Debitar de caja" : "Cobrar / vender echeq"}</DialogTitle>
         <DialogDescription>
           {esPago ? (
-            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""}
-            {mov.vencimiento ? ` con fecha de pago ${formatFecha(mov.vencimiento)}` : ""} se <b>descuenta</b> de la
-            caja a la vista. La factura ya figura abonada; esto solo impacta el saldo del banco el día del cobro.</>
+            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""} se <b>descuenta</b> de la
+            caja a la vista en la fecha indicada.</>
           ) : (
-            <>El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
-            caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.</>
+            <>Echeq {mov.numero ? `Nº ${mov.numero} ` : ""}de {mov.contraparte ?? "—"} por {formatPesos(mov.monto)}
+            {mov.vencimiento ? `, fecha de pago original ${formatFecha(mov.vencimiento)}` : ""}. Si lo vendiste/descontaste,
+            poné la fecha en que se acreditó y el neto recibido: la diferencia queda como gasto bancario.</>
           )}
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <FormField label={esPago ? "Fecha de débito" : "Fecha de acreditación"}>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+          {!esPago && (
+            <FormField label="Neto acreditado">
+              <Input type="number" step="0.01" value={neto} onChange={(e) => setNeto(Number(e.target.value))} />
+            </FormField>
+          )}
+        </div>
+        {anticipado && !esPago && (
+          <p className="text-xs text-amber-400">Cobro anticipado: el ingreso pasa de {formatFecha(mov.vencimiento!)} a {formatFecha(fecha)} en Cash Flow.</p>
+        )}
+        {costo > 0.009 && (
+          <p className="text-xs text-rose-400">Costo financiero / descuento: {formatPesos(costo)} (gasto bancario)</p>
+        )}
         <FormField label="Caja a la vista">
           <Select value={cuentaId} onValueChange={setCuentaId}>
             <SelectTrigger><SelectValue placeholder="Seleccionar cuenta" /></SelectTrigger>
@@ -3316,10 +3337,10 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
       </div>
       <DialogFooter className="gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button variant="ghost" onClick={() => onConfirm(null)}>
+        <Button variant="ghost" onClick={() => onConfirm(null, fecha, Number(mov.monto))}>
           {esPago ? "Marcar pagado sin debitar" : "Cobrar sin depositar"}
         </Button>
-        <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
+        <Button onClick={() => onConfirm(cuentaId || null, fecha, esPago ? Number(mov.monto) : neto)} disabled={!cuentaId || !fecha || (!esPago && (neto <= 0 || neto > Number(mov.monto)))}>
           {esPago ? "Pagar y debitar" : "Cobrar y acreditar"}
         </Button>
       </DialogFooter>
