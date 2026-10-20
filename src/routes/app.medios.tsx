@@ -1485,9 +1485,14 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
                       <Badge variant="outline" className={`shrink-0 text-[10px] ${ESTADO_VARIANT[m.estado]}`}>{ESTADO_LABEL[m.estado]}</Badge>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      {onEdit && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={(e) => { e.stopPropagation(); onEdit(m); }} title="Editar fecha / datos">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                       {enCartera && (
                         <>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400" onClick={(e) => { e.stopPropagation(); onCobrar(m); }} title="Marcar cobrado">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400" onClick={(e) => { e.stopPropagation(); onCobrar(m); }} title="Cobrar / vender (fecha de acreditación)">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400" onClick={(e) => { e.stopPropagation(); onCeder(m); }} title="Ceder a proveedor">
