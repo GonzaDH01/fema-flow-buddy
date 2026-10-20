@@ -495,6 +495,33 @@ function Page() {
     qc.invalidateQueries({ queryKey: ["fema_facturas_compra_pendientes"] });
   };
 
+  // Cobro / venta anticipada: fija la fecha real de acreditación y registra el costo financiero.
+  const cobrarConFecha = async (m: Mov, cuentaId: string | null, fecha: string, neto: number) => {
+    const [y, mo] = fecha.split("-").map(Number);
+    const costo = redondear(Number(m.monto) - neto);
+    const notaVenta = costo > 0.009 ? ` [VENTA ${formatFecha(fecha)} neto ${formatPesos(neto)}]` : "";
+    const obsBase = `${m.observaciones ?? ""}${notaVenta}`.trim() || null;
+    const { error } = await sb.from("fema_movimientos_pago")
+      .update({ vencimiento: fecha, anio: y, mes: mo, observaciones: obsBase }).eq("id", m.id);
+    if (error) { toast.error(`No se pudo actualizar la fecha: ${error.message}`); return; }
+    await aplicarCobro({ ...m, vencimiento: fecha, observaciones: obsBase }, cuentaId);
+    if (cuentaId && costo > 0.009) {
+      const { data: cta } = await sb.from("fema_cuentas_bancarias").select("saldo").eq("id", cuentaId).maybeSingle();
+      const nuevo = Number(cta?.saldo || 0) - costo;
+      await sb.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cuentaId);
+      await sb.from("fema_caja_mov").insert({
+        user_id: user!.id, fecha, cuenta_id: cuentaId, tipo: "egreso", monto: costo,
+        concepto: `Gastos bancarios · costo venta echeq${m.numero ? ` Nº ${m.numero}` : ""} ${m.contraparte ?? ""}`.trim(),
+        saldo_resultante: nuevo,
+      });
+      toast.success(`Costo financiero ${formatPesos(costo)} registrado como gasto bancario`);
+    }
+    qc.invalidateQueries({ queryKey: ["fema_cuentas_bancarias"] });
+    qc.invalidateQueries({ queryKey: ["fema_caja_mov"] });
+    await movsQ.refetch();
+  };
+
+
   const revertir = async (m: Mov) => {
     if (!confirm("¿Volver este echeq al estado 'En cartera' / pendiente?")) return;
     const { error } = await rpcResiliente("fema_revertir_caja", {
@@ -997,10 +1024,11 @@ function Page() {
           <CarteraEcheqs
             rows={movs.filter(m => m.instrumento === "echeq" && m.direccion === "cobro")}
             onCeder={ceder}
-            onCobrar={cobrar}
+            onCobrar={(m) => setDepositoMov(m)}
             onRevertir={revertir}
             cuentas={cuentas}
             onDepositar={(m) => setDepositoMov(m)}
+            onEdit={(m) => { setEditMov(m); setOpenMov(true); }}
           />
             </CollapsibleContent>
           </Collapsible>
@@ -1029,10 +1057,11 @@ function Page() {
             mov={depositoMov}
             cuentas={cuentas}
             onClose={() => setDepositoMov(null)}
-            onConfirm={async (cuentaId) => {
+            onConfirm={async (cuentaId, fecha, neto) => {
               const m = depositoMov;
               setDepositoMov(null);
-              await aplicarCobro(m, cuentaId);
+              if (fecha) await cobrarConFecha(m, cuentaId, fecha, neto ?? Number(m.monto));
+              else await aplicarCobro(m, cuentaId);
             }}
           />
         )}
@@ -1341,7 +1370,8 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
   );
 }
 
-function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDepositar }: {
+function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDepositar, onEdit }: {
+  onEdit?: (m: Mov) => void;
   rows: Mov[]; onCeder: (m: Mov) => void; onCobrar: (m: Mov) => void; onRevertir: (m: Mov) => void;
   cuentas?: any[]; onDepositar?: (m: Mov) => void;
 }) {
@@ -1455,9 +1485,14 @@ function CarteraEcheqs({ rows, onCeder, onCobrar, onRevertir, cuentas = [], onDe
                       <Badge variant="outline" className={`shrink-0 text-[10px] ${ESTADO_VARIANT[m.estado]}`}>{ESTADO_LABEL[m.estado]}</Badge>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      {onEdit && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={(e) => { e.stopPropagation(); onEdit(m); }} title="Editar fecha / datos">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                       {enCartera && (
                         <>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400" onClick={(e) => { e.stopPropagation(); onCobrar(m); }} title="Marcar cobrado">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-400" onClick={(e) => { e.stopPropagation(); onCobrar(m); }} title="Cobrar / vender (fecha de acreditación)">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-400" onClick={(e) => { e.stopPropagation(); onCeder(m); }} title="Ceder a proveedor">
@@ -3234,31 +3269,52 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
 
 function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
   mov: Mov; cuentas: any[];
-  onClose: () => void; onConfirm: (cuentaId: string | null) => void;
+  onClose: () => void; onConfirm: (cuentaId: string | null, fecha?: string, neto?: number) => void;
 }) {
   const activas = cuentas.filter((c: any) => c.activa !== false);
   const vista = activas.filter((c: any) => (c.tipo_cuenta ?? "vista") === "vista");
   const lista = vista.length ? vista : activas;
   const [cuentaId, setCuentaId] = useState<string>(lista[0]?.id ?? "");
+  const [fecha, setFecha] = useState<string>(mov.vencimiento && mov.vencimiento <= hoyISO() ? mov.vencimiento : hoyISO());
+  const [neto, setNeto] = useState<number>(Number(mov.monto));
   const cta = cuentas.find((c: any) => c.id === cuentaId);
   const esPago = mov.direccion === "pago";
-  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * Number(mov.monto) : 0;
+  const importe = esPago ? Number(mov.monto) : neto;
+  const costo = esPago ? 0 : Math.max(0, Number(mov.monto) - neto);
+  const nuevoSaldo = cta ? Number(cta.saldo || 0) + (esPago ? -1 : 1) * importe : 0;
+  const anticipado = !!mov.vencimiento && fecha < mov.vencimiento;
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>{esPago ? "Debitar de caja" : "Marcar como cobrado"}</DialogTitle>
+        <DialogTitle>{esPago ? "Debitar de caja" : "Cobrar / vender echeq"}</DialogTitle>
         <DialogDescription>
           {esPago ? (
-            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""}
-            {mov.vencimiento ? ` con fecha de pago ${formatFecha(mov.vencimiento)}` : ""} se <b>descuenta</b> de la
-            caja a la vista. La factura ya figura abonada; esto solo impacta el saldo del banco el día del cobro.</>
+            <>El pago de {formatPesos(mov.monto)}{mov.numero ? ` del echeq propio Nº ${mov.numero}` : ""} se <b>descuenta</b> de la
+            caja a la vista en la fecha indicada.</>
           ) : (
-            <>El cobro de {formatPesos(mov.monto)}{mov.numero ? ` del echeq Nº ${mov.numero}` : ""} se acredita en la
-            caja a la vista. Después, con <b>Mover dinero</b>, decidís qué importe pasás a cada fondo de inversión.</>
+            <>Echeq {mov.numero ? `Nº ${mov.numero} ` : ""}de {mov.contraparte ?? "—"} por {formatPesos(mov.monto)}
+            {mov.vencimiento ? `, fecha de pago original ${formatFecha(mov.vencimiento)}` : ""}. Si lo vendiste/descontaste,
+            poné la fecha en que se acreditó y el neto recibido: la diferencia queda como gasto bancario.</>
           )}
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <FormField label={esPago ? "Fecha de débito" : "Fecha de acreditación"}>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </FormField>
+          {!esPago && (
+            <FormField label="Neto acreditado">
+              <Input type="number" step="0.01" value={neto} onChange={(e) => setNeto(Number(e.target.value))} />
+            </FormField>
+          )}
+        </div>
+        {anticipado && !esPago && (
+          <p className="text-xs text-amber-400">Cobro anticipado: el ingreso pasa de {formatFecha(mov.vencimiento!)} a {formatFecha(fecha)} en Cash Flow.</p>
+        )}
+        {costo > 0.009 && (
+          <p className="text-xs text-rose-400">Costo financiero / descuento: {formatPesos(costo)} (gasto bancario)</p>
+        )}
         <FormField label="Caja a la vista">
           <Select value={cuentaId} onValueChange={setCuentaId}>
             <SelectTrigger><SelectValue placeholder="Seleccionar cuenta" /></SelectTrigger>
@@ -3281,10 +3337,10 @@ function DepositoDialog({ mov, cuentas, onClose, onConfirm }: {
       </div>
       <DialogFooter className="gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button variant="ghost" onClick={() => onConfirm(null)}>
+        <Button variant="ghost" onClick={() => onConfirm(null, fecha, Number(mov.monto))}>
           {esPago ? "Marcar pagado sin debitar" : "Cobrar sin depositar"}
         </Button>
-        <Button onClick={() => onConfirm(cuentaId || null)} disabled={!cuentaId}>
+        <Button onClick={() => onConfirm(cuentaId || null, fecha, esPago ? Number(mov.monto) : neto)} disabled={!cuentaId || !fecha || (!esPago && (neto <= 0 || neto > Number(mov.monto)))}>
           {esPago ? "Pagar y debitar" : "Cobrar y acreditar"}
         </Button>
       </DialogFooter>
