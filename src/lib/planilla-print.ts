@@ -61,7 +61,7 @@ const filaEquipo = (
     <td class="tot"><span class="cajaTot">${v(viajes)}</span></td>
   </tr>`;
 
-export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 4, cantBolsas = 7) {
+export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 3, cantBolsas = 7) {
   const bolsas = Array.from({ length: cantBolsas }, (_, i) => v(p?.bolsas?.[i]));
   const [dd, mm, aa] = fechaPartes(p?.fecha);
 
@@ -74,7 +74,9 @@ export function planillaHTML(p: PlanillaImpresion | null, cantContratistas = 4, 
     : EQUIPOS_BASE.map((n) => ({ equipo_nombre: n, chofer: "", dominio: "", viajes: "", es_tercero: false }));
 
   const terceros = [...tercerosCargados];
-  while (terceros.length < cantContratistas) {
+  // Siempre al menos `cantContratistas` renglones en blanco para terceros que se sumen en el campo
+  const minimo = tercerosCargados.length + (tercerosCargados.length >= cantContratistas ? 0 : cantContratistas - tercerosCargados.length);
+  while (terceros.length < minimo) {
     terceros.push({ equipo_nombre: "", chofer: "", dominio: "", viajes: "", es_tercero: true });
   }
 

@@ -153,6 +153,7 @@ type FilaEquipo = {
   equipo_id: string | null;
   equipo_nombre: string;
   chofer: string; dominio: string; viajes: number; metros: string; es_tercero: boolean;
+  va?: boolean;           // equipo propio seleccionado para trabajar en la jornada
 };
 
 const filaVacia = (es_tercero: boolean): FilaEquipo => ({
@@ -370,7 +371,12 @@ function Page() {
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
-            onClick={() => { if (!imprimirPlanilla(null)) toast.error("Permití las ventanas emergentes para imprimir"); }}
+            onClick={() => {
+              const eqs = (activosQ.data ?? []).filter((a) => a.tipo !== "Implemento").map((a) => ({
+                equipo_nombre: a.nombre, chofer: a.responsable ?? "", dominio: a.numero_serie ?? "", viajes: "", es_tercero: false,
+              }));
+              if (!imprimirPlanilla(eqs.length ? { equipos: eqs } : null)) toast.error("Permití las ventanas emergentes para imprimir");
+            }}
           >
             <Printer className="mr-2 h-4 w-4" /> Imprimir planilla en blanco
           </Button>
@@ -534,7 +540,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
   const filasPropiasBase = useMemo<FilaEquipo[]>(
     () => activos.map((a) => ({
       ref: a.id, equipo_id: null, equipo_nombre: a.nombre,
-      chofer: responsableDe(a), dominio: a.numero_serie ?? "", viajes: 0, metros: "", es_tercero: false,
+      chofer: responsableDe(a), dominio: a.numero_serie ?? "", viajes: 0, metros: "", es_tercero: false, va: false,
     })),
     [activos, empMap],
   );
@@ -562,13 +568,13 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       const guardadosPropios = equiposIniciales.filter((e) => !e.es_tercero);
       const base = filasPropiasBase.map((f) => {
         const g = guardadosPropios.find((e) => e.activo_id === f.ref || e.equipo_nombre.toLowerCase() === f.equipo_nombre.toLowerCase());
-        return g ? { ...f, chofer: g.chofer ?? f.chofer, dominio: g.dominio ?? f.dominio, viajes: Number(g.viajes || 0), metros: g.metros_bolsa ? String(g.metros_bolsa) : "" } : f;
+        return g ? { ...f, va: true, chofer: g.chofer ?? f.chofer, dominio: g.dominio ?? f.dominio, viajes: Number(g.viajes || 0), metros: g.metros_bolsa ? String(g.metros_bolsa) : "" } : f;
       });
       const sueltos = guardadosPropios
         .filter((g) => !base.some((f) => f.ref === g.activo_id || f.equipo_nombre.toLowerCase() === g.equipo_nombre.toLowerCase()))
         .map((g) => ({
           ref: "", equipo_id: null, equipo_nombre: g.equipo_nombre, chofer: g.chofer ?? "", dominio: g.dominio ?? "",
-          viajes: Number(g.viajes || 0), metros: g.metros_bolsa ? String(g.metros_bolsa) : "", es_tercero: false,
+          viajes: Number(g.viajes || 0), metros: g.metros_bolsa ? String(g.metros_bolsa) : "", es_tercero: false, va: true,
         }));
       setPropios([...base, ...sueltos]);
 
@@ -585,7 +591,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       setImagenPath(null);
       setBolsas(Array(CANT_BOLSAS).fill(""));
       setPropios(filasPropiasBase);
-      setTerceros([filaVacia(true), filaVacia(true)]);
+      setTerceros([filaVacia(true), filaVacia(true), filaVacia(true)]);
     }
   }, [open, planilla, equiposIniciales, filasPropiasBase]);
 
@@ -906,15 +912,21 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
             </div>
 
             <div className="bg-muted px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide">
-              Equipos propios de la empresa <span className="font-normal normal-case text-muted-foreground">(desde Inventario)</span>
+              Equipos propios de la empresa <span className="font-normal normal-case text-muted-foreground">(tildá los que trabajan en la jornada)</span>
             </div>
             <div className="divide-y">
               {propios.length === 0 && (
                 <div className="p-3 text-sm text-muted-foreground">No hay maquinaria cargada en Inventario.</div>
               )}
               {propios.map((f, i) => (
-                <div key={`p${i}`} className="grid items-center gap-2 p-2 lg:grid-cols-[190px_220px_1fr_90px]">
-                  <div className="text-sm font-bold uppercase">{f.equipo_nombre}</div>
+                <div key={`p${i}`} className={`grid items-center gap-2 p-2 lg:grid-cols-[190px_220px_1fr_90px] ${f.va ? "" : "opacity-50"}`}>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-bold uppercase">
+                    <input
+                      type="checkbox" className="h-4 w-4 accent-primary" checked={!!f.va}
+                      onChange={(e) => setPropios(propios.map((x, idx) => (idx === i ? { ...x, va: e.target.checked } : x)))}
+                    />
+                    {f.equipo_nombre}
+                  </label>
                   <div className="space-y-1">
                     <Input value={f.chofer} onChange={(e) => setFila(propios, setPropios, i, "chofer", e.target.value)} className="h-8" placeholder="Chofer" />
                     <Input value={f.dominio} onChange={(e) => setFila(propios, setPropios, i, "dominio", e.target.value)} className="h-7 text-xs" placeholder="Dominio" />
@@ -1028,7 +1040,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
             onClick={() => imprimirPlanilla({
               fecha, cliente_nombre: clienteNombre, establecimiento, lote, zona, cultivo,
               bolsero_nombre: nombre, observaciones, bolsas, total_viajes: totalViajes, total_metros: totalMetros,
-              equipos: [...propios, ...terceros].filter((f) => f.equipo_nombre.trim()).map((f) => ({
+              equipos: [...propios.filter((f) => f.va || f.viajes > 0 || Number(f.metros) > 0), ...terceros].filter((f) => f.equipo_nombre.trim()).map((f) => ({
                 equipo_nombre: f.equipo_nombre, chofer: f.chofer, dominio: f.dominio,
                 viajes: f.viajes, metros_bolsa: f.metros, es_tercero: f.es_tercero,
               })),
