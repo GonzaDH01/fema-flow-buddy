@@ -153,6 +153,7 @@ type FilaEquipo = {
   equipo_id: string | null;
   equipo_nombre: string;
   chofer: string; dominio: string; viajes: number; metros: string; es_tercero: boolean;
+  va?: boolean;           // equipo propio seleccionado para trabajar en la jornada
 };
 
 const filaVacia = (es_tercero: boolean): FilaEquipo => ({
@@ -370,7 +371,12 @@ function Page() {
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
-            onClick={() => { if (!imprimirPlanilla(null)) toast.error("Permití las ventanas emergentes para imprimir"); }}
+            onClick={() => {
+              const eqs = (activosQ.data ?? []).filter((a) => a.tipo !== "Implemento").map((a) => ({
+                equipo_nombre: a.nombre, chofer: a.responsable ?? "", dominio: a.numero_serie ?? "", viajes: "", es_tercero: false,
+              }));
+              if (!imprimirPlanilla(eqs.length ? { equipos: eqs } : null)) toast.error("Permití las ventanas emergentes para imprimir");
+            }}
           >
             <Printer className="mr-2 h-4 w-4" /> Imprimir planilla en blanco
           </Button>
