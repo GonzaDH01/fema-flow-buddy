@@ -796,3 +796,67 @@ function EcheqDialog({ pago, onClose }: { pago: PagoDetalle; onClose: () => void
     </div>
   );
 }
+
+function MarcarPagoDialog({ pago, esCompra, onClose, onDone }: {
+  pago: PagoDetalle; esCompra: boolean; onClose: () => void; onDone: () => void;
+}) {
+  const { data: cuentas } = useQuery({
+    queryKey: ["fema_cuentas_bancarias", "marcar"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_cuentas_bancarias").select("id,banco,alias,saldo,activa");
+      if (error) throw error;
+      return ((data ?? []) as any[]).filter((c) => c.activa !== false);
+    },
+  });
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  const [fecha, setFecha] = useState(pago.fecha && pago.fecha <= hoy ? pago.fecha : hoy);
+  const [cuentaId, setCuentaId] = useState<string>("__auto");
+  const [saving, setSaving] = useState(false);
+  const elegida = cuentaId === "__auto" ? (cuentas?.[0]?.id ?? "") : cuentaId;
+
+  const confirmar = async () => {
+    if (!fecha) return toast.error("Elegí la fecha");
+    setSaving(true);
+    const sb = supabase as any;
+    const { error: e1 } = await sb.from("fema_movimientos_pago").update({ vencimiento: fecha }).eq("id", pago.movId);
+    if (e1) { setSaving(false); return toast.error("No se pudo actualizar la fecha: " + e1.message); }
+    const cta = elegida === "__none" ? null : elegida || null;
+    const { error } = await sb.rpc("fema_impactar_caja", {
+      _mov_id: pago.movId, _nuevo_estado: esCompra ? "pagado" : "cobrado", _cuenta_id: cta, _es_pago: esCompra,
+    });
+    setSaving(false);
+    if (error) return toast.error("No se pudo registrar: " + error.message);
+    toast.success(esCompra ? "Pago registrado" : "Cobro registrado");
+    onDone();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-md space-y-3 rounded-lg border bg-card p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <div className="text-sm font-semibold">{esCompra ? "Marcar como pagado" : "Marcar como cobrado"}</div>
+          <div className="text-xs text-muted-foreground">{pago.etiqueta} · {pago.observaciones ?? ""} · {formatPesos(pago.monto)}</div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Fecha real de {esCompra ? "pago" : "cobro"}</Label>
+          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">{esCompra ? "Cuenta de donde salió" : "Cuenta donde ingresó"}</Label>
+          <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            value={elegida || "__none"} onChange={(e) => setCuentaId(e.target.value)}>
+            {(cuentas ?? []).map((c: any) => (
+              <option key={c.id} value={c.id}>{c.banco}{c.alias ? ` · ${c.alias}` : ""} — {formatPesos(Number(c.saldo || 0))}</option>
+            ))}
+            <option value="__none">Sin mover saldo (ya estaba descontado)</option>
+          </select>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" disabled={saving} onClick={confirmar}>Confirmar</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
