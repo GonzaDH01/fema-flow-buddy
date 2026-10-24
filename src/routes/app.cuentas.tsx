@@ -565,10 +565,41 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
   };
 
   const [echeqEdit, setEcheqEdit] = useState<PagoDetalle | null>(null);
+  const [pagoMarcar, setPagoMarcar] = useState<PagoDetalle | null>(null);
+
+  const invalidarTodo = () => {
+    for (const k of ["fema_cuentas_corrientes", "fema_movimientos_pago", "cashflow-matrix", "fema_cuentas_bancarias", "mov_echeq_edit"]) qc.invalidateQueries({ queryKey: [k] });
+  };
+
+  const [montoEdit, setMontoEdit] = useState<string | null>(null);
+  const [montoTxt, setMontoTxt] = useState("");
+  const guardarMonto = async (p: PagoDetalle) => {
+    const v = Number(montoTxt.replace(/\./g, "").replace(",", "."));
+    if (!(v > 0)) return toast.error("Importe inválido");
+    setGuardando(true);
+    const { error } = await (supabase as any).from("fema_movimientos_pago").update({ monto: v }).eq("id", p.movId);
+    if (!error && p.id !== p.movId) {
+      await (supabase as any).from("fema_imputaciones").update({ monto: v }).eq("id", p.id);
+    }
+    setGuardando(false);
+    if (error) return toast.error("No se pudo cambiar el importe: " + error.message);
+    toast.success("Importe actualizado");
+    setMontoEdit(null);
+    invalidarTodo();
+  };
+
+  const revertir = async (p: PagoDetalle) => {
+    if (!confirm("¿Volver esta cuota a 'En cartera'? Si se había debitado de una cuenta, se devuelve el saldo.")) return;
+    const { error } = await (supabase as any).rpc("fema_revertir_caja", { _mov_id: p.movId, _estado: "en_cartera" });
+    if (error) return toast.error("No se pudo revertir: " + error.message);
+    toast.success("Cuota vuelta a En cartera");
+    invalidarTodo();
+  };
 
   return (
     <div className="my-1 overflow-x-auto rounded-md border border-border/60 bg-muted/20">
       {echeqEdit && <EcheqDialog pago={echeqEdit} onClose={() => setEcheqEdit(null)} />}
+      {pagoMarcar && <MarcarPagoDialog pago={pagoMarcar} esCompra={esCompra} onClose={() => setPagoMarcar(null)} onDone={invalidarTodo} />}
       <table className="w-full text-xs">
         <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -615,9 +646,21 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
                 ) : (p.detalle || "—")}
               </td>
               <td className="whitespace-nowrap px-3 py-1.5">
-                <Badge variant={p.confirmado ? "outline" : "secondary"} className="text-[10px]">
-                  {p.estado}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={p.confirmado ? "outline" : "secondary"} className="text-[10px]">
+                    {p.estado}
+                  </Badge>
+                  {!p.confirmado && p.estado !== "Anulado" ? (
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => setPagoMarcar(p)}>
+                      <Check className="mr-1 h-3 w-3" />{esCompra ? "Marcar pagado" : "Marcar cobrado"}
+                    </Button>
+                  ) : p.confirmado && p.estado !== "Cedido" ? (
+                    <button type="button" title="Volver a En cartera" onClick={() => revertir(p)}
+                      className="rounded p-1 opacity-40 hover:bg-muted hover:opacity-100" aria-label="Revertir">
+                      <X className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </div>
               </td>
               <td className="min-w-[200px] px-3 py-1.5">
                 {editId === p.id ? (
@@ -657,7 +700,28 @@ function ExtractoPagos({ pagos, esCompra }: { pagos: PagoDetalle[]; esCompra: bo
                   </button>
                 )}
               </td>
-              <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums">{formatPesos(p.monto)}</td>
+              <td className="whitespace-nowrap px-3 py-1.5 text-right font-medium tabular-nums">
+                {montoEdit === p.id ? (
+                  <div className="flex items-center justify-end gap-1">
+                    <Input autoFocus value={montoTxt} onChange={(e) => setMontoTxt(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") guardarMonto(p); if (e.key === "Escape") setMontoEdit(null); }}
+                      className="h-7 w-32 text-right text-xs" inputMode="decimal" />
+                    <button type="button" disabled={guardando} onClick={() => guardarMonto(p)} className="rounded p-1 hover:bg-muted" aria-label="Guardar importe">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setMontoEdit(null)} className="rounded p-1 hover:bg-muted" aria-label="Cancelar">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : !p.confirmado ? (
+                  <button type="button" title="Editar importe"
+                    onClick={() => { setMontoEdit(p.id); setMontoTxt(String(p.monto)); }}
+                    className="group inline-flex items-center gap-1.5">
+                    <Pencil className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                    {formatPesos(p.monto)}
+                  </button>
+                ) : formatPesos(p.monto)}
+              </td>
             </tr>
           ))}
         </tbody>
