@@ -25,6 +25,7 @@ const MODULOS: { key: string; label: string; desc: string; uso: string }[] = [
   { key: "combustible", label: "Combustible", desc: "Cargas de gasoil, tanque, consumos por equipo y viajes de transportistas.", uso: "Registrá cada carga o viaje y sacá el reporte de transportistas por período." },
   { key: "proveedores", label: "Proveedores", desc: "Padrón de proveedores con CUIT, domicilio y condición de IVA.", uso: "Buscá el proveedor y completá o corregí los datos que el OCR no haya detectado." },
   { key: "franco", label: "Franco (tarjeta personal)", desc: "Facturas a nombre de la empresa abonadas con fondos personales de Franco.", uso: "No afecta caja: solo marcá cada comprobante como pendiente o abonado; sí impacta en IVA." },
+  { key: "gonzalo", label: "Gonzalo (cuenta corriente)", desc: "Gastos que Gonzalo adelanta y compras de Gonzalo pagadas por la empresa.", uso: "Registrá cada movimiento; el saldo indica quién le debe a quién." },
   { key: "creditos", label: "Créditos / Financiación", desc: "Créditos de maquinaria y sus cuotas con vencimientos.", uso: "Cargá el crédito y luego marcá cada cuota como pagada al transferirla." },
   { key: "documentos", label: "Documentos Compras", desc: "Pagarés, boletos y convenios firmados por compras a plazo, con sus cuotas.", uso: "Subí la foto del documento, revisá los datos leídos y registrá cada cuota al abonarla." },
   { key: "empleados", label: "Empleados", desc: "Legajos, horas trabajadas y sueldos del personal.", uso: "Cargá el empleado, sus horas por período y liquidá los sueldos del mes." },
