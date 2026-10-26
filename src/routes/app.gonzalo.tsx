@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileDown, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { FileDown, Paperclip, Pencil, Plus, Trash2, UserRound, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -37,14 +37,36 @@ const TIPOS = {
 } as const;
 type Tipo = keyof typeof TIPOS;
 
-type Row = { id: string; fecha: string; tipo: Tipo; concepto: string; proveedor: string | null; importe: number; observaciones: string | null };
-const vacio = () => ({ id: "", fecha: new Date().toISOString().slice(0, 10), tipo: "gasto_gonzalo" as Tipo, concepto: "", proveedor: "", importe: "", observaciones: "" });
+type Row = { id: string; fecha: string; tipo: Tipo; concepto: string; proveedor: string | null; importe: number; observaciones: string | null; adjuntos: string[] | null };
+const vacio = () => ({ id: "", fecha: new Date().toISOString().slice(0, 10), tipo: "gasto_gonzalo" as Tipo, concepto: "", proveedor: "", importe: "", observaciones: "", adjuntos: [] as string[] });
+const BUCKET = "documentos-compras";
+const nombreArchivo = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
+const abrirAdjunto = async (path: string) => {
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return toast.error("No se pudo abrir el archivo");
+  window.open(data.signedUrl, "_blank", "noopener");
+};
 
 function Page() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState<ReturnType<typeof vacio> | null>(null);
   const [busca, setBusca] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+
+  const subir = async (files: FileList | null) => {
+    if (!files?.length || !form) return;
+    setSubiendo(true);
+    const nuevos: string[] = [];
+    for (const f of Array.from(files)) {
+      const path = `gonzalo/${Date.now()}-${f.name.replace(/[^\w.\-]/g, "_")}`;
+      const { error } = await supabase.storage.from(BUCKET).upload(path, f, { contentType: f.type || undefined });
+      if (error) toast.error(`${f.name}: ${error.message}`); else nuevos.push(path);
+    }
+    setSubiendo(false);
+    setForm((prev) => prev ? { ...prev, adjuntos: [...prev.adjuntos, ...nuevos] } : prev);
+    if (nuevos.length) toast.success("Comprobante adjuntado — tocá Guardar");
+  };
 
   const { data = [] } = useQuery({
     queryKey: ["cc_gonzalo"],
@@ -69,7 +91,7 @@ function Page() {
     if (!form) return;
     const importe = Number(String(form.importe).replace(/\./g, "").replace(",", "."));
     if (!form.concepto.trim() || !(importe > 0)) { toast.error("Completá concepto e importe"); return; }
-    const payload = { fecha: form.fecha, tipo: form.tipo, concepto: form.concepto.trim(), proveedor: form.proveedor || null, importe, observaciones: form.observaciones || null };
+    const payload = { fecha: form.fecha, tipo: form.tipo, concepto: form.concepto.trim(), proveedor: form.proveedor || null, importe, observaciones: form.observaciones || null, adjuntos: form.adjuntos };
     const { error } = form.id
       ? await supabase.from("fema_cc_gonzalo").update(payload).eq("id", form.id)
       : await supabase.from("fema_cc_gonzalo").insert({ ...payload, user_id: user!.id });
@@ -139,12 +161,19 @@ function Page() {
               <TableRow key={r.id}>
                 <TableCell>{formatFecha(r.fecha)}</TableCell>
                 <TableCell><Badge variant={TIPOS[r.tipo].signo > 0 ? "secondary" : "outline"}>{TIPOS[r.tipo].l}</Badge></TableCell>
-                <TableCell><div>{r.concepto}</div>{r.proveedor && <div className="text-xs text-muted-foreground">{r.proveedor}</div>}</TableCell>
+                <TableCell>
+                  <div>{r.concepto}</div>{r.proveedor && <div className="text-xs text-muted-foreground">{r.proveedor}</div>}
+                  {(r.adjuntos ?? []).map((p) => (
+                    <button key={p} type="button" onClick={() => abrirAdjunto(p)} className="mr-2 inline-flex items-center gap-1 text-xs text-primary underline">
+                      <Paperclip className="h-3 w-3" />{nombreArchivo(p)}
+                    </button>
+                  ))}
+                </TableCell>
                 <TableCell className="text-right">{TIPOS[r.tipo].signo > 0 ? formatPesos(r.importe) : ""}</TableCell>
                 <TableCell className="text-right">{TIPOS[r.tipo].signo < 0 ? formatPesos(r.importe) : ""}</TableCell>
                 <TableCell className="text-right font-medium">{formatPesos(r.saldo)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right">
-                  <Button size="icon" variant="ghost" onClick={() => setForm({ ...r, proveedor: r.proveedor ?? "", observaciones: r.observaciones ?? "", importe: String(r.importe) })}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => setForm({ ...r, proveedor: r.proveedor ?? "", observaciones: r.observaciones ?? "", importe: String(r.importe), adjuntos: r.adjuntos ?? [] })}><Pencil className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => borrar(r)}><Trash2 className="h-4 w-4" /></Button>
                 </TableCell>
               </TableRow>
@@ -167,6 +196,19 @@ function Page() {
               <Input placeholder="Proveedor / destinatario (opcional)" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} />
               <Input inputMode="decimal" placeholder="Importe" value={form.importe} onChange={(e) => setForm({ ...form, importe: e.target.value })} />
               <Input placeholder="Observaciones (opcional)" value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+              <div className="rounded-lg border border-dashed p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                  <Paperclip className="h-4 w-4" />{subiendo ? "Subiendo…" : "Adjuntar comprobante (factura, remito, recibo, foto)"}
+                  <input type="file" multiple accept="image/*,application/pdf" className="hidden" disabled={subiendo}
+                    onChange={(e) => { subir(e.target.files); e.target.value = ""; }} />
+                </label>
+                {form.adjuntos.map((p) => (
+                  <div key={p} className="mt-2 flex items-center justify-between gap-2 text-xs">
+                    <button type="button" className="truncate text-primary underline" onClick={() => abrirAdjunto(p)}>{nombreArchivo(p)}</button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setForm({ ...form, adjuntos: form.adjuntos.filter((x) => x !== p) })}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <DialogFooter><Button onClick={guardar}>Guardar</Button></DialogFooter>
