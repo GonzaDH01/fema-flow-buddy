@@ -22,6 +22,13 @@
       "when": 1791985877205,
       "tag": "0002_gastos_fijos_cuenta",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793014510882,
+      "tag": "0003_fema_cc_gonzalo",
+      "breakpoints": true
     }
   ]
 }

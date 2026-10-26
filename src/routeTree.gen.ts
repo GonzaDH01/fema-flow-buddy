@@ -27,6 +27,7 @@ import { Route as AppEmpleadosRouteImport } from './routes/app.empleados'
 import { Route as AppExportacionesRouteImport } from './routes/app.exportaciones'
 import { Route as AppFacturasRouteImport } from './routes/app.facturas'
 import { Route as AppFrancoRouteImport } from './routes/app.franco'
+import { Route as AppGonzaloRouteImport } from './routes/app.gonzalo'
 import { Route as AppImagenesRouteImport } from './routes/app.imagenes'
 import { Route as AppImpuestosRouteImport } from './routes/app.impuestos'
 import { Route as AppMediosRouteImport } from './routes/app.medios'
@@ -134,6 +135,11 @@ const AppFacturasRoute = AppFacturasRouteImport.update({
 const AppFrancoRoute = AppFrancoRouteImport.update({
   id: '/franco',
   path: '/franco',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGonzaloRoute = AppGonzaloRouteImport.update({
+  id: '/gonzalo',
+  path: '/gonzalo',
   getParentRoute: () => AppRoute,
 } as any)
 const AppImagenesRoute = AppImagenesRouteImport.update({
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/franco': typeof AppFrancoRoute
+  '/app/gonzalo': typeof AppGonzaloRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/franco': typeof AppFrancoRoute
+  '/app/gonzalo': typeof AppGonzaloRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/app/exportaciones': typeof AppExportacionesRoute
   '/app/facturas': typeof AppFacturasRoute
   '/app/franco': typeof AppFrancoRoute
+  '/app/gonzalo': typeof AppGonzaloRoute
   '/app/imagenes': typeof AppImagenesRoute
   '/app/impuestos': typeof AppImpuestosRoute
   '/app/medios': typeof AppMediosRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/app/exportaciones'
     | '/app/facturas'
     | '/app/franco'
+    | '/app/gonzalo'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/app/exportaciones'
     | '/app/facturas'
     | '/app/franco'
+    | '/app/gonzalo'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/app/exportaciones'
     | '/app/facturas'
     | '/app/franco'
+    | '/app/gonzalo'
     | '/app/imagenes'
     | '/app/impuestos'
     | '/app/medios'
@@ -600,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFrancoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/gonzalo': {
+      id: '/app/gonzalo'
+      path: '/gonzalo'
+      fullPath: '/app/gonzalo'
+      preLoaderRoute: typeof AppGonzaloRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/imagenes': {
       id: '/app/imagenes'
       path: '/imagenes'
@@ -743,6 +762,7 @@ interface AppRouteChildren {
   AppExportacionesRoute: typeof AppExportacionesRoute
   AppFacturasRoute: typeof AppFacturasRoute
   AppFrancoRoute: typeof AppFrancoRoute
+  AppGonzaloRoute: typeof AppGonzaloRoute
   AppImagenesRoute: typeof AppImagenesRoute
   AppImpuestosRoute: typeof AppImpuestosRoute
   AppMediosRoute: typeof AppMediosRoute
@@ -771,6 +791,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExportacionesRoute: AppExportacionesRoute,
   AppFacturasRoute: AppFacturasRoute,
   AppFrancoRoute: AppFrancoRoute,
+  AppGonzaloRoute: AppGonzaloRoute,
   AppImagenesRoute: AppImagenesRoute,
   AppImpuestosRoute: AppImpuestosRoute,
   AppMediosRoute: AppMediosRoute,
