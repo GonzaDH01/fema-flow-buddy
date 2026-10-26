@@ -539,6 +539,45 @@ export type Database = {
           },
         ]
       }
+      fema_cc_gonzalo: {
+        Row: {
+          concepto: string
+          created_at: string
+          fecha: string
+          id: string
+          importe: number
+          observaciones: string | null
+          proveedor: string | null
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concepto: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          importe: number
+          observaciones?: string | null
+          proveedor?: string | null
+          tipo: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          concepto?: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          importe?: number
+          observaciones?: string | null
+          proveedor?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fema_clientes: {
         Row: {
           codigo: string | null
