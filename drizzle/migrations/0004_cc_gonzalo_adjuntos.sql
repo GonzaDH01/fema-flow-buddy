@@ -1,0 +1,1 @@
+ALTER TABLE public.fema_cc_gonzalo ADD COLUMN adjuntos text[] NOT NULL DEFAULT '{}';

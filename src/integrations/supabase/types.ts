@@ -541,6 +541,7 @@ export type Database = {
       }
       fema_cc_gonzalo: {
         Row: {
+          adjuntos: string[]
           concepto: string
           created_at: string
           fecha: string
@@ -553,6 +554,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          adjuntos?: string[]
           concepto: string
           created_at?: string
           fecha?: string
@@ -565,6 +567,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          adjuntos?: string[]
           concepto?: string
           created_at?: string
           fecha?: string
