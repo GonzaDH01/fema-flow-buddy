@@ -351,13 +351,11 @@ function DetalleActivo({
                 Clic para ampliar
               </span>
             )}
-            {zoom && src && (
-              <div
-                className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-background/95 p-4"
-                onClick={() => setZoom(false)}
-              >
-                <img src={src} alt={activo.nombre} className="max-h-[85vh] max-w-[95vw] object-contain" />
-                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <Dialog open={zoom && !!src} onOpenChange={setZoom}>
+              <DialogContent className="flex max-h-[98vh] max-w-[98vw] flex-col items-center gap-3 p-3 sm:max-w-[98vw]">
+                <DialogTitle className="sr-only">{activo.nombre}</DialogTitle>
+                <img src={src} alt={activo.nombre} className="max-h-[85vh] max-w-full object-contain" />
+                <div className="flex gap-2">
                   {imagenes.length > 1 && (
                     <Button size="sm" variant="secondary" onClick={() => mover(-1)}>
                       <ChevronLeft className="h-4 w-4" />
@@ -373,8 +371,8 @@ function DetalleActivo({
                     </Button>
                   )}
                 </div>
-              </div>
-            )}
+              </DialogContent>
+            </Dialog>
             {imagenes.length > 1 && (
               <>
                 <Button
