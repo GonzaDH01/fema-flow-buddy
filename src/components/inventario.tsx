@@ -306,6 +306,7 @@ function DetalleActivo({
   const paths = useMemo(() => [...imagenes, ...documentos].map((i) => i.path), [imagenes, documentos]);
   const { data: urls } = useSignedUrls(paths);
   const [idx, setIdx] = useState(0);
+  const [zoom, setZoom] = useState(false);
 
   useEffect(() => {
     setIdx(0);
@@ -339,10 +340,39 @@ function DetalleActivo({
         <div className="space-y-3">
           <div className="relative flex h-64 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
             {src ? (
-              <img src={src} alt={activo.nombre} className="h-full w-full object-contain" />
+              <button type="button" className="h-full w-full cursor-zoom-in" onClick={() => setZoom(true)} title="Clic para ampliar">
+                <img src={src} alt={activo.nombre} className="h-full w-full object-contain" />
+              </button>
             ) : (
               <span className="text-sm text-muted-foreground">Sin imágenes cargadas</span>
             )}
+            {src && (
+              <span className="pointer-events-none absolute left-2 top-2 rounded bg-background/80 px-2 py-0.5 text-xs">
+                Clic para ampliar
+              </span>
+            )}
+            <Dialog open={zoom && !!src} onOpenChange={setZoom}>
+              <DialogContent className="flex max-h-[98vh] max-w-[98vw] flex-col items-center gap-3 p-3 sm:max-w-[98vw]">
+                <DialogTitle className="sr-only">{activo.nombre}</DialogTitle>
+                <img src={src} alt={activo.nombre} className="max-h-[85vh] max-w-full object-contain" />
+                <div className="flex gap-2">
+                  {imagenes.length > 1 && (
+                    <Button size="sm" variant="secondary" onClick={() => mover(-1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="secondary" asChild>
+                    <a href={src} target="_blank" rel="noreferrer">Abrir original</a>
+                  </Button>
+                  <Button size="sm" onClick={() => setZoom(false)}>Cerrar</Button>
+                  {imagenes.length > 1 && (
+                    <Button size="sm" variant="secondary" onClick={() => mover(1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
             {imagenes.length > 1 && (
               <>
                 <Button
