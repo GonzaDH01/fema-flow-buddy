@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Printer } from "lucide-react";
+import { Printer, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatFecha, formatNumero, formatPesos } from "@/lib/format";
 import {
@@ -79,6 +79,7 @@ export function LiquidadorTerceros({ planillas, equipos }: { planillas: Planilla
       ];
   const total = conceptos.reduce((a, c) => a + c.v, 0);
 
+  const qc = useQueryClient();
   const facturasQ = useQuery({
     queryKey: ["liq_terceros_facturas"],
     queryFn: async () => {
@@ -92,40 +93,81 @@ export function LiquidadorTerceros({ planillas, equipos }: { planillas: Planilla
       return (data ?? []) as any[];
     },
   });
+  const proveedoresQ = useQuery({
+    queryKey: ["liq_terceros_proveedores"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("fema_proveedores").select("id, nombre").order("nombre");
+      if (error) throw error;
+      return (data ?? []) as { id: string; nombre: string }[];
+    },
+  });
+  const historialQ = useQuery({
+    queryKey: ["liq_terceros_historial"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("fema_liquidaciones_terceros")
+        .select("*, fema_facturas_compra(id, numero, tipo, tipo_comprobante, total, estado, fecha_pago)")
+        .order("fecha", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const [proveedorId, setProveedorId] = useState("");
+  const [guardando, setGuardando] = useState(false);
   const factura = (facturasQ.data ?? []).find((f) => f.id === facturaId);
   const nombreContratista = contratistas.find((c) => c.clave === contratista)?.nombre
     ?? (filas[0]?.equipo_nombre ?? "");
 
+  // Viajes ya incluidos en liquidaciones guardadas
+  const yaLiquidados = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of historialQ.data ?? []) for (const id of l.equipo_ids ?? []) m.set(id, l.fecha);
+    return m;
+  }, [historialQ.data]);
+  const filasRepetidas = filas.filter((f) => yaLiquidados.has(f.id)).length;
+
+  const periodoTexto = modo === "planilla"
+    ? formatFecha(planMap.get(planillaId)?.fecha ?? "")
+    : `${desde ? formatFecha(desde) : "inicio"} al ${hasta ? formatFecha(hasta) : "hoy"}`;
+
   const imprimir = () => {
     if (!filas.length) return toast.error("No hay viajes para liquidar");
+    imprimirHTML({
+      filas, nombre: nombreContratista, periodo: periodoTexto, conceptos, total,
+      fecha: new Date().toISOString().slice(0, 10),
+      facturaTxt: factura ? `${factura.tipo_comprobante ?? "Factura"} ${factura.tipo ?? ""} ${factura.numero ?? "s/n"} — ${formatPesos(Number(factura.total))}` : "Pendiente de recibir",
+    });
+  };
+
+  const imprimirHTML = (d: { filas: EquipoMin[]; nombre: string; periodo: string; conceptos: { d: string; v: number }[]; total: number; fecha: string; facturaTxt: string }) => {
     const logo = absoluteAssetUrl(femaLogoUrl);
     const wm = absoluteAssetUrl(femaWatermarkUrl);
-    const choferes = [...new Set(filas.map((f) => f.chofer).filter(Boolean))].join(", ") || "—";
-    const filasHtml = filas.map((f) => {
-      const p = planMap.get(f.planilla_id)!;
-      return `<tr><td>${formatFecha(p.fecha)}</td><td>${p.cliente_nombre ?? "—"}</td><td>${[p.establecimiento, p.lote].filter(Boolean).join(" / ") || "—"}</td><td>${f.chofer ?? "—"}${f.dominio ? ` (${f.dominio})` : ""}</td><td class="right">${formatNumero(f.viajes, 0)}</td><td class="right">${formatNumero(f.metros_bolsa, 0)}</td></tr>`;
+    const tv = d.filas.reduce((a, f) => a + Number(f.viajes || 0), 0);
+    const tm = d.filas.reduce((a, f) => a + Number(f.metros_bolsa || 0), 0);
+    const choferes = [...new Set(d.filas.map((f) => f.chofer).filter(Boolean))].join(", ") || "—";
+    const filasHtml = d.filas.map((f) => {
+      const p = planMap.get(f.planilla_id);
+      return `<tr><td>${p ? formatFecha(p.fecha) : "—"}</td><td>${p?.cliente_nombre ?? "—"}</td><td>${[p?.establecimiento, p?.lote].filter(Boolean).join(" / ") || "—"}</td><td>${f.chofer ?? "—"}${f.dominio ? ` (${f.dominio})` : ""}</td><td class="right">${formatNumero(f.viajes, 0)}</td><td class="right">${formatNumero(f.metros_bolsa, 0)}</td></tr>`;
     }).join("");
-    const concHtml = conceptos.map((c) => `<div class="row"><span>${c.d}</span><span>${formatPesos(c.v)}</span></div>`).join("");
-    const periodo = modo === "planilla"
-      ? formatFecha(planMap.get(planillaId)?.fecha ?? "")
-      : `${desde ? formatFecha(desde) : "inicio"} al ${hasta ? formatFecha(hasta) : "hoy"}`;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Liquidación ${nombreContratista}</title>
+    const concHtml = d.conceptos.map((c) => `<div class="row"><span>${c.d}</span><span>${formatPesos(c.v)}</span></div>`).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Liquidación ${d.nombre}</title>
 <style>${femaPrintCSS}</style></head><body><div class="fema-page">${femaWatermarkHTML(wm)}<div class="fema-content">
 ${femaHeaderHTML("LIQUIDACIÓN CONTRATISTA", [
-  { label: "Fecha:", value: formatFecha(new Date().toISOString().slice(0, 10)) },
-  { label: "Período:", value: periodo },
+  { label: "Fecha:", value: formatFecha(d.fecha) },
+  { label: "Período:", value: d.periodo },
 ], logo)}
 ${femaClientHTML([
-  { label: "Contratista:", value: nombreContratista },
+  { label: "Contratista:", value: d.nombre },
   { label: "Choferes:", value: choferes },
-  { label: "Viajes:", value: formatNumero(totViajes, 0) },
-  { label: "Factura:", value: factura ? `${factura.tipo_comprobante ?? "Factura"} ${factura.tipo ?? ""} ${factura.numero ?? "s/n"} — ${formatPesos(Number(factura.total))}` : "Pendiente de recibir" },
+  { label: "Viajes:", value: formatNumero(tv, 0) },
+  { label: "Factura:", value: d.facturaTxt },
 ])}
 <table class="fema"><thead><tr><th>Fecha</th><th>Cliente</th><th>Establecimiento / Lote</th><th>Chofer</th><th class="right">Viajes</th><th class="right">Metros</th></tr></thead>
-<tbody>${filasHtml}<tr><td colspan="4" class="right"><b>Totales</b></td><td class="right"><b>${formatNumero(totViajes, 0)}</b></td><td class="right"><b>${formatNumero(totMetros, 0)}</b></td></tr></tbody></table>
+<tbody>${filasHtml}<tr><td colspan="4" class="right"><b>Totales</b></td><td class="right"><b>${formatNumero(tv, 0)}</b></td><td class="right"><b>${formatNumero(tm, 0)}</b></td></tr></tbody></table>
 <div class="fema-spacer"></div>
 <div class="fema-bottom"><div class="fema-obs"><div class="t">OBSERVACIONES:</div>Liquidación generada desde Planilla Bolsero.</div>
-<div class="fema-tot">${concHtml}<div class="row total"><span>Total a abonar</span><span>${formatPesos(total)}</span></div></div></div>
+<div class="fema-tot">${concHtml}<div class="row total"><span>Total a abonar</span><span>${formatPesos(d.total)}</span></div></div></div>
 <div class="fema-sign"><div>Firma de la empresa</div><div>Firma del contratista</div></div>
 </div></div></body></html>`;
     const w = window.open("", "_blank", "width=900,height=1000");
@@ -133,6 +175,74 @@ ${femaClientHTML([
     w.document.write(html);
     w.document.close();
     setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
+
+  const guardar = async () => {
+    if (!filas.length) return toast.error("No hay viajes para liquidar");
+    if (total <= 0) return toast.error("El total a abonar debe ser mayor a cero");
+    if (facturaId === "none" && !proveedorId) return toast.error("Elegí el proveedor/transportista para generar la deuda en Cuentas Corrientes");
+    if (filasRepetidas > 0 && !confirm(`${filasRepetidas} viaje(s) ya figuran en otra liquidación guardada. ¿Guardar igual?`)) return;
+    setGuardando(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Sesión no válida");
+      const hoy = new Date().toISOString().slice(0, 10);
+      const planillaIds = [...new Set(filas.map((f) => f.planilla_id))];
+      let facId: string | null = facturaId === "none" ? null : facturaId;
+      if (!facId) {
+        const { data: fc, error: e1 } = await (supabase as any).from("fema_facturas_compra").insert({
+          user_id: uid, fecha: hoy, proveedor_id: proveedorId, tipo_comprobante: "Comprobante provisorio",
+          numero: `LIQ-${hoy.replace(/-/g, "")}`, neto: total, total, categoria: "Transportistas", estado: "pendiente",
+          anio: Number(hoy.slice(0, 4)), mes: Number(hoy.slice(5, 7)),
+          descripcion: `Liquidación ${nombreContratista} · ${formatNumero(totViajes, 0)} viajes · ${periodoTexto}`,
+          observaciones: "Generado desde Liquidador de terceros. Reemplazar por la factura del transportista al recibirla.",
+        }).select("id").single();
+        if (e1) throw e1;
+        facId = fc.id;
+      }
+      const { error: e2 } = await (supabase as any).from("fema_liquidaciones_terceros").insert({
+        user_id: uid, fecha: hoy, contratista: nombreContratista, contratista_clave: contratista || null,
+        proveedor_id: proveedorId || null,
+        periodo_desde: modo === "periodo" ? (desde || null) : (planMap.get(planillaId)?.fecha ?? null),
+        periodo_hasta: modo === "periodo" ? (hasta || null) : (planMap.get(planillaId)?.fecha ?? null),
+        planilla_ids: planillaIds, equipo_ids: filas.map((f) => f.id),
+        viajes: totViajes, metros: totMetros, calculo,
+        parametros: { tarifaViaje, arrancada, litros, precioLitro, km, tarifaKm, periodo: periodoTexto },
+        conceptos, total, factura_compra_id: facId,
+      });
+      if (e2) throw e2;
+      toast.success(facturaId === "none" ? "Liquidación guardada y deuda creada en Cuentas Corrientes" : "Liquidación guardada y asociada a la factura");
+      qc.invalidateQueries({ queryKey: ["liq_terceros_historial"] });
+      qc.invalidateQueries({ queryKey: ["liq_terceros_facturas"] });
+      qc.invalidateQueries();
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo guardar");
+    } finally { setGuardando(false); }
+  };
+
+  const reimprimir = (l: any) => {
+    const ids = new Set<string>(l.equipo_ids ?? []);
+    const f = l.fema_facturas_compra;
+    imprimirHTML({
+      filas: equipos.filter((e) => ids.has(e.id)), nombre: l.contratista, periodo: l.parametros?.periodo ?? "—",
+      conceptos: l.conceptos ?? [], total: Number(l.total), fecha: l.fecha,
+      facturaTxt: f ? `${f.tipo_comprobante ?? "Factura"} ${f.tipo ?? ""} ${f.numero ?? "s/n"} — ${formatPesos(Number(f.total))}` : "Pendiente de recibir",
+    });
+  };
+
+  const borrar = async (l: any) => {
+    if (!confirm("¿Eliminar esta liquidación del historial? (La deuda en Compras no se borra)")) return;
+    const { error } = await (supabase as any).from("fema_liquidaciones_terceros").delete().eq("id", l.id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["liq_terceros_historial"] });
+  };
+
+  const asociarFactura = async (l: any, fid: string) => {
+    const { error } = await (supabase as any).from("fema_liquidaciones_terceros").update({ factura_compra_id: fid === "none" ? null : fid }).eq("id", l.id);
+    if (error) return toast.error(error.message);
+    toast.success("Factura asociada");
+    qc.invalidateQueries({ queryKey: ["liq_terceros_historial"] });
   };
 
   const campo = (label: string, node: React.ReactNode) => (
@@ -268,9 +378,83 @@ ${femaClientHTML([
               <div className="pt-1"><Badge variant={factura.estado === "pagada" ? "secondary" : "outline"}>{factura.estado === "pagada" ? "Pagada" : "Pendiente de pago"}</Badge></div>
             </div>
           )}
-          <Button onClick={imprimir} className="w-full"><Printer className="mr-2 h-4 w-4" /> Imprimir liquidación</Button>
+          {facturaId === "none" && campo("Proveedor / transportista (para la deuda en Cta. Cte.)", (
+            <Select value={proveedorId} onValueChange={setProveedorId}>
+              <SelectTrigger><SelectValue placeholder="Elegir proveedor" /></SelectTrigger>
+              <SelectContent>
+                {(proveedoresQ.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ))}
+          {filasRepetidas > 0 && (
+            <p className="text-xs text-destructive">{filasRepetidas} viaje(s) de esta selección ya están en una liquidación guardada.</p>
+          )}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button onClick={guardar} disabled={guardando}><Save className="mr-2 h-4 w-4" /> {guardando ? "Guardando…" : "Guardar liquidación"}</Button>
+            <Button variant="outline" onClick={imprimir}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Sin factura: al guardar se crea un comprobante provisorio en Compras (queda pendiente en Cuentas Corrientes para pagarlo). Cuando llegue la factura, editá ese provisorio en Compras.
+          </p>
         </CardContent></Card>
       </div>
+
+      <Card><CardContent className="p-0 overflow-x-auto">
+        <div className="p-4 text-sm font-semibold uppercase tracking-wide">Historial de liquidaciones — cuenta corriente de transportistas</div>
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Fecha</TableHead><TableHead>Transportista</TableHead><TableHead>Período</TableHead>
+            <TableHead className="text-right">Planillas</TableHead><TableHead className="text-right">Viajes</TableHead>
+            <TableHead className="text-right">Liquidado</TableHead><TableHead>Comprobante</TableHead><TableHead>Estado</TableHead><TableHead />
+          </TableRow></TableHeader>
+          <TableBody>
+            {(historialQ.data ?? []).length === 0 && (
+              <TableRow><TableCell colSpan={9} className="py-6 text-center text-sm text-muted-foreground">Todavía no hay liquidaciones guardadas.</TableCell></TableRow>
+            )}
+            {(historialQ.data ?? []).map((l) => {
+              const f = l.fema_facturas_compra;
+              const pagada = f?.estado === "pagada";
+              const provisorio = f?.tipo_comprobante === "Comprobante provisorio";
+              return (
+                <TableRow key={l.id}>
+                  <TableCell>{formatFecha(l.fecha)}</TableCell>
+                  <TableCell className="font-medium">{l.contratista}</TableCell>
+                  <TableCell className="text-muted-foreground">{l.parametros?.periodo ?? "—"}</TableCell>
+                  <TableCell className="text-right">{(l.planilla_ids ?? []).length}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(l.viajes), 0)}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(Number(l.total))}</TableCell>
+                  <TableCell className="min-w-56">
+                    <Select value={l.factura_compra_id ?? "none"} onValueChange={(v) => asociarFactura(l, v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin comprobante</SelectItem>
+                        {f && !(facturasQ.data ?? []).some((x) => x.id === f.id) && (
+                          <SelectItem value={f.id}>{f.tipo_comprobante} {f.numero ?? "s/n"}</SelectItem>
+                        )}
+                        {(facturasQ.data ?? []).map((x) => (
+                          <SelectItem key={x.id} value={x.id}>
+                            {x.tipo_comprobante === "Comprobante provisorio" ? "Provisorio" : x.tipo_comprobante} {x.numero ?? "s/n"} · {formatPesos(Number(x.total))}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={pagada ? "secondary" : "outline"}>{pagada ? `Abonada${f?.fecha_pago ? " " + formatFecha(f.fecha_pago) : ""}` : "Pendiente de pago"}</Badge>
+                      {provisorio && <span className="text-[11px] text-muted-foreground">Falta factura</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Button size="icon" variant="ghost" title="Reimprimir" onClick={() => reimprimir(l)}><Printer className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" title="Eliminar" onClick={() => borrar(l)}><Trash2 className="h-4 w-4" /></Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
     </div>
   );
 }
