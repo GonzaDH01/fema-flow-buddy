@@ -43,6 +43,9 @@ type Producto = { id: string; nombre: string; codigo: string | null; stock: numb
 /** Receptor unificado: máquina propia del inventario o equipo de tercero. */
 type Receptor = { key: string; id: string; propio: boolean; nombre: string; detalle: string; transportista: string | null };
 
+/** Marca en observaciones: carga hecha en surtidor externo (no sale del tanque propio). */
+const TAG_EXTERNO = "[Surtidor externo]";
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
@@ -558,6 +561,8 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
   const [kilometros, setKilometros] = useState("");
   const [horas, setHoras] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [origen, setOrigen] = useState<"tanque" | "externo">("tanque");
+  const [estacion, setEstacion] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
@@ -569,7 +574,16 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
     setPrecio(initial ? String(initial.precio_litro) : precioRef ? String(precioRef) : "");
     setKilometros(initial?.kilometros ? String(initial.kilometros) : "");
     setHoras(initial?.horas ? String(initial.horas) : "");
-    setObservaciones(initial?.observaciones ?? "");
+    {
+      const obs = initial?.observaciones ?? "";
+      if (obs.startsWith(TAG_EXTERNO)) {
+        const resto = obs.slice(TAG_EXTERNO.length).trim();
+        const [est, ...more] = resto.split(" — ");
+        setOrigen("externo"); setEstacion(est ?? ""); setObservaciones(more.join(" — "));
+      } else {
+        setOrigen("tanque"); setEstacion(""); setObservaciones(obs);
+      }
+    }
   }, [open, initial, precioRef]);
 
   const propios = receptores.filter((r) => r.propio);
@@ -582,6 +596,10 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
     if (!litros || Number(litros) <= 0) { toast.error("Indicá los litros despachados"); return; }
     if (!receptor) { toast.error("Elegí el equipo que recibe el combustible"); return; }
     setGuardando(true);
+    const obsLimpia = observaciones.trim();
+    const obsFinal = origen === "externo"
+      ? `${TAG_EXTERNO}${estacion.trim() ? ` ${estacion.trim()}` : ""}${obsLimpia ? ` — ${obsLimpia}` : ""}`
+      : (obsLimpia || null);
     const payload: any = {
       user_id: userId, fecha, litros: Number(litros), producto: "Gasoil",
       precio_litro: Number(precio) || 0, itc: 0, co2: 0, total,
@@ -590,14 +608,14 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
       trabajo: trabajo || null,
       kilometros: kilometros ? Number(kilometros) : null,
       horas: horas ? Number(horas) : null,
-      observaciones: observaciones || null,
+      observaciones: obsFinal,
     };
     const { error } = initial
       ? await supabase.from("fema_combustible").update(payload).eq("id", initial.id)
       : await supabase.from("fema_combustible").insert(payload);
     if (error) { setGuardando(false); toast.error(error.message); return; }
 
-    if (!initial && gasoil) {
+    if (!initial && gasoil && origen === "tanque") {
       await moverStockGasoil({
         userId, gasoil, litros: Number(litros), fecha, tipo: "salida",
         motivo: `Carga ${receptor.nombre}`, costo: Number(precio) || null,
@@ -609,7 +627,7 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
       });
     }
 
-    toast.success(initial ? "Carga actualizada" : "Carga registrada y descontada del tanque");
+    toast.success(initial ? "Carga actualizada" : origen === "externo" ? "Carga en surtidor externo registrada (no descuenta tanque)" : "Carga registrada y descontada del tanque");
     qc.invalidateQueries({ queryKey: ["fema_combustible"] });
     qc.invalidateQueries({ queryKey: ["fema_tanque"] });
     qc.invalidateQueries({ queryKey: ["producto_gasoil"] });
@@ -622,10 +640,28 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
       <DialogContent className="max-w-xl">
         <DialogHeader><DialogTitle>{initial ? "Editar carga" : "Nueva carga de combustible"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm flex justify-between">
-            <span>Stock en el tanque</span>
-            <span className="font-semibold">{formatNumero(stockTanque)} lt</span>
-          </div>
+          <FormField label="Origen del combustible">
+            <Select value={origen} onValueChange={(v) => setOrigen(v as "tanque" | "externo")} disabled={!!initial}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tanque">Tanque propio (descuenta stock)</SelectItem>
+                <SelectItem value="externo">Surtidor externo / estación de servicio</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          {origen === "tanque" ? (
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm flex justify-between">
+              <span>Stock en el tanque</span>
+              <span className="font-semibold">{formatNumero(stockTanque)} lt</span>
+            </div>
+          ) : (
+            <>
+              <FormField label="Estación de servicio"><Input value={estacion} onChange={(e) => setEstacion(e.target.value)} placeholder="Ej: YPF Ruta 8" /></FormField>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                No descuenta litros del tanque. La factura de la estación se carga aparte en Compras/OCR; esta carga sirve para descontarla al transportista.
+              </div>
+            </>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Fecha" required><Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></FormField>
             <FormField label="Equipo que recibe" required>
