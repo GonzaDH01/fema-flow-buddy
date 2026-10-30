@@ -43,6 +43,9 @@ type Producto = { id: string; nombre: string; codigo: string | null; stock: numb
 /** Receptor unificado: máquina propia del inventario o equipo de tercero. */
 type Receptor = { key: string; id: string; propio: boolean; nombre: string; detalle: string; transportista: string | null };
 
+/** Marca en observaciones: carga hecha en surtidor externo (no sale del tanque propio). */
+const TAG_EXTERNO = "[Surtidor externo]";
+
 function Page() {
   const { user } = useAuth();
   const { year } = useYear();
@@ -560,7 +563,17 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
   const [observaciones, setObservaciones] = useState("");
   const [origen, setOrigen] = useState<"tanque" | "externo">("tanque");
   const [estacion, setEstacion] = useState("");
-REPLACE_MIDDLE
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setFecha(initial?.fecha ?? new Date().toISOString().slice(0, 10));
+    setReceptorKey(initial ? (initial.activo_id ? `a:${initial.activo_id}` : initial.equipo_id ? `t:${initial.equipo_id}` : "") : "");
+    setTrabajo(initial?.trabajo ?? "");
+    setLitros(initial ? String(initial.litros) : "");
+    setPrecio(initial ? String(initial.precio_litro) : precioRef ? String(precioRef) : "");
+    setKilometros(initial?.kilometros ? String(initial.kilometros) : "");
+    setHoras(initial?.horas ? String(initial.horas) : "");
     {
       const obs = initial?.observaciones ?? "";
       if (obs.startsWith(TAG_EXTERNO)) {
