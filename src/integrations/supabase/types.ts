@@ -2155,6 +2155,90 @@ export type Database = {
           },
         ]
       }
+      fema_liquidaciones_terceros: {
+        Row: {
+          calculo: string
+          conceptos: Json
+          contratista: string
+          contratista_clave: string | null
+          created_at: string
+          equipo_ids: string[]
+          factura_compra_id: string | null
+          fecha: string
+          id: string
+          metros: number
+          observaciones: string | null
+          parametros: Json
+          periodo_desde: string | null
+          periodo_hasta: string | null
+          planilla_ids: string[]
+          proveedor_id: string | null
+          total: number
+          updated_at: string
+          user_id: string
+          viajes: number
+        }
+        Insert: {
+          calculo?: string
+          conceptos?: Json
+          contratista: string
+          contratista_clave?: string | null
+          created_at?: string
+          equipo_ids?: string[]
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          metros?: number
+          observaciones?: string | null
+          parametros?: Json
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          planilla_ids?: string[]
+          proveedor_id?: string | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+          viajes?: number
+        }
+        Update: {
+          calculo?: string
+          conceptos?: Json
+          contratista?: string
+          contratista_clave?: string | null
+          created_at?: string
+          equipo_ids?: string[]
+          factura_compra_id?: string | null
+          fecha?: string
+          id?: string
+          metros?: number
+          observaciones?: string | null
+          parametros?: Json
+          periodo_desde?: string | null
+          periodo_hasta?: string | null
+          planilla_ids?: string[]
+          proveedor_id?: string | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+          viajes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_liquidaciones_terceros_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_facturas_compra"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_liquidaciones_terceros_factura_compra_id_fkey"
+            columns: ["factura_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_v_saldos_compra"
+            referencedColumns: ["factura_id"]
+          },
+        ]
+      }
       fema_medios_pago: {
         Row: {
           created_at: string
