@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Printer } from "lucide-react";
+import { Printer, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatFecha, formatNumero, formatPesos } from "@/lib/format";
 import {
@@ -378,9 +378,83 @@ ${femaClientHTML([
               <div className="pt-1"><Badge variant={factura.estado === "pagada" ? "secondary" : "outline"}>{factura.estado === "pagada" ? "Pagada" : "Pendiente de pago"}</Badge></div>
             </div>
           )}
-          <Button onClick={imprimir} className="w-full"><Printer className="mr-2 h-4 w-4" /> Imprimir liquidación</Button>
+          {facturaId === "none" && campo("Proveedor / transportista (para la deuda en Cta. Cte.)", (
+            <Select value={proveedorId} onValueChange={setProveedorId}>
+              <SelectTrigger><SelectValue placeholder="Elegir proveedor" /></SelectTrigger>
+              <SelectContent>
+                {(proveedoresQ.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ))}
+          {filasRepetidas > 0 && (
+            <p className="text-xs text-destructive">{filasRepetidas} viaje(s) de esta selección ya están en una liquidación guardada.</p>
+          )}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button onClick={guardar} disabled={guardando}><Save className="mr-2 h-4 w-4" /> {guardando ? "Guardando…" : "Guardar liquidación"}</Button>
+            <Button variant="outline" onClick={imprimir}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Sin factura: al guardar se crea un comprobante provisorio en Compras (queda pendiente en Cuentas Corrientes para pagarlo). Cuando llegue la factura, editá ese provisorio en Compras.
+          </p>
         </CardContent></Card>
       </div>
+
+      <Card><CardContent className="p-0 overflow-x-auto">
+        <div className="p-4 text-sm font-semibold uppercase tracking-wide">Historial de liquidaciones — cuenta corriente de transportistas</div>
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Fecha</TableHead><TableHead>Transportista</TableHead><TableHead>Período</TableHead>
+            <TableHead className="text-right">Planillas</TableHead><TableHead className="text-right">Viajes</TableHead>
+            <TableHead className="text-right">Liquidado</TableHead><TableHead>Comprobante</TableHead><TableHead>Estado</TableHead><TableHead />
+          </TableRow></TableHeader>
+          <TableBody>
+            {(historialQ.data ?? []).length === 0 && (
+              <TableRow><TableCell colSpan={9} className="py-6 text-center text-sm text-muted-foreground">Todavía no hay liquidaciones guardadas.</TableCell></TableRow>
+            )}
+            {(historialQ.data ?? []).map((l) => {
+              const f = l.fema_facturas_compra;
+              const pagada = f?.estado === "pagada";
+              const provisorio = f?.tipo_comprobante === "Comprobante provisorio";
+              return (
+                <TableRow key={l.id}>
+                  <TableCell>{formatFecha(l.fecha)}</TableCell>
+                  <TableCell className="font-medium">{l.contratista}</TableCell>
+                  <TableCell className="text-muted-foreground">{l.parametros?.periodo ?? "—"}</TableCell>
+                  <TableCell className="text-right">{(l.planilla_ids ?? []).length}</TableCell>
+                  <TableCell className="text-right">{formatNumero(Number(l.viajes), 0)}</TableCell>
+                  <TableCell className="text-right font-semibold">{formatPesos(Number(l.total))}</TableCell>
+                  <TableCell className="min-w-56">
+                    <Select value={l.factura_compra_id ?? "none"} onValueChange={(v) => asociarFactura(l, v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin comprobante</SelectItem>
+                        {f && !(facturasQ.data ?? []).some((x) => x.id === f.id) && (
+                          <SelectItem value={f.id}>{f.tipo_comprobante} {f.numero ?? "s/n"}</SelectItem>
+                        )}
+                        {(facturasQ.data ?? []).map((x) => (
+                          <SelectItem key={x.id} value={x.id}>
+                            {x.tipo_comprobante === "Comprobante provisorio" ? "Provisorio" : x.tipo_comprobante} {x.numero ?? "s/n"} · {formatPesos(Number(x.total))}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={pagada ? "secondary" : "outline"}>{pagada ? `Abonada${f?.fecha_pago ? " " + formatFecha(f.fecha_pago) : ""}` : "Pendiente de pago"}</Badge>
+                      {provisorio && <span className="text-[11px] text-muted-foreground">Falta factura</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Button size="icon" variant="ghost" title="Reimprimir" onClick={() => reimprimir(l)}><Printer className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" title="Eliminar" onClick={() => borrar(l)}><Trash2 className="h-4 w-4" /></Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
     </div>
   );
 }
