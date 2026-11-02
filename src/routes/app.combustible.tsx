@@ -564,6 +564,7 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
   const [origen, setOrigen] = useState<"tanque" | "externo">("tanque");
   const [estacion, setEstacion] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [docId, setDocId] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -584,7 +585,25 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
         setOrigen("tanque"); setEstacion(""); setObservaciones(obs);
       }
     }
+    setDocId((initial as any)?.doc_compra_id ?? "");
   }, [open, initial, precioRef]);
+
+  const { data: docs = [] } = useQuery({
+    queryKey: ["fema_doc_compras_combustible"], enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_doc_compras")
+        .select("id,fecha,numero,tipo_documento,proveedor_nombre,monto_total,bien_descripcion")
+        .order("fecha", { ascending: false }).limit(300);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const docsOrdenados = useMemo(() => {
+    const est = estacion.trim().toLowerCase();
+    if (!est) return docs;
+    const match = (d: any) => (d.proveedor_nombre ?? "").toLowerCase().includes(est.split(" ")[0]);
+    return [...docs.filter(match), ...docs.filter((d: any) => !match(d))];
+  }, [docs, estacion]);
 
   const propios = receptores.filter((r) => r.propio);
   const terceros = receptores.filter((r) => !r.propio);
@@ -609,6 +628,7 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
       kilometros: kilometros ? Number(kilometros) : null,
       horas: horas ? Number(horas) : null,
       observaciones: obsFinal,
+      doc_compra_id: origen === "externo" && docId ? docId : null,
     };
     const { error } = initial
       ? await supabase.from("fema_combustible").update(payload).eq("id", initial.id)
@@ -657,8 +677,25 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
           ) : (
             <>
               <FormField label="Estación de servicio"><Input value={estacion} onChange={(e) => setEstacion(e.target.value)} placeholder="Ej: YPF Ruta 8" /></FormField>
+              <FormField label="Factura de compra asociada">
+                <Select value={docId || "none"} onValueChange={(v) => {
+                  const id = v === "none" ? "" : v; setDocId(id);
+                  const d = docs.find((x: any) => x.id === id);
+                  if (d && !estacion.trim() && d.proveedor_nombre) setEstacion(d.proveedor_nombre);
+                }}>
+                  <SelectTrigger><SelectValue placeholder="— Sin factura todavía —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Sin factura todavía —</SelectItem>
+                    {docsOrdenados.map((d: any) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {formatFecha(d.fecha)} · {d.proveedor_nombre ?? "Sin proveedor"} · {d.tipo_documento} {d.numero ?? ""} · {formatPesos(Number(d.monto_total) || 0)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                No descuenta litros del tanque. La factura de la estación se carga aparte en Compras/OCR; esta carga sirve para descontarla al transportista.
+                No descuenta litros del tanque. Cargá la factura de la estación en Compras/OCR y elegila acá; esta carga sirve para descontarla al transportista.
               </div>
             </>
           )}
