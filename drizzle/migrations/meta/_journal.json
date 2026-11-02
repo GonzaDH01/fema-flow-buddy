@@ -43,6 +43,13 @@
       "when": 1793392898972,
       "tag": "0005_liquidaciones_terceros",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793652250677,
+      "tag": "0006_combustible_factura_compra",
+      "breakpoints": true
     }
   ]
 }

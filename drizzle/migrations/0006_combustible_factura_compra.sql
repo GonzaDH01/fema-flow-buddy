@@ -1,0 +1,1 @@
+ALTER TABLE public.fema_combustible ADD COLUMN IF NOT EXISTS doc_compra_id uuid REFERENCES public.fema_doc_compras(id) ON DELETE SET NULL;

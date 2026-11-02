@@ -644,6 +644,7 @@ export type Database = {
           anio: number | null
           co2: number | null
           created_at: string
+          doc_compra_id: string | null
           equipo_id: string | null
           fecha: string
           horas: number | null
@@ -664,6 +665,7 @@ export type Database = {
           anio?: number | null
           co2?: number | null
           created_at?: string
+          doc_compra_id?: string | null
           equipo_id?: string | null
           fecha: string
           horas?: number | null
@@ -684,6 +686,7 @@ export type Database = {
           anio?: number | null
           co2?: number | null
           created_at?: string
+          doc_compra_id?: string | null
           equipo_id?: string | null
           fecha?: string
           horas?: number | null
@@ -705,6 +708,13 @@ export type Database = {
             columns: ["activo_id"]
             isOneToOne: false
             referencedRelation: "fema_activos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fema_combustible_doc_compra_id_fkey"
+            columns: ["doc_compra_id"]
+            isOneToOne: false
+            referencedRelation: "fema_doc_compras"
             referencedColumns: ["id"]
           },
           {
