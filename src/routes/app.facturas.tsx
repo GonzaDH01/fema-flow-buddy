@@ -1552,7 +1552,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, prefillPlanilla
   }, [initial]);
 
   return (
-    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="w-[95vw] max-w-5xl max-h-[92vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>
           {initial ? "Editar" : "Nuevo"} {tipoComp === "Estimado" ? "Estimado / Plan de cuotas" : "Comprobante de Servicio"}
@@ -1846,19 +1846,22 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, prefillPlanilla
             )}
           </div>
           {cuotas.length > 0 && (
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-3 space-y-2 overflow-x-auto">
+              <div className="grid min-w-[760px] grid-cols-[40px_160px_180px_130px_1fr_1fr_40px] gap-2 px-1 text-[11px] font-medium uppercase text-muted-foreground">
+                <div className="text-center">#</div><div>Vencimiento</div><div>Monto</div><div>Instrumento</div><div>N° cheque</div><div>Banco</div><div />
+              </div>
               {cuotas.map((c, i) => (
-                <div key={i} className="grid grid-cols-12 items-center gap-1.5">
-                  <div className="col-span-1 text-center text-xs text-muted-foreground">{i + 1}</div>
-                  <Input type="date" className="col-span-3 h-8 text-xs" value={c.vencimiento} onChange={(e) => updateCuota(i, { vencimiento: e.target.value })} />
-                  <Input type="number" step="0.01" className="col-span-2 h-8 text-xs" value={c.monto} onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} />
+                <div key={i} className="grid min-w-[760px] grid-cols-[40px_160px_180px_130px_1fr_1fr_40px] items-center gap-2">
+                  <div className="text-center text-sm text-muted-foreground">{i + 1}</div>
+                  <Input type="date" className="h-9 text-sm" value={c.vencimiento} onChange={(e) => updateCuota(i, { vencimiento: e.target.value })} />
+                  <Input type="number" step="0.01" className="h-9 text-sm" value={c.monto} onChange={(e) => updateCuota(i, { monto: Number(e.target.value) })} />
                   <Select value={c.instrumento} onValueChange={(v) => updateCuota(i, { instrumento: v as any })}>
-                    <SelectTrigger className="col-span-2 h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>{INSTRUMENTOS_PLAN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Input placeholder="N°" className="col-span-2 h-8 text-xs" value={c.numero ?? ""} onChange={(e) => updateCuota(i, { numero: e.target.value })} />
-                  <Input placeholder="Banco" className="col-span-1 h-8 text-xs" value={c.banco ?? ""} onChange={(e) => updateCuota(i, { banco: e.target.value })} />
-                  <Button type="button" size="icon" variant="ghost" className="col-span-1 h-8 w-8 text-destructive" onClick={() => removeCuota(i)}>
+                  <Input placeholder="N°" className="h-9 text-sm" value={c.numero ?? ""} onChange={(e) => updateCuota(i, { numero: e.target.value })} />
+                  <Input placeholder="Banco" className="h-9 text-sm" value={c.banco ?? ""} onChange={(e) => updateCuota(i, { banco: e.target.value })} />
+                  <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-destructive" onClick={() => removeCuota(i)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
