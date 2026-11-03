@@ -992,24 +992,26 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
                   void (async () => {
                     const horizontal = await normalizarHorizontal(f);
                     setArchivo(horizontal);
-                    void leerFoto(horizontal);
                   })();
                 }}
               />
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" variant="outline" disabled={leyendo} onClick={() => fileRef.current?.click()}>
                   <ImagePlus className="mr-2 h-4 w-4" />
-                  {leyendo ? "Leyendo..." : previewUrl ? "Cambiar imagen" : "Subir foto"}
+                  {previewUrl ? "Cambiar imagen" : "Subir foto"}
                 </Button>
-                {archivo && !leyendo && (
-                  <Button type="button" variant="ghost" onClick={() => void leerFoto(archivo)}>Volver a leer</Button>
+                {archivo && (
+                  <Button type="button" disabled={leyendo} onClick={() => {
+                    if (!window.confirm("Se van a reemplazar los datos cargados con lo que se lea de la foto. ¿Continuar?")) return;
+                    void leerFoto(archivo);
+                  }}>{leyendo ? "Leyendo..." : "Leer y completar datos"}</Button>
                 )}
                 {previewUrl && (
                   <Button type="button" variant="ghost" onClick={() => { setArchivo(null); setImagenPath(null); }}>Quitar</Button>
                 )}
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Al subir la foto se leen solos los datos escritos y se completan los campos. Revisalos y guardá la planilla.
+                La foto solo se adjunta, sin tocar los datos. Si querés que complete los campos, tocá «Leer y completar datos».
               </p>
               {previewUrl && (
                 <button
