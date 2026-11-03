@@ -57,6 +57,13 @@
       "when": 1793708503479,
       "tag": "0007_shared_debito_caja",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793715486869,
+      "tag": "0008_asignar_rojos_choferes",
+      "breakpoints": true
     }
   ]
 }
