@@ -50,6 +50,13 @@
       "when": 1793652250677,
       "tag": "0006_combustible_factura_compra",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793708503479,
+      "tag": "0007_shared_debito_caja",
+      "breakpoints": true
     }
   ]
 }
