@@ -288,20 +288,23 @@ function Page() {
       if (!idsFiltrados.has(e.planilla_id)) continue;
       const esT = e.es_tercero;
       const mapa = esT ? terceros : propios;
-      const clave = (esT ? e.equipo_id : e.activo_id) ?? e.equipo_nombre.trim().toUpperCase();
+      const claveEq = (esT ? e.equipo_id : e.activo_id) ?? e.equipo_nombre.trim().replace(/\s+/g, " ").toUpperCase();
+      const chofer = (e.chofer ?? "").trim().replace(/\s+/g, " ");
+      const clave = `${claveEq}|${chofer.toUpperCase()}`;
       const act = !esT && e.activo_id ? activos.find((a) => a.id === e.activo_id) : null;
       const item = mapa.get(clave) ?? {
-        clave, nombre: e.equipo_nombre,
+        clave, nombre: act?.nombre ?? e.equipo_nombre,
         detalle: act ? [act.tipo, act.marca, act.modelo].filter(Boolean).join(" · ") : "",
         viajes: 0, metros: 0, jornadas: 0, choferes: new Set<string>(),
       };
       item.viajes += Number(e.viajes || 0);
       item.metros += Number(e.metros_bolsa || 0);
       item.jornadas += 1;
-      if (e.chofer) item.choferes.add(e.chofer);
+      if (chofer) item.choferes.add(chofer);
       mapa.set(clave, item);
     }
-    const ord = (m: Map<string, ResumenEquipo>) => [...m.values()].sort((a, b) => b.viajes - a.viajes);
+    const ord = (m: Map<string, ResumenEquipo>) => [...m.values()].sort((a, b) =>
+      a.nombre.localeCompare(b.nombre) || b.viajes - a.viajes);
     return { propios: ord(propios), terceros: ord(terceros) };
   }, [equiposPlanilla, idsFiltrados, activosQ.data]);
 
@@ -928,7 +931,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
                     {f.equipo_nombre}
                   </label>
                   <div className="space-y-1">
-                    <Input value={f.chofer} onChange={(e) => setFila(propios, setPropios, i, "chofer", e.target.value)} className="h-8" placeholder="Chofer" />
+                    <Input list="choferes-planilla" value={f.chofer} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setFila(propios, setPropios, i, "chofer", e.target.value)} className="h-8" placeholder="Chofer / reemplazo" title="Elegí el empleado de la lista (o el reemplazo si faltó el habitual)" />
                     <Input value={f.dominio} onChange={(e) => setFila(propios, setPropios, i, "dominio", e.target.value)} className="h-7 text-xs" placeholder="Dominio" />
                   </div>
                   <ConteoViajes valor={f.viajes} onChange={(v) => setFila(propios, setPropios, i, "viajes", v)} />
@@ -976,6 +979,12 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
             </div>
             <datalist id="terceros-planilla">
               {tercerosBase.map((t) => <option key={t.id} value={t.nombre} />)}
+            </datalist>
+            <datalist id="choferes-planilla">
+              {[...new Set([
+                ...empleados.filter((e) => e.activo !== false).map((e) => e.nombre),
+                ...activos.map((a) => a.responsable ?? "").filter(Boolean),
+              ])].sort().map((n) => <option key={n} value={n} />)}
             </datalist>
           </div>
 
