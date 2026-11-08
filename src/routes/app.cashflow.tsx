@@ -80,6 +80,49 @@ async function loadCashflow(userId: string, anio: number) {
 
   const dolarCot = cotizacionOficial((prodsCot.data ?? []) as any[]);
 
+  // Facturas de otros años con cuotas/valores que vencen en el año en vista
+  // (ej.: factura 2026 cobrada con e-cheqs 2027). Se suman para no perder flujo.
+  const enAnio = (f?: string | null) => !!f && String(f).startsWith(`${anio}-`);
+  const fvAnio = new Set(((ventas.data ?? []) as any[]).map((v) => v.id));
+  const fcAnio = new Set(((compras.data ?? []) as any[]).map((c) => c.id));
+  const movsAll = (movs.data ?? []) as any[];
+  const movIdx = new Map(movsAll.map((m) => [m.id, m]));
+  const fvExtra = new Set<string>();
+  const fcExtra = new Set<string>();
+  for (const m of movsAll) {
+    if (!enAnio(m.vencimiento ?? m.fecha_emision)) continue;
+    if (m.factura_venta_id && !fvAnio.has(m.factura_venta_id)) fvExtra.add(m.factura_venta_id);
+    if (m.factura_compra_id && !fcAnio.has(m.factura_compra_id)) fcExtra.add(m.factura_compra_id);
+  }
+  for (const i of (imputaciones.data ?? []) as any[]) {
+    const b = i.movimiento_pago_id ? movIdx.get(i.movimiento_pago_id) : null;
+    if (!enAnio(b?.vencimiento ?? i.fecha)) continue;
+    if (i.factura_venta_id && !fvAnio.has(i.factura_venta_id)) fvExtra.add(i.factura_venta_id);
+    if (i.factura_compra_id && !fcAnio.has(i.factura_compra_id)) fcExtra.add(i.factura_compra_id);
+  }
+  const [fvX, fcX] = await Promise.all([
+    fvExtra.size
+      ? supabase.from("fema_facturas_venta")
+          .select("id,mes,anio,total,estado,numero,condicion_pago,cliente:fema_clientes(nombre)")
+          .in("id", Array.from(fvExtra))
+      : Promise.resolve({ data: [] as any[] }),
+    fcExtra.size
+      ? supabase.from("fema_facturas_compra")
+          .select("id,mes,anio,total,estado,numero,categoria,tipo_comprobante,sin_caja,empleado_id,proveedor:fema_proveedores(nombre)")
+          .in("id", Array.from(fcExtra))
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  // Marcadas como "otro año": su saldo sin valores no se proyecta en este año.
+  const ventasAll = [
+    ...((ventas.data ?? []) as any[]),
+    ...((fvX.data ?? []) as any[]).map((v) => ({ ...v, _otroAnio: true })),
+  ];
+  const comprasAll = [
+    ...((compras.data ?? []) as any[]),
+    ...((fcX.data ?? []) as any[]).map((c) => ({ ...c, _otroAnio: true })),
+  ];
+  const REALIZADO = new Set(["cobrado", "pagado", "cedido"]);
+
   const ACTIVOS = new Set(["en_cartera", "cobrado", "pagado", "cedido"]);
   const movsByFV = new Map<string, any[]>();
   const movsByFC = new Map<string, any[]>();
@@ -238,39 +281,48 @@ async function loadCashflow(userId: string, anio: number) {
       sign: "+",
     });
   }
-  for (const v of (ventas.data ?? []) as any[]) {
+  /**
+   * Separa los valores de una factura: lo efectivamente cobrado/pagado va a la
+   * sección realizada y las cuotas en cartera + saldo sin valores a pendientes.
+   */
+  function splitFactura(linked: any[], total: number, facturaMes: number, estadoFinal: boolean) {
+    const mesSaldo = facturaMes;
+    if (linked.length === 0) {
+      const v = placeAt(mesSaldo, total);
+      return estadoFinal
+        ? { real: { values: v, tooltips: undefined }, pend: null }
+        : { real: null, pend: { values: v, tooltips: undefined } };
+    }
+    const realizados = linked.filter((m) => REALIZADO.has(m.estado) || estadoFinal);
+    const pendientes = linked.filter((m) => !(REALIZADO.has(m.estado) || estadoFinal));
+    const cubiertoTotal = linked.reduce((a, m) => a + Number(m.monto), 0);
+    const dR = distribuirMovs(realizados, 0, 0);
+    // El saldo descubierto se suma a pendientes (si la factura no está cerrada).
+    const dP = distribuirMovs(pendientes, estadoFinal ? 0 : total - (cubiertoTotal - sumMontos(pendientes)), mesSaldo);
+    return {
+      real: realizados.length ? { values: dR.values, tooltips: dR.tooltips } : null,
+      pend: dP.values.some((x) => x !== 0) ? { values: dP.values, tooltips: dP.tooltips } : null,
+    };
+  }
+  function sumMontos(a: any[]) { return a.reduce((x, m) => x + Number(m.monto), 0); }
+
+  for (const v of ventasAll) {
     const linked = movsByFV.get(v.id) ?? [];
     const total = Number(v.total) - (ncPorFactura.get(v.id) ?? 0);
     if (total <= 0.01 && linked.length === 0) continue;
-    const facturaMes = Number(v.mes);
-    let values: number[];
-    let sub: string;
-    let tooltips: (string | undefined)[] | undefined;
-    let cobrada: boolean;
-    if (linked.length > 0) {
-      const d = distribuirMovs(linked, total, facturaMes);
-      values = d.values;
-      tooltips = d.tooltips;
-      // El plan de cuotas registrado en la factura no implica cobro:
-      // sólo se considera cobrada cuando Medios de Pago confirma el cobro.
-      cobrada = v.estado === "cobrada";
-      sub = `Factura ${v.numero ?? "—"}`;
-    } else {
-      values = placeAt(facturaMes, total);
-      cobrada = v.estado === "cobrada";
-      sub = `Factura ${v.numero ?? "—"}`;
-    }
-    const r: Row = {
+    const facturaMes = v._otroAnio ? 0 : Number(v.mes);
+    const sub = `Factura ${v.numero ?? "—"}${v._otroAnio ? ` (${v.anio})` : ""}`;
+    const s = splitFactura(linked, total, facturaMes, v.estado === "cobrada");
+    const base = {
       label: v.cliente?.nombre ?? "Sin cliente",
       ent: v.cliente?.nombre ?? "Sin cliente",
       sub,
       badge: planBadge(linked, v.condicion_pago, total) ?? undefined,
       cat: "Facturas de venta",
-      values,
-      tooltips,
-      sign: "+",
+      sign: "+" as const,
     };
-    (cobrada ? ingCobrados : ingPendientes).push(r);
+    if (s.real) ingCobrados.push({ ...base, ...s.real });
+    if (s.pend) ingPendientes.push({ ...base, ...s.pend });
   }
 
   const egPagados: Row[] = [];
@@ -279,7 +331,7 @@ async function loadCashflow(userId: string, anio: number) {
   const fcConSueldo = new Set<string>(
     ((sueldos.data ?? []) as any[]).map((s) => s.factura_compra_id).filter(Boolean),
   );
-  for (const c of (compras.data ?? []) as any[]) {
+  for (const c of comprasAll) {
     if (fcConSueldo.has(c.id)) continue;
     // Franco paga con tarjeta personal: no impacta en caja de la empresa.
     if (c.categoria === "Franco_Particular") continue;
@@ -290,34 +342,19 @@ async function loadCashflow(userId: string, anio: number) {
     const linked = movsByFC.get(c.id) ?? [];
     const total = Number(c.total) - (ncPorFactura.get(c.id) ?? 0);
     if (total <= 0.01 && linked.length === 0) continue;
-    const facturaMes = Number(c.mes);
-    let values: number[];
-    let sub: string;
-    let tooltips: (string | undefined)[] | undefined;
-    let pagada: boolean;
-    if (linked.length > 0) {
-      const d = distribuirMovs(linked, total, facturaMes);
-      values = d.values;
-      tooltips = d.tooltips;
-      // Igual criterio para compras: sólo el módulo de Pagos marca pagada.
-      pagada = c.estado === "pagada";
-      sub = `Comprobante ${c.numero ?? "—"}`;
-    } else {
-      values = placeAt(facturaMes, total);
-      pagada = c.estado === "pagada";
-      sub = c.numero ? `Comprobante ${c.numero}` : undefined as any;
-    }
-    const r: Row = {
+    const facturaMes = c._otroAnio ? 0 : Number(c.mes);
+    const sub = c.numero ? `Comprobante ${c.numero}${c._otroAnio ? ` (${c.anio})` : ""}` : undefined;
+    const s = splitFactura(linked, total, facturaMes, c.estado === "pagada");
+    const base = {
       label: `${c.proveedor?.nombre ?? "Sin proveedor"}${c.categoria ? " · " + c.categoria : ""}`,
       ent: c.proveedor?.nombre ?? "Sin proveedor",
       sub,
       badge: planBadge(linked, null, total) ?? undefined,
       cat: c.empleado_id ? "Sueldos" : c.categoria ? String(c.categoria).replace(/_/g, " ") : "Sin categoría",
-      values,
-      tooltips,
-      sign: "-",
+      sign: "-" as const,
     };
-    (pagada ? egPagados : egPendientes).push(r);
+    if (s.real) egPagados.push({ ...base, ...s.real });
+    if (s.pend) egPendientes.push({ ...base, ...s.pend });
   }
 
   const TIPO_PAGO_LABEL: Record<string, string> = { sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra" };
