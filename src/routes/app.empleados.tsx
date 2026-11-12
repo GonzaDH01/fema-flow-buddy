@@ -23,6 +23,7 @@ import { SemanasTrabajadasTab } from "@/components/empleados-semanas";
 import { CuponesPagoTab } from "@/components/empleados-cupones";
 import { LiquidadorTab } from "@/components/empleados-liquidador";
 import { PrestamosEmpleadoTab } from "@/components/empleados-prestamos";
+import { CuentaCorrienteLedger } from "@/components/empleados-ctacte-ledger";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
@@ -73,9 +74,9 @@ function Page() {
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
-          <TabsTrigger value="pagos">Pagos y sueldos</TabsTrigger>
+          <TabsTrigger value="pagos">Movimientos</TabsTrigger>
           <TabsTrigger value="liquidar">Liquidador</TabsTrigger>
-          <TabsTrigger value="ctacte">Cta. Cte. / Préstamos</TabsTrigger>
+          <TabsTrigger value="ctacte">Cuenta Corriente</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
           <TabsTrigger value="reporte">Reporte</TabsTrigger>
@@ -87,7 +88,7 @@ function Page() {
           <SemanasTrabajadasTab />
           <HorasTab />
         </TabsContent>
-        <TabsContent value="ctacte"><PrestamosEmpleadoTab /></TabsContent>
+        <TabsContent value="ctacte" className="space-y-4"><CuentaCorrienteLedger /><PrestamosEmpleadoTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
         <TabsContent value="reporte" className="space-y-4">
