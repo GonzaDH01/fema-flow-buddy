@@ -1,0 +1,2 @@
+ALTER TABLE public.fema_facturas_compra ADD COLUMN IF NOT EXISTS empleados_ids uuid[] NOT NULL DEFAULT '{}';
+UPDATE public.fema_facturas_compra SET empleados_ids = ARRAY[empleado_id] WHERE empleado_id IS NOT NULL AND cardinality(empleados_ids)=0;
