@@ -164,8 +164,9 @@ const INSTRUMENTO: Record<string, string> = {
  */
 /** Una factura puede cubrir a varios empleados. */
 function facturaLibrePara(f: { empleado_id: string | null; empleados_ids?: string[] | null }, empId?: string | null) {
-  const ids = f.empleados_ids?.length ? f.empleados_ids : (f.empleado_id ? [f.empleado_id] : []);
-  return ids.length === 0 || (!!empId && ids.includes(empId)) || true;
+  // Siempre visible: una factura ya asignada a un empleado puede sumarse a otro.
+  void f; void empId;
+  return true;
 }
 async function sumarEmpleadoAFactura(facturaId: string, empId: string) {
   const { data } = await supabase.from("fema_facturas_compra").select("empleado_id,empleados_ids").eq("id", facturaId).single();
