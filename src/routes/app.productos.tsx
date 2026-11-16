@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Inventario } from "@/components/inventario";
+import { PreciosHistorial } from "@/components/precios-historial";
 import { ImportarCombustible } from "@/components/combustible-compras";
 import { cotizacionOficial, precioEnPesos, precioBase } from "@/lib/cotizacion";
 
@@ -179,6 +180,7 @@ function Page() {
     }
     toast.success(edit ? "Actualizado" : "Producto creado");
     qc.invalidateQueries({ queryKey: ["fema_productos"] });
+    qc.invalidateQueries({ queryKey: ["fema_precios_historial"] });
     close();
   };
 
@@ -197,6 +199,7 @@ function Page() {
       <TabsList>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inventario">Inventario</TabsTrigger>
+        <TabsTrigger value="precios">Histórico de precios</TabsTrigger>
       </TabsList>
       <TabsContent value="catalogo" className="mt-4">
       <div className="-m-4 md:-m-6">
@@ -308,6 +311,9 @@ function Page() {
       </TabsContent>
       <TabsContent value="inventario" className="mt-4">
         <Inventario />
+      </TabsContent>
+      <TabsContent value="precios" className="mt-4">
+        <PreciosHistorial />
       </TabsContent>
     </Tabs>
   );
