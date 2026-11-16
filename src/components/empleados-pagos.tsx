@@ -78,6 +78,7 @@ function useEmpleadosMin() {
 export type FacturaCompraMin = {
   id: string; fecha: string; numero: string | null; total: number;
   estado: string | null; categoria: string | null; empleado_id: string | null;
+  empleados_ids?: string[] | null;
   descripcion: string | null; proveedor_id: string | null;
   fema_proveedores: { nombre: string } | null;
 };
@@ -89,7 +90,7 @@ function useFacturasCompraAsociar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fema_facturas_compra")
-        .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion,proveedor_id,fema_proveedores(nombre)")
+        .select("id,fecha,numero,total,estado,categoria,empleado_id,empleados_ids,descripcion,proveedor_id,fema_proveedores(nombre)")
         .order("fecha", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -161,6 +162,20 @@ const INSTRUMENTO: Record<string, string> = {
  * Al asociar una factura de empleado a un pago ya realizado, la factura de compra
  * queda abonada: se registra el pago (transferencia por defecto) por el saldo pendiente.
  */
+/** Una factura puede cubrir a varios empleados. */
+function facturaLibrePara(f: { empleado_id: string | null; empleados_ids?: string[] | null }, empId?: string | null) {
+  const ids = f.empleados_ids?.length ? f.empleados_ids : (f.empleado_id ? [f.empleado_id] : []);
+  return ids.length === 0 || (!!empId && ids.includes(empId)) || true;
+}
+async function sumarEmpleadoAFactura(facturaId: string, empId: string) {
+  const { data } = await supabase.from("fema_facturas_compra").select("empleado_id,empleados_ids").eq("id", facturaId).single();
+  const ids = new Set<string>(data?.empleados_ids ?? []);
+  if (data?.empleado_id) ids.add(data.empleado_id);
+  ids.add(empId);
+  await supabase.from("fema_facturas_compra")
+    .update({ empleado_id: data?.empleado_id ?? empId, empleados_ids: [...ids] }).eq("id", facturaId);
+}
+
 async function marcarFacturaAbonada(facturaId: string, fecha: string, forma: string | null, contraparte: string | null) {
   const { data: fac } = await supabase.from("fema_facturas_compra").select("total").eq("id", facturaId).maybeSingle();
   if (!fac) return;
@@ -251,7 +266,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
 
   const emp = (empleados ?? []).find((e) => e.id === v.empleado_id);
   const facturasEmp = useMemo(
-    () => (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === v.empleado_id),
+    () => (facturas ?? []).filter((f) => facturaLibrePara(f, v.empleado_id)),
     [facturas, v.empleado_id],
   );
 
@@ -332,7 +347,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
       await supabase.from("fema_pagos_empleado").update({ observaciones: "Pago sin mover banco (efectivo)" }).eq("id", pagoId);
     }
     if (v.factura_id !== "none") {
-      await supabase.from("fema_facturas_compra").update({ empleado_id: v.empleado_id }).eq("id", v.factura_id);
+      await sumarEmpleadoAFactura(v.factura_id, v.empleado_id);
       await marcarFacturaAbonada(v.factura_id, v.fecha, v.forma_pago, emp?.nombre ?? null);
     }
     toast.success(pago ? "Pago actualizado" : `${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
@@ -624,7 +639,7 @@ export function PagosEmpleadoTab() {
       .from("fema_pagos_empleado").update({ factura_compra_id: facturaId }).eq("id", asociar.id);
     if (error) return toast.error(error.message);
     if (asociar.empleado_id) {
-      await supabase.from("fema_facturas_compra").update({ empleado_id: asociar.empleado_id }).eq("id", facturaId);
+      await sumarEmpleadoAFactura(facturaId, asociar.empleado_id);
     }
     await marcarFacturaAbonada(facturaId, asociar.fecha, asociar.forma_pago, asociar.empleado_id ? empMap[asociar.empleado_id] ?? null : null);
     toast.success("Factura asociada y marcada como abonada");
@@ -676,7 +691,7 @@ export function PagosEmpleadoTab() {
 
   const empNombreAsociar = asociar?.empleado_id ? (empMap[asociar.empleado_id] ?? "") : "";
   const coincideEmpleado = (f: FacturaCompraMin) => {
-    if (asociar?.empleado_id && f.empleado_id === asociar.empleado_id) return true;
+    if (asociar?.empleado_id && (f.empleado_id === asociar.empleado_id || (f.empleados_ids ?? []).includes(asociar.empleado_id))) return true;
     const prov = (f.fema_proveedores?.nombre ?? "").toLowerCase();
     if (!prov || !empNombreAsociar) return false;
     const palabras = empNombreAsociar.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
@@ -684,8 +699,8 @@ export function PagosEmpleadoTab() {
   };
 
   const facturasDelPago = useMemo(() => {
-    let list = (facturas ?? []).filter((f) => !f.empleado_id || f.empleado_id === asociar?.empleado_id);
-    if (soloMO) list = list.filter((f) => f.categoria === "Mano_de_Obra" || f.categoria === "Honorarios" || coincideEmpleado(f));
+    let list = (facturas ?? []).filter((f) => facturaLibrePara(f, asociar?.empleado_id));
+    if (soloMO) list = list.filter((f) => f.categoria === "Mano_de_Obra" || f.categoria === "Honorarios" || f.categoria === "Mecanicos" || coincideEmpleado(f));
     const q = busca.trim().toLowerCase();
     if (q) {
       list = list.filter((f) =>
@@ -948,7 +963,7 @@ export function FacturasEmpleadoTab() {
       const { data, error } = await supabase
         .from("fema_facturas_compra")
         .select("id,fecha,numero,total,estado,categoria,empleado_id,descripcion")
-        .in("categoria", ["Mano_de_Obra", "Honorarios"])
+        .in("categoria", ["Mano_de_Obra", "Honorarios", "Mecanicos"])
         .order("fecha", { ascending: false });
       if (error) throw error;
       return (data ?? []) as {
@@ -996,7 +1011,7 @@ export function FacturasEmpleadoTab() {
       .eq("id", vincular.id);
     if (error) return toast.error(error.message);
     if (vincular.empleado_id) {
-      await supabase.from("fema_facturas_compra").update({ empleado_id: vincular.empleado_id }).eq("id", facturaId);
+      await sumarEmpleadoAFactura(facturaId, vincular.empleado_id);
     }
     toast.success("Factura vinculada a la solicitud");
     setVincular(null);
