@@ -1604,6 +1604,7 @@ export type Database = {
           created_at: string
           descripcion: string | null
           empleado_id: string | null
+          empleados_ids: string[]
           estado: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
           fecha_pago: string | null
@@ -1635,6 +1636,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           empleado_id?: string | null
+          empleados_ids?: string[]
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha: string
           fecha_pago?: string | null
@@ -1666,6 +1668,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           empleado_id?: string | null
+          empleados_ids?: string[]
           estado?: Database["public"]["Enums"]["estado_factura_compra"] | null
           fecha?: string
           fecha_pago?: string | null
