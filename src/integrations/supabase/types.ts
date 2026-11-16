@@ -2770,6 +2770,53 @@ export type Database = {
           },
         ]
       }
+      fema_precios_historial: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          moneda: string | null
+          porcentaje: number | null
+          precio_anterior: number | null
+          precio_nuevo: number | null
+          producto_id: string
+          tipo_precio: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          moneda?: string | null
+          porcentaje?: number | null
+          precio_anterior?: number | null
+          precio_nuevo?: number | null
+          producto_id: string
+          tipo_precio: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          moneda?: string | null
+          porcentaje?: number | null
+          precio_anterior?: number | null
+          precio_nuevo?: number | null
+          producto_id?: string
+          tipo_precio?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_precios_historial_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "fema_productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_presupuesto_items: {
         Row: {
           alicuota_iva: number
