@@ -286,6 +286,8 @@ function Page() {
         qc.invalidateQueries({ queryKey: ["fema_facturas_venta"] });
       }
     }
+    qc.setQueryData<PlanillaRow[]>(["fema_planillas_facturas", year], (old) =>
+      (old ?? []).map((x) => x.id === p.id ? { ...x, estado: "Facturado", factura_venta_id: asociarFacturaId } : x));
     toast.success("Planilla asociada a la factura");
     setAsociar(null);
     setAsociarFacturaId("");
@@ -316,6 +318,8 @@ function Page() {
     const nuevo = p.estado === "Aprobado" ? "Pendiente" : "Aprobado";
     const { error } = await supabase.from("fema_presupuestos").update({ estado: nuevo }).eq("id", p.id);
     if (error) { toast.error(error.message); return; }
+    qc.setQueryData<PresupRow[]>(["fema_presupuestos_facturas", year], (old) =>
+      (old ?? []).map((x) => x.id === p.id ? { ...x, estado: nuevo } : x));
     toast.success(nuevo === "Aprobado" ? "Presupuesto aprobado" : "Presupuesto marcado como pendiente");
     qc.invalidateQueries({ queryKey: ["fema_presupuestos_facturas"] });
     qc.invalidateQueries({ queryKey: ["fema_presupuestos"] });
@@ -950,7 +954,7 @@ function Page() {
                   <TableCell className="text-right">{formatNumero(Number(p.total_metros ?? 0))}</TableCell>
                   <TableCell>
                     {p.estado === "Facturado"
-                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturada</Badge>
+                      ? <Badge className="border-0 bg-primary/15 text-primary"><Lock className="mr-1 h-3 w-3" /> Facturada{(() => { const f = (data ?? []).find((x) => x.id === p.factura_venta_id); return f ? ` · ${f.tipo}-${f.numero ?? "s/n"}` : ""; })()}</Badge>
                       : <Badge variant="outline">Pendiente</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
