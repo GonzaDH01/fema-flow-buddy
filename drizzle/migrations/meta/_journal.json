@@ -78,6 +78,13 @@
       "when": 1794857223957,
       "tag": "0010_precios_historial",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795030544535,
+      "tag": "0011_cuenta_efectivo",
+      "breakpoints": true
     }
   ]
 }

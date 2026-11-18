@@ -43,10 +43,24 @@ const TIPOS = [
   { v: "sueldo", label: "Sueldo / Período" },
   { v: "adelanto", label: "Adelanto" },
   { v: "extra", label: "Extra / Bono" },
-  { v: "hectareas", label: "Bono hectáreas" },
+  { v: "hectareas", label: "Hectáreas" },
+  { v: "alquiler", label: "Alquiler (a cargo FEMA)" },
 ];
+
+type Partepago = { forma: string; cuenta: string; monto: string; afectaCaja: boolean };
+type ParteState = Partepago[];
+
+/** Busca (o crea) la cuenta "Caja Efectivo" de la empresa. */
+async function cuentaCajaEfectivo(userId: string) {
+  const { data } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("tipo_cuenta", "efectivo").limit(1).maybeSingle();
+  if (data) return data;
+  const { data: nueva } = await supabase.from("fema_cuentas_bancarias")
+    .insert({ user_id: userId, banco: "Caja", alias: "Caja Efectivo", tipo_cuenta: "efectivo", saldo: 0, activa: true })
+    .select("id,saldo").maybeSingle();
+  return nueva;
+}
 const TIPO_LABEL: Record<string, string> = {
-  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra", hectareas: "Hectáreas",
+  sueldo: "Sueldo", adelanto: "Adelanto", extra: "Extra", hectareas: "Hectáreas", alquiler: "Alquiler",
 };
 
 
@@ -232,6 +246,9 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
   });
   const [cuentaIdState, setCuentaId] = useState<string>("");
   const [programado, setProgramado] = useState(false);
+  const [ha, setHa] = useState({ hectareas: "", tarifa: "" });
+  const [cubre, setCubre] = useState("");
+  const [partes, setPartes] = useState<ParteState>([]);
   const set = (k: keyof typeof v | "cuenta_id", val: string) => {
     if (k === "cuenta_id") return setCuentaId(val);
     setV((s) => ({ ...s, [k]: val }));
@@ -282,10 +299,32 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     }));
   };
 
+  const netoUI = Math.round((Number(v.monto || 0) - Number(v.descontar || 0)) * 100) / 100;
+  const cuentaDefault = (cuentas ?? []).find((c) => c.tipo_cuenta !== "efectivo")?.id ?? "none";
+  // Con una sola forma, su importe sigue al neto a pagar.
+  const partesEf: ParteState = partes.length === 0
+    ? [{ forma: "Transferencia", cuenta: cuentaDefault, monto: netoUI > 0 ? String(netoUI) : "", afectaCaja: true }]
+    : partes;
+  const sumaPartes = partesEf.reduce((a, x) => a + Number(x.monto || 0), 0);
+
   const onSubmit = async () => {
     if (!v.empleado_id) return toast.error("Seleccioná un empleado");
     const monto = Number(v.monto || 0);
     if (monto <= 0) return toast.error("Ingresá el importe del pago");
+    const netoPagar = Math.round((monto - Number(v.descontar || 0)) * 100) / 100;
+    const lineas = partesEf;
+    if (!pago && !programado) {
+      const suma = lineas.reduce((a, x) => a + Number(x.monto || 0), 0);
+      if (Math.abs(suma - netoPagar) > 0.01) return toast.error(`Las formas de pago suman ${formatPesos(suma)} y el neto a pagar es ${formatPesos(netoPagar)}`);
+    }
+    const formaTxt = !pago && !programado
+      ? [...new Set(lineas.filter((x) => Number(x.monto) > 0).map((x) => x.forma))].join(" + ")
+      : v.forma_pago;
+    const detalleTxt = [
+      v.tipo === "hectareas" && Number(ha.hectareas) > 0 ? `${ha.hectareas} ha × ${formatPesos(Number(ha.tarifa || 0))}` : "",
+      v.tipo === "alquiler" ? `Alquiler a cargo de FEMA${cubre ? ` — cubre: ${cubre}` : ""}` : "",
+      v.detalle,
+    ].filter(Boolean).join(" · ");
     const per = v.tipo === "sueldo"
       ? rangoPeriodo(Number(v.anio), Number(v.mes), v.tramo)
       : { desde: v.fecha, hasta: v.fecha };
@@ -298,8 +337,8 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
       periodo_desde: per.desde,
       periodo_hasta: per.hasta,
       monto,
-      tareas: v.detalle || null,
-      forma_pago: v.forma_pago || null,
+      tareas: detalleTxt || null,
+      forma_pago: formaTxt || null,
       factura_compra_id: v.factura_id === "none" ? null : v.factura_id,
       anio: d.getFullYear(),
       mes: d.getMonth() + 1,
@@ -329,23 +368,31 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
       }
       invalidarPrestamos(qc);
     }
-    // Débito bancario solo en pagos nuevos con cuenta de la empresa.
-    if (!pago && programado) {
-      // Sueldo programado: no mueve banco hasta confirmar el pago.
-    } else if (!pago && cuentaSel !== "none") {
-      const { data: cta } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("id", cuentaSel).maybeSingle();
-      if (cta) {
-        const neto = monto - Number(v.descontar || 0);
-        const nuevo = Math.round((Number(cta.saldo || 0) - neto) * 100) / 100;
+    // Cada forma de pago mueve (o no) su cuenta. Programado no mueve nada hasta «Pagar».
+    if (!pago && !programado) {
+      const sinMover: string[] = [];
+      for (const l of lineas) {
+        const m = Number(l.monto || 0);
+        if (m <= 0) continue;
+        let cta: { id: string; saldo: number } | null = null;
+        if (l.forma === "Efectivo") {
+          if (l.afectaCaja) cta = await cuentaCajaEfectivo(user!.id);
+        } else if (l.cuenta !== "none") {
+          const { data } = await supabase.from("fema_cuentas_bancarias").select("id,saldo").eq("id", l.cuenta).maybeSingle();
+          cta = data;
+        }
+        if (!cta) { sinMover.push(`${l.forma} ${formatPesos(m)}`); continue; }
+        const nuevo = Math.round((Number(cta.saldo || 0) - m) * 100) / 100;
         await supabase.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cta.id);
         await supabase.from("fema_caja_mov").insert({
-          user_id: user!.id, fecha: v.fecha, cuenta_id: cta.id, tipo: "egreso", monto: neto,
-          concepto: `${TIPO_LABEL[v.tipo]} empleado — ${emp?.nombre ?? ""}`, saldo_resultante: nuevo,
+          user_id: user!.id, fecha: v.fecha, cuenta_id: cta.id, tipo: "egreso", monto: m,
+          concepto: `${TIPO_LABEL[v.tipo]} empleado (${l.forma}) — ${emp?.nombre ?? ""}`, saldo_resultante: nuevo,
         });
-        for (const k of ["fema_cuentas_bancarias", "fema_caja_mov", "cashflow-matrix"]) qc.invalidateQueries({ queryKey: [k] });
       }
-    } else if (!pago && pagoId) {
-      await supabase.from("fema_pagos_empleado").update({ observaciones: "Pago sin mover banco (efectivo)" }).eq("id", pagoId);
+      if (sinMover.length && pagoId) {
+        await supabase.from("fema_pagos_empleado").update({ observaciones: `Sin mover caja/banco: ${sinMover.join(", ")}` }).eq("id", pagoId);
+      }
+      for (const k of ["fema_cuentas_bancarias", "fema_caja_mov", "cashflow-matrix"]) qc.invalidateQueries({ queryKey: [k] });
     }
     if (v.factura_id !== "none") {
       await sumarEmpleadoAFactura(v.factura_id, v.empleado_id);
@@ -354,7 +401,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     toast.success(pago ? "Pago actualizado" : `${TIPO_LABEL[v.tipo]} registrado por ${formatPesos(monto)}`);
     invalidarPagos(qc);
     setOpen(false);
-    if (!pago) setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none", descontar: "" }));
+    if (!pago) { setV((s) => ({ ...s, monto: "", detalle: "", factura_id: "none", descontar: "" })); setPartes([]); setHa({ hectareas: "", tarifa: "" }); setCubre(""); }
   };
 
   return (
@@ -436,6 +483,32 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
             </div>
           )}
 
+          {v.tipo === "hectareas" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Hectáreas</Label>
+                <Input type="number" step="0.01" value={ha.hectareas} onChange={(e) => {
+                  const h = { ...ha, hectareas: e.target.value }; setHa(h);
+                  const t = Number(h.hectareas || 0) * Number(h.tarifa || 0); if (t > 0) set("monto", String(Math.round(t * 100) / 100));
+                }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tarifa por hectárea ($)</Label>
+                <Input type="number" step="0.01" value={ha.tarifa} onChange={(e) => {
+                  const h = { ...ha, tarifa: e.target.value }; setHa(h);
+                  const t = Number(h.hectareas || 0) * Number(h.tarifa || 0); if (t > 0) set("monto", String(Math.round(t * 100) / 100));
+                }} />
+              </div>
+            </div>
+          )}
+          {v.tipo === "alquiler" && (
+            <div className="space-y-1.5">
+              <Label>Meses / período que cubre</Label>
+              <Input value={cubre} placeholder="Ej.: Diciembre, Enero y Febrero" onChange={(e) => setCubre(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Lo paga FEMA como parte del sueldo. No genera deuda del empleado.</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Importe ($)</Label>
@@ -462,29 +535,64 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
           )}
 
           {!pago && !programado && (
-            <div className="space-y-1.5">
-              <Label>¿De dónde sale el dinero?</Label>
-              <Select value={cuentaSel} onValueChange={(x) => set("cuenta_id", x)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(cuentas ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      Cuenta empresa — {c.banco} {c.alias ?? ""} ({formatPesos(Number(c.saldo ?? 0))})
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="none">Efectivo / sin mover banco</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {cuentaSel === "none"
-                  ? "El empleado queda pagado, pero el saldo del banco no cambia."
-                  : "Se descuenta del saldo de la cuenta seleccionada."}
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <Label>Formas de pago</Label>
+                <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                  onClick={() => setPartes([...partesEf, { forma: "Efectivo", cuenta: "none", monto: "", afectaCaja: true }])}>
+                  <Plus className="size-3 mr-1" /> Agregar forma
+                </Button>
+              </div>
+              {partesEf.map((l, i) => {
+                const upd = (patch: Partial<ParteState[number]>) => setPartes(partesEf.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+                return (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-4">
+                      <Select value={l.forma} onValueChange={(x) => upd({ forma: x })}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>{FORMAS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-4">
+                      {l.forma === "Efectivo" ? (
+                        <label className="flex items-center gap-2 text-xs">
+                          <Checkbox checked={l.afectaCaja} onCheckedChange={(c) => upd({ afectaCaja: !!c })} />
+                          Afecta Caja efectivo
+                        </label>
+                      ) : (
+                        <Select value={l.cuenta} onValueChange={(x) => upd({ cuenta: x })}>
+                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(cuentas ?? []).filter((c) => c.tipo_cuenta !== "efectivo").map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.banco} {c.alias ?? ""}</SelectItem>
+                            ))}
+                            <SelectItem value="none">No mover banco</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                    <div className="col-span-3">
+                      <Input type="number" step="0.01" className="h-9" value={l.monto} placeholder="0,00" onChange={(e) => upd({ monto: e.target.value })} />
+                    </div>
+                    <div className="col-span-1">
+                      {partesEf.length > 1 && (
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => setPartes(partesEf.filter((_, j) => j !== i))}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <p className={`text-xs ${Math.abs(sumaPartes - netoUI) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>
+                Suma {formatPesos(sumaPartes)} de {formatPesos(netoUI)} a pagar.
+                {" "}Efectivo sin tildar «Afecta Caja» deja al empleado pagado sin descontar la caja.
               </p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" hidden={!pago && !programado}>
               <Label>Forma de pago</Label>
               <Select value={v.forma_pago} onValueChange={(x) => set("forma_pago", x)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

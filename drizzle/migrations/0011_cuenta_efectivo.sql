@@ -1,0 +1,2 @@
+ALTER TABLE public.fema_cuentas_bancarias DROP CONSTRAINT fema_cuentas_tipo_check;
+ALTER TABLE public.fema_cuentas_bancarias ADD CONSTRAINT fema_cuentas_tipo_check CHECK (tipo_cuenta = ANY (ARRAY['vista'::text, 'fondo'::text, 'efectivo'::text]));
