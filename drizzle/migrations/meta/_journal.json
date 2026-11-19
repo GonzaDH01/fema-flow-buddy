@@ -85,6 +85,13 @@
       "when": 1795030544535,
       "tag": "0011_cuenta_efectivo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795030545535,
+      "tag": "0012_planillas_bartomo_2026",
+      "breakpoints": true
     }
   ]
 }

@@ -34,7 +34,7 @@ Reglas:
 - En la sección "2. Registro de viajes": contá las casillas marcadas con X o tilde de cada fila y usá ese número en "viajes". Si el total de viajes está escrito a mano en la última casilla, priorizá ese número.
 - Las filas bajo "EQUIPOS PROPIOS DE LA EMPRESA" (Ford 700, Chevrolet 600, Carro Fontanini, Zanello, Embolsadora, etc.) llevan es_tercero=false. Las filas bajo "CONTRATISTAS / TERCEROS" llevan es_tercero=true.
 - No inventes filas: devolvé solo las que tienen algún dato escrito.
-- Las fechas van en formato YYYY-MM-DD (la planilla usa día/mes/año).
+- Las fechas van en formato YYYY-MM-DD (la planilla usa día/mes/año). La campaña es 2026 o posterior: si el año escrito es anterior a 2026 o está abreviado (ej. 24), usá 2026.
 - Todos los números en número, no string. Si no podés leer un dato usá null o 0.`;
 
 const json = (status: number, body: any) =>

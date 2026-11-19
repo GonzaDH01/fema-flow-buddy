@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 const KEY = "fema_year";
-const YEARS = [2024, 2025, 2026, 2027];
+const YEARS = [2026, 2027, 2028, 2029, 2030];
 
 type Ctx = { year: number; setYear: (y: number) => void; years: number[] };
 const YearCtx = createContext<Ctx>({ year: new Date().getFullYear(), setYear: () => {}, years: YEARS });
@@ -11,7 +11,7 @@ export function YearProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const v = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
-    if (v) setYearState(Number(v));
+    if (v && YEARS.includes(Number(v))) setYearState(Number(v));
   }, []);
 
   const setYear = (y: number) => {

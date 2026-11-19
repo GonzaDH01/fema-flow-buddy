@@ -654,7 +654,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
       if (!res.ok) throw new Error(out?.error ?? "No se pudo leer la planilla");
       const d = (out?.data ?? {}) as any;
 
-      if (texto(d.fecha) && /^\d{4}-\d{2}-\d{2}$/.test(texto(d.fecha))) setFecha(texto(d.fecha));
+      if (texto(d.fecha) && /^\d{4}-\d{2}-\d{2}$/.test(texto(d.fecha))) { const f = texto(d.fecha); setFecha(Number(f.slice(0, 4)) < 2026 ? `2026${f.slice(4)}` : f); }
       if (texto(d.cliente)) {
         const c = clientes.find((x) => x.nombre.trim().toLowerCase() === texto(d.cliente).toLowerCase());
         if (c) { setClienteId(c.id); setClienteNombre(c.nombre); }
