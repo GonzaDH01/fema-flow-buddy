@@ -62,8 +62,8 @@ export function PlanPagosEditor({
 
   const agregar = () => {
     const last = rows?.[rows.length - 1]?.vencimiento;
-    let venc = new Date().toISOString().slice(0, 10);
-    if (last) { const d = new Date(`${last}T00:00:00`); d.setMonth(d.getMonth() + 1); venc = d.toISOString().slice(0, 10); }
+    let venc = new Date().toLocaleDateString("en-CA");
+    if (last) { const d = new Date(`${last}T00:00:00`); d.setMonth(d.getMonth() + 1); venc = d.toLocaleDateString("en-CA"); }
     setRows((r) => [...(r ?? []), {
       instrumento: "echeq", numero: "", banco: "", vencimiento: venc,
       monto: dif > 0 ? dif : 0, estado: "en_cartera", observaciones: "", bloqueado: false,
@@ -112,7 +112,7 @@ export function PlanPagosEditor({
             ...payload, user_id: u.user?.id, [col]: facturaId,
             direccion: esCompra ? "pago" : "cobro",
             tipo_movimiento: esCompra ? "pago_proveedor" : "cobro_cliente",
-            fecha_emision: new Date().toISOString().slice(0, 10),
+            fecha_emision: new Date().toLocaleDateString("en-CA"),
             anio: d.getFullYear(), mes: d.getMonth() + 1,
           });
           if (error) throw error;

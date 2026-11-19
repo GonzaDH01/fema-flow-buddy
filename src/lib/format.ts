@@ -10,6 +10,8 @@ export const formatNumero = (n: number | null | undefined, frac = 2) =>
 
 export const formatFecha = (d: string | null | undefined) => {
   if (!d) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   try {
     return new Intl.DateTimeFormat("es-AR", {
       day: "2-digit",

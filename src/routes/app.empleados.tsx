@@ -131,7 +131,7 @@ async function exportEmpleados() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emp.data ?? []), "Personal");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sue.data ?? []), "Pagos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hor.data ?? []), "Horas");
-  XLSX.writeFile(wb, `FEMA_Empleados_${new Date().toISOString().split("T")[0]}.xlsx`);
+  XLSX.writeFile(wb, `FEMA_Empleados_${new Date().toLocaleDateString("en-CA")}.xlsx`);
 }
 
 
@@ -645,7 +645,7 @@ function NuevaHoraDialog() {
   const { year } = useYear();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA");
   const [v, setV] = useState({
     empleado_id: "", fecha: today, horas: "8",
     referencia: "", tarea: "", observaciones: "",

@@ -750,7 +750,7 @@ function EcheqDialog({ pago, onClose }: { pago: PagoDetalle; onClose: () => void
     },
   });
   const [f, setF] = useState<any>(null);
-  const v = f ?? (mov ? { numero: mov.numero ?? "", banco: mov.banco ?? "", vencimiento: mov.vencimiento ?? "", monto: Number(mov.monto ?? 0), fecha_emision: mov.fecha_emision ?? new Date().toISOString().slice(0, 10) } : null);
+  const v = f ?? (mov ? { numero: mov.numero ?? "", banco: mov.banco ?? "", vencimiento: mov.vencimiento ?? "", monto: Number(mov.monto ?? 0), fecha_emision: mov.fecha_emision ?? new Date().toLocaleDateString("en-CA") } : null);
   const set = (k: string, val: any) => setF({ ...v, [k]: val });
   const [saving, setSaving] = useState(false);
 

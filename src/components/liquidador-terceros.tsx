@@ -135,7 +135,7 @@ export function LiquidadorTerceros({ planillas, equipos }: { planillas: Planilla
     if (!filas.length) return toast.error("No hay viajes para liquidar");
     imprimirHTML({
       filas, nombre: nombreContratista, periodo: periodoTexto, conceptos, total,
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: new Date().toLocaleDateString("en-CA"),
       facturaTxt: factura ? `${factura.tipo_comprobante ?? "Factura"} ${factura.tipo ?? ""} ${factura.numero ?? "s/n"} — ${formatPesos(Number(factura.total))}` : "Pendiente de recibir",
     });
   };
@@ -187,7 +187,7 @@ ${femaClientHTML([
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       if (!uid) throw new Error("Sesión no válida");
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = new Date().toLocaleDateString("en-CA");
       const planillaIds = [...new Set(filas.map((f) => f.planilla_id))];
       let facId: string | null = facturaId === "none" ? null : facturaId;
       if (!facId) {

@@ -81,7 +81,7 @@ export function CuentaCorrienteLedger() {
           <div className="hidden print:block border-b pb-2">
             <div className="text-lg font-bold">FEMA AGRONEGOCIOS S.A.S. — CUIT 30-71914814-6</div>
             <div>Cuenta corriente de {emp?.nombre}{emp?.cuil ? ` — CUIL ${emp.cuil}` : ""}</div>
-            <div className="text-xs">Emitido el {formatFecha(new Date().toISOString().slice(0, 10))}</div>
+            <div className="text-xs">Emitido el {formatFecha(new Date().toLocaleDateString("en-CA"))}</div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <Kpi label="Total financiado (Debe)" v={formatPesos(totDebe)} />

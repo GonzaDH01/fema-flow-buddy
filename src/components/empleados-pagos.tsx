@@ -698,7 +698,7 @@ export function PagosEmpleadoTab() {
 
   const [pagarRow, setPagarRow] = useState<any>(null);
   const [pagarCuenta, setPagarCuenta] = useState("none");
-  const [pagarFecha, setPagarFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [pagarFecha, setPagarFecha] = useState(new Date().toLocaleDateString("en-CA"));
   const { data: cuentasPago } = useQuery({
     queryKey: ["fema_cuentas_bancarias", "vista"],
     queryFn: async () => {
@@ -710,7 +710,7 @@ export function PagosEmpleadoTab() {
   const marcarPagado = (id: string) => {
     setPagarRow(rows.find((r) => r.id === id) ?? null);
     setPagarCuenta(cuentasPago?.[0]?.id ?? "none");
-    setPagarFecha(new Date().toISOString().slice(0, 10));
+    setPagarFecha(new Date().toLocaleDateString("en-CA"));
   };
   const confirmarPago = async () => {
     const r = pagarRow; if (!r) return;

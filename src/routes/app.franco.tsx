@@ -105,7 +105,7 @@ function Page() {
   const cambiarEstado = async (r: Row, estado: string) => {
     const { error } = await supabase
       .from("fema_facturas_compra")
-      .update({ estado: estado as any, fecha_pago: estado === "pagada" ? (r.fecha_pago ?? new Date().toISOString().slice(0, 10)) : null })
+      .update({ estado: estado as any, fecha_pago: estado === "pagada" ? (r.fecha_pago ?? new Date().toLocaleDateString("en-CA")) : null })
       .eq("id", r.id);
     if (error) { toast.error(error.message); return; }
     toast.success(estado === "pagada" ? "Marcada como abonada" : "Marcada como pendiente");
@@ -117,7 +117,7 @@ function Page() {
     const pend = rows.filter((r) => (r.estado ?? "pendiente") !== "pagada");
     if (pend.length === 0) return;
     if (!confirm(`¿Marcar ${pend.length} comprobante(s) como abonados por Franco?`)) return;
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = new Date().toLocaleDateString("en-CA");
     const { error } = await supabase
       .from("fema_facturas_compra")
       .update({ estado: "pagada" as any, fecha_pago: hoy })

@@ -442,7 +442,7 @@ function Page() {
           if (!error) imagen_path = path;
         } catch { /* no bloquear el guardado */ }
       }
-      const fecha = planilla.fecha ?? new Date().toISOString().slice(0, 10);
+      const fecha = planilla.fecha ?? new Date().toLocaleDateString("en-CA");
       const bolsas = Array.from({ length: CANT_BOLSAS_OCR }, (_, i) => Number(num(String(planilla.bolsas?.[i] ?? 0)) ?? 0));
       const equipos = (planilla.equipos ?? []).filter((e) => (e.equipo ?? "").trim());
       const totalViajes = equipos.reduce((a, e) => a + Number(num(String(e.viajes ?? 0)) ?? 0), 0);
@@ -659,7 +659,7 @@ function Page() {
       if (b64 && mime) {
         try { imagen_path = await subirImagen(); } catch { /* no bloquear el guardado */ }
       }
-      const fecha = result.fecha ?? new Date().toISOString().slice(0, 10);
+      const fecha = result.fecha ?? new Date().toLocaleDateString("en-CA");
       const nombre = (remitoTipo === "venta" ? (result.receptor ?? result.emisor) : result.emisor)?.trim() || null;
       const cuit = onlyDigits(remitoTipo === "venta" ? (result.cuit_receptor ?? result.cuit_emisor) : result.cuit_emisor) || null;
       const { data, error } = await supabase
@@ -814,7 +814,7 @@ function Page() {
 
       const base = {
         user_id: user.id,
-        fecha: result.fecha ?? new Date().toISOString().slice(0, 10),
+        fecha: result.fecha ?? new Date().toLocaleDateString("en-CA"),
         numero: result.numero ?? null,
         tipo,
         neto: result.neto ?? 0,

@@ -77,7 +77,7 @@ export function LiquidarHectareasDialog() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hoyIso = new Date().toLocaleDateString("en-CA");
 
   const [empleadoId, setEmpleadoId] = useState("");
   const [valorHa, setValorHa] = useState("");

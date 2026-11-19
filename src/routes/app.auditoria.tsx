@@ -786,7 +786,7 @@ function Page() {
             <ScoreCard label="Vencen en ≤30 días" value={`${venceProximos.length} · ${formatPesos(venceProximos.reduce((a, c) => a + Number(c.monto || 0), 0))}`} tone="warning" />
             <ScoreCard label="Vencidos sin cobrar" value={`${vencidos.length} · ${formatPesos(vencidos.reduce((a, c) => a + Number(c.monto || 0), 0))}`} tone="destructive" />
           </div>
-          <ReportShell title={`Cheques y echeqs en cartera — al ${new Date().toISOString().split("T")[0]}`} subtitle="Valores recibidos pendientes de cobro/depósito · Ordenados por vencimiento">
+          <ReportShell title={`Cheques y echeqs en cartera — al ${new Date().toLocaleDateString("en-CA")}`} subtitle="Valores recibidos pendientes de cobro/depósito · Ordenados por vencimiento">
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Tipo</TableHead><TableHead>Nº</TableHead><TableHead>Banco</TableHead>

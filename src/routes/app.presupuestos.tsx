@@ -317,7 +317,7 @@ function PresupuestoForm({
   userId: string; year: number; clientes: Cliente[]; initial: Presupuesto | null;
   lastNumero: string | null; onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA");
   const in7 = new Date(Date.now() + 7 * 86400_000).toISOString().split("T")[0];
 
   const [numero, setNumero] = useState(initial?.numero ?? nextNumero(lastNumero));

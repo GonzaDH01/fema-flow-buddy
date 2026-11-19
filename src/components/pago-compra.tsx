@@ -14,7 +14,7 @@ import { FormField } from "@/lib/form-helpers";
 import { formatPesos, formatFecha } from "@/lib/format";
 
 const sb = supabase as any;
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => new Date().toLocaleDateString("en-CA");
 
 const INSTRUMENTOS = [
   { v: "transferencia", l: "Transferencia" },

@@ -372,7 +372,7 @@ function Page() {
       }
       return true;
     });
-    const hoyStr = new Date().toISOString().split("T")[0];
+    const hoyStr = new Date().toLocaleDateString("en-CA");
     const cmp = (a: string | null | undefined, b: string | null | undefined, asc: boolean) => {
       const av = a ?? ""; const bv = b ?? "";
       if (!av && !bv) return 0;
@@ -442,7 +442,7 @@ function Page() {
             await sb.from("fema_cuentas_bancarias").update({ saldo: nuevo }).eq("id", cuentaId);
             await sb.from("fema_caja_mov").insert({
               user_id: user!.id,
-              fecha: m.vencimiento ?? m.fecha_emision ?? new Date().toISOString().slice(0, 10),
+              fecha: m.vencimiento ?? m.fecha_emision ?? new Date().toLocaleDateString("en-CA"),
               cuenta_id: cuentaId, tipo: esPago ? "egreso" : "ingreso", monto: m.monto,
               concepto: `${m.contraparte ?? m.instrumento}${m.numero ? ` Nº ${m.numero}` : ""}`,
               movimiento_pago_id: m.id, saldo_resultante: nuevo,
@@ -466,7 +466,7 @@ function Page() {
     // Deja asentado en el propio movimiento cómo se cerró: cobrado por nosotros (no cedido).
     let obsFinal = obs;
     if (!cuentaId) {
-      const hoyIso = new Date().toISOString().slice(0, 10);
+      const hoyIso = new Date().toLocaleDateString("en-CA");
       const base = (m.observaciones ?? "").replace(/\s*\[(DEP|DEB):[^\]]+\]/g, "").trim();
       const nota = esPago
         ? `Debitado de cuenta el ${formatFecha(hoyIso)}`
@@ -551,7 +551,7 @@ function Page() {
     if (error) { toast.error(error.message); return; }
     await sb.from("fema_movimientos_pago").insert({
       user_id: user!.id, instrumento: "cesion", direccion: "pago",
-      tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
+      tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toLocaleDateString("en-CA"),
       vencimiento: m.vencimiento, numero: m.numero, banco: m.banco, contraparte: proveedor,
       monto: m.monto, estado: "pagado", echeq_origen_id: m.id,
       observaciones: `Cesión de echeq Nº ${m.numero ?? ""}`,
@@ -792,7 +792,7 @@ function Page() {
               </TableHeader>
               <TableBody>
                 {emitidosPendientes.map((m) => {
-                  const hoyStr = new Date().toISOString().split("T")[0];
+                  const hoyStr = new Date().toLocaleDateString("en-CA");
                   const vence = m.vencimiento ?? "";
                   const vencido = vence && vence < hoyStr;
                   const hoyMismo = vence === hoyStr;
@@ -1142,7 +1142,7 @@ function KpiCard({ label, value, hint, tone }: { label: string; value: string; h
 }
 
 function ResumenPropios({ rows }: { rows: Mov[] }) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleDateString("en-CA");
   const pendientes = rows.filter(m => m.estado === "en_cartera");
   const debitados = rows.filter(m => m.estado === "pagado");
   const totalPend = pendientes.reduce((a, m) => a + Number(m.monto), 0);
@@ -1265,7 +1265,7 @@ function MovsTable({ rows, imputaciones = [], onCobrar, onCeder, onEdit, onDelet
       </TableHeader>
       <TableBody>
         {pag.pageItems.map(m => {
-          const hoyStr = new Date().toISOString().slice(0,10);
+          const hoyStr = new Date().toLocaleDateString("en-CA");
           const vencidoSinCobrar = m.estado === "en_cartera" && m.vencimiento && m.vencimiento < hoyStr;
           const yaImpactoCaja = /\[(DEP|DEB):[^\]]+\]/.test(m.observaciones ?? "");
           const historico = esMovimientoHistorico(m.observaciones);
@@ -1570,7 +1570,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   // libre fields
   const [instrumento, setInstrumento] = useState<string>(initial?.instrumento ?? "echeq");
   const [direccion, setDireccion] = useState<string>(initial?.direccion ?? "cobro");
-  const [fechaEmision, setFechaEmision] = useState(initial?.fecha_emision ?? new Date().toISOString().split("T")[0]);
+  const [fechaEmision, setFechaEmision] = useState(initial?.fecha_emision ?? new Date().toLocaleDateString("en-CA"));
   const [vencimiento, setVencimiento] = useState(initial?.vencimiento ?? "");
   const [numero, setNumero] = useState(initial?.numero ?? "");
   const [banco, setBanco] = useState(initial?.banco ?? "");
@@ -1593,7 +1593,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
   const [planCargado, setPlanCargado] = useState(false);
   const [bancoGlobal, setBancoGlobal] = useState("");
   const [genCuotas, setGenCuotas] = useState(1);
-  const [genPrimerVto, setGenPrimerVto] = useState(new Date().toISOString().split("T")[0]);
+  const [genPrimerVto, setGenPrimerVto] = useState(new Date().toLocaleDateString("en-CA"));
   const [genPeriodicidad, setGenPeriodicidad] = useState<"semanal"|"quincenal"|"mensual">("mensual");
 
   // Pago a proveedor — permite combinar métodos (transferencia/emitir + ceder de cartera)
@@ -1870,7 +1870,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           _ceder: [echeqId],
           _inserts: [{
             instrumento: "cesion", direccion: "pago",
-            tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toISOString().split("T")[0],
+            tipo_movimiento: "ceder_echeq", fecha_emision: new Date().toLocaleDateString("en-CA"),
             vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
             contraparte: proveedorCesion || "Proveedor", monto: e.monto, estado: "pagado",
             echeq_origen_id: echeqId,
@@ -1996,7 +1996,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
           opInsert.push({
             instrumento: "otro", direccion: "pago",
             tipo_movimiento: "pago_proveedor",
-            fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+            fecha_emision: fechaEmision || new Date().toLocaleDateString("en-CA"),
             vencimiento: null, numero: nc.numero ?? null, banco: null,
             contraparte: contraparte || fact?.proveedor || null,
             monto: importe, estado: "pagado",
@@ -2007,7 +2007,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             imputaciones: prop.imputaciones.map(i => ({
               [colImputacion]: i.facturaId,
               monto: i.monto,
-              fecha: fechaEmision || new Date().toISOString().split("T")[0],
+              fecha: fechaEmision || new Date().toLocaleDateString("en-CA"),
             })),
             anio: year, mes,
           });
@@ -2024,7 +2024,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
             const base: any = {
               instrumento: "cesion", direccion: "pago",
               tipo_movimiento: "ceder_echeq",
-              fecha_emision: new Date().toISOString().split("T")[0],
+              fecha_emision: new Date().toLocaleDateString("en-CA"),
               vencimiento: e.vencimiento, numero: e.numero, banco: e.banco,
               contraparte: provNombre, monto: e.monto, estado: "pagado",
               echeq_origen_id: eid,
@@ -2039,7 +2039,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               base.imputaciones = prop.imputaciones.map(i => ({
                 [colImputacion]: i.facturaId,
                 monto: i.monto,
-                fecha: new Date().toISOString().split("T")[0],
+                fecha: new Date().toLocaleDateString("en-CA"),
               }));
             }
             opInsert.push(base);
@@ -2056,7 +2056,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
               instrumento: instrumento as any,
               direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
               tipo_movimiento: tipo,
-              fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+              fecha_emision: fechaEmision || new Date().toLocaleDateString("en-CA"),
               vencimiento: c.vencimiento || null,
               numero: c.numero || null, banco: c.banco || bancoGlobal || null,
               contraparte: contraparte || (fact?.proveedor ?? null),
@@ -2090,7 +2090,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 instrumento: instC as any,
                 direccion: tipo === "cobro_cliente" ? "cobro" : "pago",
                 tipo_movimiento: tipo,
-                fecha_emision: fechaEmision || new Date().toISOString().split("T")[0],
+                fecha_emision: fechaEmision || new Date().toLocaleDateString("en-CA"),
                 vencimiento: c.vencimiento || (esDinero ? (fechaEmision || hoyISO()) : null),
                 numero: c.numero || null,
                 banco: c.banco || bancoGlobal || null,
@@ -2114,7 +2114,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                   imputaciones: propuesta.imputaciones.map(i => ({
                     [colF]: i.facturaId,
                     monto: i.monto,
-                    fecha: fechaEmision || new Date().toISOString().split("T")[0],
+                    fecha: fechaEmision || new Date().toLocaleDateString("en-CA"),
                   })),
                 });
               } else {
@@ -2422,7 +2422,7 @@ function MovimientoDialog({ initial, userId, year, facturasVenta, facturasCompra
                 )}
                 {echeqsCarteraFiltrados.map(e => {
                   const checked = echeqsCedidos.includes(e.id);
-                  const vencido = e.vencimiento && e.vencimiento < new Date().toISOString().split("T")[0];
+                  const vencido = e.vencimiento && e.vencimiento < new Date().toLocaleDateString("en-CA");
                   return (
                     <label key={e.id} className={`flex items-center gap-3 p-2 cursor-pointer hover:bg-muted/40 ${checked ? "bg-primary/10" : ""} ${vencido && !checked ? "bg-red-500/10" : ""}`}>
                       <input type="checkbox" checked={checked} onChange={() => toggleEcheqCedido(e.id)} />
@@ -3092,7 +3092,7 @@ function ReciboDialog({ mov, allMovs, facturasVenta, facturasCompra, emisor, onC
 
   const total = items.reduce((a, m) => a + Number(m.monto), 0);
   const reciboNro = `R-${new Date().getFullYear()}-${mov.id.slice(0, 8).toUpperCase()}`;
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = new Date().toLocaleDateString("en-CA");
   const contraparte = mov.contraparte ?? factura?.proveedor ?? "—";
   const tituloDoc = esCobro ? "RECIBO DE COBRO" : "RECIBO DE PAGO";
   const saldo = factura ? Number(factura.total) - total : 0;
@@ -3557,7 +3557,7 @@ function EditarAjusteDialog({ ajuste, cuentas, onClose, onSaved }: {
   const [cuentaId, setCuentaId] = useState<string>(ajuste.cuenta_id ?? "");
   const [tipo, setTipo] = useState<"ingreso" | "egreso">(ajuste.tipo === "egreso" ? "egreso" : "ingreso");
   const [monto, setMonto] = useState<string>(String(Number(ajuste.monto || 0)));
-  const [fecha, setFecha] = useState<string>(ajuste.fecha ?? new Date().toISOString().split("T")[0]);
+  const [fecha, setFecha] = useState<string>(ajuste.fecha ?? new Date().toLocaleDateString("en-CA"));
   const [concepto, setConcepto] = useState<string>(motivoInicial);
   const [saving, setSaving] = useState(false);
 
@@ -3659,7 +3659,7 @@ function AjusteCajaDialogInner({ cuentas, userId, onClose, onSaved }: {
   const [cuentaId, setCuentaId] = useState<string>(cuentas[0]?.id ?? "");
   const [modo, setModo] = useState<"ingreso" | "egreso" | "saldo">("ingreso");
   const [monto, setMonto] = useState("");
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [fecha, setFecha] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [concepto, setConcepto] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -3759,7 +3759,7 @@ function PaseFondosDialogImpl({ cuentas, userId, onClose, onSaved }: {
   const [origen, setOrigen] = useState<string>(vista[0]?.id ?? cuentas[0]?.id ?? "");
   const [destino, setDestino] = useState<string>("");
   const [monto, setMonto] = useState<string>("");
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [fecha, setFecha] = useState<string>(new Date().toLocaleDateString("en-CA"));
   const [obs, setObs] = useState("");
   const [saving, setSaving] = useState(false);
 

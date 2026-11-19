@@ -180,7 +180,7 @@ export function proponerImputaciones(
   return { imputaciones, saldoACuenta, totalDistribuido };
 }
 
-export const hoyISO = () => new Date().toISOString().split("T")[0];
+export const hoyISO = () => new Date().toLocaleDateString("en-CA");
 
 /** Documento a cobrar cuya fecha de pago ya pasó y sigue en cartera. */
 export function esVencidoSinCobrar(m: MovLite, hoy = hoyISO()): boolean {

@@ -799,7 +799,7 @@ function ReciboCompraDialog({ row, proveedor, onClose }: {
   const totalPagado = items.reduce((a, m) => a + Number(m.monto), 0) + (imps ?? []).reduce((a, i) => a + Number(i.monto), 0);
   const total = items.length > 0 ? totalPagado : Number(row.total);
   const reciboNro = `RP-${new Date().getFullYear()}-${row.id.slice(0, 8).toUpperCase()}`;
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = new Date().toLocaleDateString("en-CA");
   const saldo = Number(row.total) - total;
 
   const filas = items.length > 0
@@ -998,7 +998,7 @@ function FormDialog({ onSubmit, initial, provNombre, year, activos, activosInici
       })(),
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      fecha: initial?.fecha ?? new Date().toISOString().slice(0, 10),
+      fecha: initial?.fecha ?? new Date().toLocaleDateString("en-CA"),
       proveedor_nombre: provNombre,
       categoria: initial?.categoria ?? "Gasoil_Combustible",
       mes: initial ? new Date(initial.fecha).getMonth() + 1 : new Date().getMonth() + 1,

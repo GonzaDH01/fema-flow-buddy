@@ -722,7 +722,7 @@ function Page() {
   const toggleCobrada = async (r: Row) => {
     const nuevo = r.estado === "cobrada" ? "pendiente" : "cobrada";
     const patch: any = { estado: nuevo };
-    if (nuevo === "cobrada" && !r.fecha_cobro) patch.fecha_cobro = new Date().toISOString().slice(0, 10);
+    if (nuevo === "cobrada" && !r.fecha_cobro) patch.fecha_cobro = new Date().toLocaleDateString("en-CA");
     const { error } = await supabase.from("fema_facturas_venta").update(patch).eq("id", r.id);
     if (error) { toast.error(error.message); return; }
     toast.success(nuevo === "cobrada" ? "Marcada como cobrada" : "Marcada como pendiente");
@@ -1372,7 +1372,7 @@ function FormDialog({ onSubmit, initial, prefill, prefillPresup, prefillPlanilla
       tipo_comprobante: (initial?.tipo_comprobante as typeof TIPOS_COMPROBANTE[number]) ?? "Factura",
       tipo: initial?.tipo ?? "A",
       numero: initial?.numero ?? "",
-      fecha: initial?.fecha ?? prefillPlanilla?.planilla.fecha ?? new Date().toISOString().slice(0, 10),
+      fecha: initial?.fecha ?? prefillPlanilla?.planilla.fecha ?? new Date().toLocaleDateString("en-CA"),
       cliente_id: initial?.cliente_id ?? prefillPresup?.presupuesto.cliente_id ?? prefillPlanilla?.planilla.cliente_id ?? prefill?.group.cliente_id ?? "",
       trabajo: initial?.trabajo ?? prefillPresup?.presupuesto.descripcion ?? prefillPlanilla?.derived.trabajo ?? prefill?.group.descripcionBase ?? "",
       categoria: initial?.categoria ?? (prefillPlanilla ? "Embolsado" : ""),
@@ -1905,7 +1905,7 @@ function EditEstimDialog({
     setCuotas((prev) => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c));
   const addCuota = () => {
     const last = cuotas[cuotas.length - 1];
-    const next = last ? (() => { const d = new Date(last.vencimiento); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10); })() : new Date().toISOString().slice(0, 10);
+    const next = last ? (() => { const d = new Date(last.vencimiento); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10); })() : new Date().toLocaleDateString("en-CA");
     setCuotas([...cuotas, { vencimiento: next, monto: last?.monto ?? 0 }]);
   };
   const removeCuota = (i: number) => setCuotas((prev) => prev.filter((_, idx) => idx !== i));

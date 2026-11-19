@@ -65,7 +65,7 @@ function addMonths(iso: string, n: number): string {
   const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
   return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(Math.min(d, last))}`;
 }
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => new Date().toLocaleDateString("en-CA");
 
 export function GastosFijos() {
   const { user } = useAuth();

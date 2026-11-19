@@ -586,7 +586,7 @@ function PlanillaDialog({ open, onOpenChange, planilla, equiposIniciales, emplea
         viajes: Number(g.viajes || 0), metros: g.metros_bolsa ? String(g.metros_bolsa) : "", es_tercero: true,
       })));
     } else {
-      setFecha(new Date().toISOString().slice(0, 10));
+      setFecha(new Date().toLocaleDateString("en-CA"));
       setClienteId("libre"); setClienteNombre("");
       setEstablecimiento(""); setLote("");
       setEmpleadoId("libre"); setNombre("");

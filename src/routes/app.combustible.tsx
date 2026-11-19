@@ -553,7 +553,7 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
   gasoil: Producto | null; stockTanque: number; precioRef: number;
   qc: ReturnType<typeof useQueryClient>;
 }) {
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(new Date().toLocaleDateString("en-CA"));
   const [receptorKey, setReceptorKey] = useState("");
   const [trabajo, setTrabajo] = useState("");
   const [litros, setLitros] = useState("");
@@ -568,7 +568,7 @@ function CargaDialog({ open, setOpen, initial, userId, receptores, activos, resp
 
   useEffect(() => {
     if (!open) return;
-    setFecha(initial?.fecha ?? new Date().toISOString().slice(0, 10));
+    setFecha(initial?.fecha ?? new Date().toLocaleDateString("en-CA"));
     setReceptorKey(initial ? (initial.activo_id ? `a:${initial.activo_id}` : initial.equipo_id ? `t:${initial.equipo_id}` : "") : "");
     setTrabajo(initial?.trabajo ?? "");
     setLitros(initial ? String(initial.litros) : "");
@@ -828,7 +828,7 @@ function TanqueDialog({ open, setOpen, userId, gasoil, qc }: {
   open: boolean; setOpen: (v: boolean) => void; userId: string;
   gasoil: Producto | null; qc: ReturnType<typeof useQueryClient>;
 }) {
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(new Date().toLocaleDateString("en-CA"));
   const [tipo, setTipo] = useState("IN");
   const [litros, setLitros] = useState("");
   const [precio, setPrecio] = useState("");

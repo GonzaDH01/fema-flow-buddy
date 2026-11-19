@@ -448,7 +448,7 @@ function PagoBonoDialog({ bono, saldo }: { bono: Bono; saldo: number }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleDateString("en-CA");
   const [fecha, setFecha] = useState(hoy);
   const [monto, setMonto] = useState(String(saldo > 0 ? saldo : 0));
   const [forma, setForma] = useState("Transferencia");

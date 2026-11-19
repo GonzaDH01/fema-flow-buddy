@@ -29,7 +29,7 @@ function useTesoreria(incluirEstimados: boolean, semanasHorizonte: number, inclu
     queryKey: ["fema_tesoreria", incluirEstimados, semanasHorizonte, incluirSaldoBanco, user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = new Date().toLocaleDateString("en-CA");
       const [movs, cuotas, gf, gfm, sc, sv, fc, fv, prov, cli, ctas, docCuotas, prods] = await Promise.all([
         supabase.from("fema_movimientos_pago")
           .select("id,instrumento,direccion,estado,vencimiento,monto,contraparte"),

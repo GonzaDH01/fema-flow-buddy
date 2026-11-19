@@ -27,7 +27,7 @@ export const ORDEN_SEV: Record<Severidad, number> = {
   critica: 0, alta: 1, media: 2, info: 3,
 };
 
-export const hoyISO = () => new Date().toISOString().slice(0, 10);
+export const hoyISO = () => new Date().toLocaleDateString("en-CA");
 
 export const diasHasta = (f?: string | null) => {
   if (!f) return null;

@@ -200,7 +200,7 @@ function Page() {
     const nuevo = q.estado === "pagada" ? "pendiente" : "pagada";
     const { error } = await supabase.from("fema_creditos_cuotas" as any).update({
       estado: nuevo,
-      fecha_pago: nuevo === "pagada" ? new Date().toISOString().slice(0, 10) : null,
+      fecha_pago: nuevo === "pagada" ? new Date().toLocaleDateString("en-CA") : null,
     }).eq("id", q.id);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["fema_creditos_cuotas"] });
@@ -365,7 +365,7 @@ function FormDialog({ initial, onSubmit }: { initial: Credito | null; onSubmit: 
       monto_total: Number(initial?.monto_total ?? 0),
       cantidad_cuotas: initial?.cantidad_cuotas ?? 12,
       valor_cuota: Number(initial?.valor_cuota ?? 0),
-      fecha_primera_cuota: initial?.fecha_primera_cuota ?? new Date().toISOString().slice(0, 10),
+      fecha_primera_cuota: initial?.fecha_primera_cuota ?? new Date().toLocaleDateString("en-CA"),
       tasa: initial?.tasa ?? null,
       observaciones: initial?.observaciones ?? "",
     },

@@ -647,7 +647,7 @@ function ActivoForm({
       observaciones: v.observaciones || null,
       unidad_uso: v.lectura_uso ? v.unidad_uso : null,
       lectura_uso: v.lectura_uso ? Number(v.lectura_uso) : null,
-      fecha_lectura_uso: v.lectura_uso ? v.fecha_lectura_uso || new Date().toISOString().slice(0, 10) : null,
+      fecha_lectura_uso: v.lectura_uso ? v.fecha_lectura_uso || new Date().toLocaleDateString("en-CA") : null,
     };
 
     try {

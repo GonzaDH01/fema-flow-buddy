@@ -118,7 +118,7 @@ function NuevoPrestamoDialog({ empleadoId }: { empleadoId?: string }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleDateString("en-CA");
   const [v, setV] = useState({
     empleado_id: empleadoId ?? "", fecha: hoy, concepto: "", detalle: "",
     monto: "", cuotas: "1", factura_id: "none", observaciones: "",
@@ -253,7 +253,7 @@ export function CobroPrestamoDialog({
 }: { prestamo: Prestamo; saldo: number; onClose: () => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleDateString("en-CA");
   const [v, setV] = useState({
     fecha: hoy,
     monto: String(Math.min(saldo, Number(prestamo.valor_cuota || saldo)) || ""),

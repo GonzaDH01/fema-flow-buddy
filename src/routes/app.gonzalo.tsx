@@ -38,7 +38,7 @@ const TIPOS = {
 type Tipo = keyof typeof TIPOS;
 
 type Row = { id: string; fecha: string; tipo: Tipo; concepto: string; proveedor: string | null; importe: number; observaciones: string | null; adjuntos: string[] | null };
-const vacio = () => ({ id: "", fecha: new Date().toISOString().slice(0, 10), tipo: "gasto_gonzalo" as Tipo, concepto: "", proveedor: "", importe: "", observaciones: "", adjuntos: [] as string[] });
+const vacio = () => ({ id: "", fecha: new Date().toLocaleDateString("en-CA"), tipo: "gasto_gonzalo" as Tipo, concepto: "", proveedor: "", importe: "", observaciones: "", adjuntos: [] as string[] });
 const BUCKET = "documentos-compras";
 const nombreArchivo = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
 const abrirAdjunto = async (path: string) => {

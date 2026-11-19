@@ -200,7 +200,7 @@ export async function exportarSeleccion(userId: string, opts: OpcionesExport) {
     }
   }
 
-  const dateSuffix = new Date().toISOString().split("T")[0];
+  const dateSuffix = new Date().toLocaleDateString("en-CA");
   if (opts.formato === "xlsx") {
     const fname = `FEMA_export_${dateSuffix}.xlsx`;
     XLSX.writeFile(wb, fname);

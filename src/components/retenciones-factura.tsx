@@ -26,7 +26,7 @@ export function RetencionesFacturaDialog({ factura, clienteNombre, onClose }: {
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const hoy = new Date().toISOString().split("T")[0];
+  const hoy = new Date().toLocaleDateString("en-CA");
   const [tipo, setTipo] = useState("iibb");
   const [jurisdiccion, setJurisdiccion] = useState("");
   const [numero, setNumero] = useState("");

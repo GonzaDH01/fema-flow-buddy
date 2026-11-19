@@ -25,7 +25,7 @@ export const Route = createFileRoute("/app/documentos")({ component: Page });
 
 const BUCKET = "documentos-compras";
 const n = (v: unknown) => Number(v ?? 0) || 0;
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => new Date().toLocaleDateString("en-CA");
 
 const TIPOS_DOC = ["Pagaré", "Boleto de compraventa", "Convenio de pago", "Mutuo", "Prenda", "Otro"];
 const FORMAS_PAGO = ["Transferencia", "Cheque propio", "E-cheq", "Efectivo", "Canje cereal", "Otro"];
