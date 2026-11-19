@@ -508,7 +508,23 @@ function Page() {
       // Completa solo los datos vacíos (número, fecha, letra) con lo leído por OCR; no toca importes ni cuotas.
       const { data: actual } = await (supabase as any).from(tablaKind).select("numero, fecha, tipo").eq("id", id).maybeSingle();
       const patch: Record<string, any> = { imagen_path: path };
-      const r: any = result;
+      let r: any = result;
+      // Si no se presionó "Analizar", leemos el comprobante ahora para completar número/fecha/letra vacíos.
+      if (!r && !actual?.numero && (kind === "compra" || kind === "venta")) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            const res = await fetch("/api/public/ocr-factura", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ image: b64, mimeType: mime }),
+            });
+            const json = await res.json();
+            if (res.ok) r = corregirPartes((json.data ?? json) as OCRResult, kind);
+          }
+        } catch { /* si falla la lectura, igual se adjunta el archivo */ }
+      }
       if (r?.numero && !actual?.numero) patch.numero = String(r.numero).trim();
       if (r?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(r.fecha)) patch.fecha = r.fecha;
       if (r?.letra && ["A", "B", "C", "M", "E"].includes(r.letra)) patch.tipo = r.letra;
