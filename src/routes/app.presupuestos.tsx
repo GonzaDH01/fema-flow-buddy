@@ -412,6 +412,8 @@ function PresupuestoForm({
   const removeItem = (i: number) => setItems((prev) => prev.filter((_, idx) => idx !== i));
 
   const subtotal = items.reduce((a, b) => a + (b.subtotal || 0), 0);
+  const bruto = items.filter((i) => i.subtotal >= 0).reduce((a, b) => a + b.subtotal, 0);
+  const deducciones = items.filter((i) => i.subtotal < 0).reduce((a, b) => a + b.subtotal, 0);
   const descuentoMonto = subtotal * (Number(descuentoPct || 0) / 100);
   const neto = subtotal - descuentoMonto;
   const iva21 = items.filter((i) => Number(i.alicuota_iva) === 21).reduce((a, b) => a + b.subtotal, 0) * (1 - descuentoPct / 100) * 0.21;
@@ -508,13 +510,15 @@ function PresupuestoForm({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Ítems del presupuesto</CardTitle>
-            <Button size="sm" variant="outline" onClick={() => addItem()}><Plus className="mr-1.5 h-4 w-4" /> Agregar ítem</Button>
+            <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => addItem()}><Plus className="mr-1.5 h-4 w-4" /> Agregar ítem</Button>
+            <Button size="sm" variant="outline" onClick={() => addItem({ descripcion: "Descuento: ", precio_unitario: -0.01 })}>− Agregar descuento</Button></div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-28">Tipo</TableHead>
                     <TableHead className="w-24">Cód.</TableHead>
                     <TableHead>Descripción</TableHead>
                     <TableHead className="w-28 text-right">Cant.</TableHead>
@@ -526,15 +530,27 @@ function PresupuestoForm({
                 </TableHeader>
                 <TableBody>
                   {items.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                    <TableRow><TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
                       Agregá ítems con los botones de abajo o con "+ Agregar ítem"
                     </TableCell></TableRow>
                   ) : items.map((it, i) => (
-                    <TableRow key={i}>
+                    <TableRow key={i} className={it.precio_unitario < 0 ? "bg-destructive/5" : ""}>
+                      <TableCell>
+                        <Select value={it.precio_unitario < 0 ? "desc" : "serv"} onValueChange={(v) => {
+                          const abs = Math.abs(Number(it.precio_unitario || 0));
+                          updateItem(i, { precio_unitario: v === "desc" ? -abs : abs });
+                        }}>
+                          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="serv">+ Servicio</SelectItem>
+                            <SelectItem value="desc">− Descuento</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell><Input className="h-8" value={it.codigo} onChange={(e) => updateItem(i, { codigo: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8" value={it.descripcion} onChange={(e) => updateItem(i, { descripcion: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 min-w-[80px] text-right" type="number" step="1" value={it.cantidad} onChange={(e) => updateItem(i, { cantidad: Number(e.target.value) })} /></TableCell>
-                      <TableCell><Input className="h-8 min-w-[100px] text-right" type="number" step="0.01" value={it.precio_unitario} onChange={(e) => updateItem(i, { precio_unitario: Number(e.target.value) })} /></TableCell>
+                      <TableCell><Input className="h-8 min-w-[100px] text-right" type="number" step="0.01" value={Math.abs(it.precio_unitario)} onChange={(e) => { const v = Math.abs(Number(e.target.value)); updateItem(i, { precio_unitario: it.precio_unitario < 0 ? -v : v }); }} /></TableCell>
                       <TableCell>
                         <Select value={String(it.alicuota_iva)} onValueChange={(v) => updateItem(i, { alicuota_iva: Number(v) })}>
                           <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
@@ -545,7 +561,7 @@ function PresupuestoForm({
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-right font-medium">{formatPesos(it.subtotal)}</TableCell>
+                      <TableCell className={`text-right font-medium ${it.subtotal < 0 ? "text-destructive" : ""}`}>{formatPesos(it.subtotal)}</TableCell>
                       <TableCell><Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeItem(i)}><X className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
@@ -623,6 +639,10 @@ function PresupuestoForm({
             </Dialog>
 
             <div className="mt-6 grid grid-cols-1 gap-y-1 text-sm md:grid-cols-[1fr_auto] md:gap-x-8">
+              <div className="text-right text-muted-foreground">Servicios / productos:</div>
+              <div className="text-right font-medium">{formatPesos(bruto)}</div>
+              <div className="text-right text-muted-foreground">Descuentos / entregas:</div>
+              <div className="text-right font-medium text-destructive">{formatPesos(deducciones)}</div>
               <div className="text-right text-muted-foreground">T. Neto:</div>
               <div className="text-right font-medium">{formatPesos(subtotal)}</div>
               <div className="text-right text-muted-foreground">% Desc:</div>
@@ -750,9 +770,9 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
             {data.items.length === 0 ? (
               <tr><td colSpan={5} className="px-2 py-3 text-center text-gray-500">Sin ítems</td></tr>
             ) : data.items.map((it, i) => (
-              <tr key={i} className="border-b border-gray-300">
+              <tr key={i} className={`border-b border-gray-300 ${it.subtotal < 0 ? "italic" : ""}`}>
                 <td className="px-2 py-1">{it.codigo}</td>
-                <td className="px-2 py-1">{it.descripcion}</td>
+                <td className="px-2 py-1">{it.subtotal < 0 ? "(−) " : ""}{it.descripcion}</td>
                 <td className="px-2 py-1 text-right">{it.cantidad}</td>
                 <td className="px-2 py-1 text-right">{formatPesos(it.precio_unitario)}</td>
                 <td className="px-2 py-1 text-right">{formatPesos(it.subtotal)}</td>
@@ -770,6 +790,8 @@ function PresupuestoPDF({ data }: { data: PdfData }) {
             {data.consideraciones && <div className="mt-1">{data.consideraciones}</div>}
           </div>
           <div className="text-[10.5px]">
+            <Row k="Servicios:" v={formatPesos(data.items.filter((x) => x.subtotal >= 0).reduce((a, b) => a + b.subtotal, 0))} />
+            <Row k="Desc./entregas:" v={formatPesos(data.items.filter((x) => x.subtotal < 0).reduce((a, b) => a + b.subtotal, 0))} />
             <Row k="% Desc:" v={`${data.descuentoPct.toFixed(2)} %`} />
             <Row k="Descuento:" v={formatPesos(data.descuentoMonto)} />
             <Row k="T. Neto:" v={formatPesos(data.neto)} />
@@ -811,9 +833,9 @@ function renderPrintHTML(p: Presupuesto, items: any[]) {
   const wm = absoluteAssetUrl(femaWatermarkUrl);
   const rowsHTML = items.length === 0
     ? `<tr><td colspan="5" style="text-align:center;color:#888;padding:12px">Sin ítems</td></tr>`
-    : items.map((i) => `<tr>
+    : items.map((i) => `<tr${Number(i.subtotal) < 0 ? ' style="font-style:italic;color:#a00"' : ""}>
         <td>${i.codigo ?? ""}</td>
-        <td>${i.descripcion ?? ""}</td>
+        <td>${Number(i.subtotal) < 0 ? "(−) " : ""}${i.descripcion ?? ""}</td>
         <td class="right">${i.cantidad}</td>
         <td class="right">${fmt(Number(i.precio_unitario))}</td>
         <td class="right">${fmt(Number(i.subtotal))}</td>
@@ -852,6 +874,8 @@ function renderPrintHTML(p: Presupuesto, items: any[]) {
         ${obs}
       </div>
       <div class="fema-tot">
+        <div class="row"><span>Servicios:</span><span>${fmt(items.filter((x) => Number(x.subtotal) >= 0).reduce((a, b) => a + Number(b.subtotal), 0))}</span></div>
+        <div class="row"><span>Desc./entregas:</span><span>${fmt(items.filter((x) => Number(x.subtotal) < 0).reduce((a, b) => a + Number(b.subtotal), 0))}</span></div>
         <div class="row"><span>% Desc:</span><span>${Number(p.descuento_pct ?? 0).toFixed(2)} %</span></div>
         <div class="row"><span>Descuento:</span><span>${fmt(Number(p.descuento_monto ?? 0))}</span></div>
         <div class="row"><span>T. Neto:</span><span>${fmt(Number(p.neto ?? 0))}</span></div>
