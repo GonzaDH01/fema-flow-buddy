@@ -407,6 +407,8 @@ function Page() {
 
   const cobrar = async (m: Mov) => {
     const esPago = m.direccion === "pago";
+    // Cobros de clientes: siempre pedir cuenta destino para que sume al saldo bancario.
+    if (!esPago) { setDepositoMov(m); return; }
     const ok = confirm(
       esPago
         ? `¿Confirmás que este documento propio de ${formatPesos(m.monto)} fue debitado de la cuenta?`
