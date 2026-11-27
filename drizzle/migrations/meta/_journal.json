@@ -92,6 +92,13 @@
       "when": 1795030545535,
       "tag": "0012_planillas_bartomo_2026",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795808094802,
+      "tag": "0013_empleados_parte_diario",
+      "breakpoints": true
     }
   ]
 }

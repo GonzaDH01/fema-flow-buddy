@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type EmpleadoPago, DIAS_BASE, modalidadDe } from "@/components/empleados-semanas";
 import { ExtraDialog, MODALIDAD_EXTRA } from "@/components/empleados-extra";
+import { ES_FALTA } from "@/components/empleados-parte-diario";
 
 const JORNADA = 8;
 const DIA_LARGO = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -174,6 +175,27 @@ export function LiquidadorTab() {
       return (data ?? []) as HoraRow[];
     },
   });
+
+  // Parte diario: los días marcados como ausencia/lluvia se pre-marcan como falta.
+  const { data: asistencias } = useQuery({
+    enabled: !!empleadoId,
+    queryKey: ["fema_asistencias_liq", empleadoId, desde, hasta],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fema_asistencias").select("fecha,codigo")
+        .eq("empleado_id", empleadoId).gte("fecha", desde).lte("fecha", hasta);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  useEffect(() => {
+    if (!asistencias?.length) return;
+    setFaltas((prev) => {
+      const n = { ...prev };
+      for (const a of asistencias) if (ES_FALTA(a.codigo)) n[a.fecha] = true;
+      return n;
+    });
+  }, [asistencias]);
 
   const { data: yaPagado } = useQuery({
     enabled: !!empleadoId,

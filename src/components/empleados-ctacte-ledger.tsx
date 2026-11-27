@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPesos, formatFecha } from "@/lib/format";
@@ -7,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { usePrestamos, usePrestamoMovs } from "@/components/empleados-prestamos";
+import { usePrestamos, usePrestamoMovs, invalidarPrestamos } from "@/components/empleados-prestamos";
 
 type Linea = { fecha: string; concepto: string; debe: number; haber: number };
 
@@ -61,6 +63,18 @@ export function CuentaCorrienteLedger() {
   const comprasEmpresa = prestamos.filter((p) => p.empleado_id === empId && p.factura_compra_id).reduce((a, p) => a + Number(p.monto || 0), 0);
   const haberes = pagos.filter((p: any) => p.estado !== "anulado").reduce((a: number, p: any) => a + Number(p.monto || 0), 0);
   const ratio = haberes > 0 ? (comprasEmpresa / haberes) * 100 : 0;
+  // Doble saldo: lo que la empresa le debe (haberes liquidados sin pagar) vs. lo que el empleado debe.
+  const aPagar = pagos.filter((p: any) => p.estado === "pendiente" || p.estado === "programado").reduce((a: number, p: any) => a + Number(p.monto || 0), 0);
+  const qc = useQueryClient();
+  const abiertas = prestamos.filter((p) => p.empleado_id === empId).map((p) => {
+    const devuelto = movs.filter((m: any) => m.prestamo_id === p.id).reduce((a, m) => a + Number(m.monto || 0), 0);
+    return { ...p, resta: Math.round((Number(p.monto || 0) - devuelto) * 100) / 100 };
+  }).filter((p) => p.resta > 0.009);
+  const toggleDescontable = async (id: string, v: boolean) => {
+    const { error } = await supabase.from("fema_empleado_prestamos").update({ descontable: v }).eq("id", id);
+    if (error) return toast.error(error.message);
+    invalidarPrestamos(qc);
+  };
 
   return (
     <Card>
@@ -88,6 +102,28 @@ export function CuentaCorrienteLedger() {
             <Kpi label="Total devuelto (Haber)" v={formatPesos(totHaber)} />
             <Kpi label="Saldo que adeuda" v={formatPesos(totDebe - totHaber)} />
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Kpi label="La empresa le debe (haberes sin pagar)" v={formatPesos(aPagar)} />
+            <Kpi label="El empleado debe" v={formatPesos(totDebe - totHaber)} />
+          </div>
+          {abiertas.length > 0 && (
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="font-medium text-sm">Deudas abiertas</div>
+              {abiertas.map((d: any) => (
+                <div key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-sm sm:flex sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="truncate">{formatFecha(d.fecha)} · {d.concepto}</span>{" "}
+                    <span className="text-muted-foreground">falta {formatPesos(d.resta)} de {formatPesos(Number(d.monto))}</span>
+                  </div>
+                  <label className="flex shrink-0 items-center gap-2 print:hidden">
+                    <input type="checkbox" checked={d.descontable !== false} onChange={(e) => toggleDescontable(d.id, e.target.checked)} />
+                    Descontable del sueldo
+                  </label>
+                  <Badge variant="outline" className="hidden print:inline-flex">{d.descontable !== false ? "Descontable" : "No descontable"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="rounded-md border border-dashed p-3 text-sm print:hidden">
             <div className="font-medium">Control gerencial (no se imprime)</div>
             <div>Compras de la empresa imputadas: <b>{formatPesos(comprasEmpresa)}</b> · Haberes pagados: <b>{formatPesos(haberes)}</b> · Ratio: <b>{ratio.toFixed(1)}%</b></div>

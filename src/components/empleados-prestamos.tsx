@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 export type Prestamo = {
   id: string; empleado_id: string; fecha: string; concepto: string; detalle: string | null;
   monto: number; cuotas: number; valor_cuota: number; factura_compra_id: string | null;
-  estado: string; observaciones: string | null;
+  estado: string; observaciones: string | null; descontable?: boolean;
 };
 export type PrestamoMov = {
   id: string; prestamo_id: string; empleado_id: string; fecha: string;
@@ -267,6 +267,8 @@ export function CobroPrestamoDialog({
   const guardar = async () => {
     const monto = Number(v.monto || 0);
     if (monto <= 0) return toast.error("Ingresá el importe devuelto");
+    if (monto > saldo + 0.01) return toast.error("El importe supera lo que falta devolver");
+    if (v.tipo === "descuento" && prestamo.descontable === false) return toast.error("Este concepto no se puede descontar del sueldo");
     const { error } = await supabase.from("fema_empleado_prestamo_mov").insert({
       user_id: user!.id,
       prestamo_id: prestamo.id,

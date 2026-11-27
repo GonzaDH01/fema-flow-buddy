@@ -368,6 +368,47 @@ export type Database = {
           },
         ]
       }
+      fema_asistencias: {
+        Row: {
+          codigo: string
+          created_at: string
+          empleado_id: string
+          fecha: string
+          id: string
+          observaciones: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          empleado_id: string
+          fecha: string
+          id?: string
+          observaciones?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          empleado_id?: string
+          fecha?: string
+          id?: string
+          observaciones?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fema_asistencias_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "fema_empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fema_auditoria: {
         Row: {
           created_at: string
@@ -1333,6 +1374,7 @@ export type Database = {
           concepto: string
           created_at: string
           cuotas: number
+          descontable: boolean
           detalle: string | null
           empleado_id: string
           estado: string
@@ -1351,6 +1393,7 @@ export type Database = {
           concepto: string
           created_at?: string
           cuotas?: number
+          descontable?: boolean
           detalle?: string | null
           empleado_id: string
           estado?: string
@@ -1369,6 +1412,7 @@ export type Database = {
           concepto?: string
           created_at?: string
           cuotas?: number
+          descontable?: boolean
           detalle?: string | null
           empleado_id?: string
           estado?: string

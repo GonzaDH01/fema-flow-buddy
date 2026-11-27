@@ -272,7 +272,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     const devuelto: Record<string, number> = {};
     for (const m of prestamoMovs ?? []) devuelto[m.prestamo_id] = (devuelto[m.prestamo_id] ?? 0) + Number(m.monto ?? 0);
     return (prestamos ?? [])
-      .filter((p) => p.empleado_id === v.empleado_id)
+      .filter((p) => p.empleado_id === v.empleado_id && p.descontable !== false)
       .map((p) => ({ p, saldo: Number(p.monto ?? 0) - (devuelto[p.id] ?? 0) }))
       .filter((x) => x.saldo > 0.01)
       .sort((a, b) => a.p.fecha.localeCompare(b.p.fecha));

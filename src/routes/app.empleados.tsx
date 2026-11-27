@@ -24,6 +24,7 @@ import { CuponesPagoTab } from "@/components/empleados-cupones";
 import { LiquidadorTab } from "@/components/empleados-liquidador";
 import { PrestamosEmpleadoTab } from "@/components/empleados-prestamos";
 import { CuentaCorrienteLedger } from "@/components/empleados-ctacte-ledger";
+import { ParteDiarioTab } from "@/components/empleados-parte-diario";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
@@ -75,6 +76,7 @@ function Page() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="pagos">Movimientos</TabsTrigger>
+          <TabsTrigger value="parte">Parte diario</TabsTrigger>
           <TabsTrigger value="liquidar">Liquidador</TabsTrigger>
           <TabsTrigger value="ctacte">Cuenta Corriente</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
@@ -83,6 +85,7 @@ function Page() {
           <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
+        <TabsContent value="parte"><ParteDiarioTab /></TabsContent>
         <TabsContent value="liquidar" className="space-y-4">
           <LiquidadorTab />
           <SemanasTrabajadasTab />
