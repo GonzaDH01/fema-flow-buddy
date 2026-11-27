@@ -25,6 +25,7 @@ import { LiquidadorTab } from "@/components/empleados-liquidador";
 import { PrestamosEmpleadoTab } from "@/components/empleados-prestamos";
 import { CuentaCorrienteLedger } from "@/components/empleados-ctacte-ledger";
 import { ParteDiarioTab } from "@/components/empleados-parte-diario";
+import { CashflowPersonalTab } from "@/components/empleados-cashflow";
 import {
   FichaEmpleadoDialog,
   FotoEmpleado,
@@ -63,7 +64,7 @@ type Hora = {
 };
 
 function Page() {
-  const [tab, setTab] = useState("pagos");
+  const [tab, setTab] = useState("ctacte");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -75,14 +76,15 @@ function Page() {
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
-          <TabsTrigger value="pagos">Movimientos</TabsTrigger>
+          <TabsTrigger value="ctacte">Cuentas corrientes</TabsTrigger>
           <TabsTrigger value="parte">Parte diario</TabsTrigger>
           <TabsTrigger value="liquidar">Liquidador</TabsTrigger>
-          <TabsTrigger value="ctacte">Cuenta Corriente</TabsTrigger>
+          <TabsTrigger value="pagos">Movimientos</TabsTrigger>
+          <TabsTrigger value="cashflow">Cash flow</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="carnets">Carnets</TabsTrigger>
-          <TabsTrigger value="reporte">Reporte</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="reporte">Campaña y Reporte</TabsTrigger>
+          <TabsTrigger value="historico">Histórico / Facturas</TabsTrigger>
         </TabsList>
         <TabsContent value="pagos"><PagosEmpleadoTab /></TabsContent>
         <TabsContent value="parte"><ParteDiarioTab /></TabsContent>
@@ -91,7 +93,8 @@ function Page() {
           <SemanasTrabajadasTab />
           <HorasTab />
         </TabsContent>
-        <TabsContent value="ctacte" className="space-y-4"><CuentaCorrienteLedger /><PrestamosEmpleadoTab /></TabsContent>
+        <TabsContent value="ctacte" className="space-y-4"><CuentaCorrienteLedger onIrLiquidador={() => setTab("liquidar")} /><PrestamosEmpleadoTab /></TabsContent>
+        <TabsContent value="cashflow"><CashflowPersonalTab /></TabsContent>
         <TabsContent value="personal"><PersonalTab /></TabsContent>
         <TabsContent value="carnets"><CarnetsVencimientosTab /></TabsContent>
         <TabsContent value="reporte" className="space-y-4">

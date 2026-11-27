@@ -114,7 +114,7 @@ function useCuentas() {
 }
 
 // ====== NUEVO PRÉSTAMO / COMPRA A CUENTA ======
-function NuevoPrestamoDialog({ empleadoId }: { empleadoId?: string }) {
+export function NuevoPrestamoDialog({ empleadoId, label = "Nueva deuda / préstamo" }: { empleadoId?: string; label?: string }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -177,7 +177,7 @@ function NuevoPrestamoDialog({ empleadoId }: { empleadoId?: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="size-4 mr-1" /> Nueva deuda / préstamo</Button>
+        <Button size="sm" variant={empleadoId ? "outline" : "default"}><Plus className="size-4 mr-1" /> {label}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Registrar deuda del empleado</DialogTitle></DialogHeader>

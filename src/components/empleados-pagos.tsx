@@ -223,14 +223,14 @@ function detectarTramo(desde: string | null, hasta: string | null) {
 }
 
 // ============ NUEVO / EDITAR PAGO ============
-export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClose?: () => void } = {}) {
+export function NuevoPagoDialog({ pago, onClose, empleadoId, label = "Registrar pago" }: { pago?: PagoEmpleado; onClose?: () => void; empleadoId?: string; label?: string } = {}) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [openState, setOpenState] = useState(false);
   const open = pago ? true : openState;
   const setOpen = (o: boolean) => { if (pago) { if (!o) onClose?.(); } else setOpenState(o); };
   const hoy = new Date();
-  const hoyIso = hoy.toISOString().slice(0, 10);
+  const hoyIso = hoy.toLocaleDateString("en-CA");
   const [v, setV] = useState(() => pago ? {
     empleado_id: pago.empleado_id ?? "", tipo: pago.tipo_pago ?? "sueldo", fecha: pago.fecha,
     mes: String(Number((pago.periodo_desde ?? pago.fecha).slice(5, 7))),
@@ -239,7 +239,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     monto: String(pago.monto ?? ""), detalle: pago.tareas ?? "", forma_pago: pago.forma_pago ?? "Transferencia",
     factura_id: pago.factura_compra_id ?? "none", descontar: "",
   } : {
-    empleado_id: "", tipo: "sueldo", fecha: hoyIso,
+    empleado_id: empleadoId ?? "", tipo: "sueldo", fecha: hoyIso,
     mes: String(hoy.getMonth() + 1), anio: String(hoy.getFullYear()), tramo: "mes",
     monto: "", detalle: "", forma_pago: "Transferencia",
     factura_id: "none", descontar: "",
@@ -408,7 +408,7 @@ export function NuevoPagoDialog({ pago, onClose }: { pago?: PagoEmpleado; onClos
     <Dialog open={open} onOpenChange={setOpen}>
       {!pago && (
         <DialogTrigger asChild>
-          <Button size="sm"><Plus className="size-4 mr-1" /> Registrar pago</Button>
+          <Button size="sm"><Plus className="size-4 mr-1" /> {label}</Button>
         </DialogTrigger>
       )}
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

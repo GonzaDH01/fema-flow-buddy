@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Printer } from "lucide-react";
+import { Printer, ArrowLeft, Wallet, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { NuevoPagoDialog } from "@/components/empleados-pagos";
+import { NuevoPrestamoDialog, CobroPrestamoDialog, type Prestamo } from "@/components/empleados-prestamos";
+import { LiquidarHectareasDialog } from "@/components/empleados-hectareas";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPesos, formatFecha } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -20,14 +24,15 @@ const TIPO_DEV: Record<string, string> = {
 };
 
 /** Libro Debe / Haber / Saldo por empleado. Debe = lo que el empleado debe a FEMA. */
-export function CuentaCorrienteLedger() {
+export function CuentaCorrienteLedger({ onIrLiquidador }: { onIrLiquidador?: () => void } = {}) {
   const [empId, setEmpId] = useState<string>("");
+  const [devolver, setDevolver] = useState<{ p: Prestamo; resta: number } | null>(null);
   const { data: prestamos = [] } = usePrestamos();
   const { data: movs = [] } = usePrestamoMovs();
   const { data: empleados = [] } = useQuery({
     queryKey: ["fema_empleados_ledger"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("fema_empleados").select("id,nombre,cuil,activo").order("nombre");
+      const { data, error } = await supabase.from("fema_empleados").select("id,nombre,cuil,activo,funcion,frecuencia_pago").order("nombre");
       if (error) throw error;
       return data ?? [];
     },
@@ -76,20 +81,35 @@ export function CuentaCorrienteLedger() {
     invalidarPrestamos(qc);
   };
 
+  if (!empId) return <ResumenCtaCte empleados={empleados as any[]} prestamos={prestamos} movs={movs} onElegir={setEmpId} />;
+
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 print:hidden">
-        <CardTitle>Cuenta corriente individual</CardTitle>
-        <div className="flex gap-2">
+      <CardHeader className="space-y-3 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEmpId("")}><ArrowLeft className="mr-1 h-4 w-4" />Volver</Button>
+            <CardTitle>Cuenta corriente de {emp?.nombre}</CardTitle>
+          </div>
           <Select value={empId} onValueChange={setEmpId}>
             <SelectTrigger className="w-64"><SelectValue placeholder="Elegir empleado" /></SelectTrigger>
             <SelectContent>
               {empleados.map((e: any) => <SelectItem key={e.id} value={e.id}>{e.nombre}{e.activo === false ? " (inactivo)" : ""}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" disabled={!empId} onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Imprimir ficha</Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <NuevoPagoDialog key={`pago-${empId}`} empleadoId={empId} label="Pago" />
+          <NuevoPrestamoDialog key={`cargo-${empId}`} empleadoId={empId} label="Compra o cargo" />
+          <Button size="sm" variant="outline" disabled={abiertas.length === 0}
+            onClick={() => { const d = abiertas[0]; if (d) setDevolver({ p: d, resta: d.resta }); }}>
+            <Wallet className="mr-1 h-4 w-4" />Devolución
+          </Button>
+          {onIrLiquidador && <Button size="sm" variant="outline" onClick={onIrLiquidador}>Liquidación</Button>}
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Imprimir ficha</Button>
         </div>
       </CardHeader>
+      {devolver && <CobroPrestamoDialog prestamo={devolver.p} saldo={devolver.resta} onClose={() => setDevolver(null)} />}
       {empId && (
         <CardContent className="space-y-4 ctacte-print">
           <div className="hidden print:block border-b pb-2">
@@ -110,7 +130,7 @@ export function CuentaCorrienteLedger() {
             <div className="rounded-md border p-3 space-y-2">
               <div className="font-medium text-sm">Deudas abiertas</div>
               {abiertas.map((d: any) => (
-                <div key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-sm sm:flex sm:justify-between">
+                <div key={d.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-sm sm:flex sm:justify-between">
                   <div className="min-w-0">
                     <span className="truncate">{formatFecha(d.fecha)} · {d.concepto}</span>{" "}
                     <span className="text-muted-foreground">falta {formatPesos(d.resta)} de {formatPesos(Number(d.monto))}</span>
@@ -119,6 +139,7 @@ export function CuentaCorrienteLedger() {
                     <input type="checkbox" checked={d.descontable !== false} onChange={(e) => toggleDescontable(d.id, e.target.checked)} />
                     Descontable del sueldo
                   </label>
+                  <Button size="sm" variant="ghost" className="shrink-0 print:hidden" onClick={() => setDevolver({ p: d, resta: d.resta })}>Registrar devolución</Button>
                   <Badge variant="outline" className="hidden print:inline-flex">{d.descontable !== false ? "Descontable" : "No descontable"}</Badge>
                 </div>
               ))}
@@ -155,4 +176,95 @@ export function CuentaCorrienteLedger() {
 
 function Kpi({ label, v }: { label: string; v: string }) {
   return <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="text-lg font-semibold">{v}</div></div>;
+}
+
+type Prest = { id: string; empleado_id: string; monto: number | string | null };
+type Mov = { prestamo_id: string; monto: number | string | null };
+
+/** Vista general: saldos duales por empleado (lo que FEMA debe pagar y lo que cada empleado debe). */
+function ResumenCtaCte({ empleados, prestamos, movs, onElegir }: {
+  empleados: any[]; prestamos: Prest[]; movs: Mov[]; onElegir: (id: string) => void;
+}) {
+  const [buscar, setBuscar] = useState("");
+  const [verInactivos, setVerInactivos] = useState(false);
+  const { data: pend = [] } = useQuery({
+    queryKey: ["fema_pagos_empleado_pendientes_resumen"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_pagos_empleado").select("empleado_id,monto,estado").in("estado", ["pendiente", "programado"]);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const { data: carnets = [] } = useQuery({
+    queryKey: ["fema_empleado_carnets_resumen"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("fema_empleado_carnets").select("empleado_id,fecha_vencimiento");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const hoy = new Date().toLocaleDateString("en-CA");
+  const limite = (() => { const d = new Date(`${hoy}T00:00:00`); d.setDate(d.getDate() + 30); return d.toLocaleDateString("en-CA"); })();
+  const carnetsAlerta = carnets.filter((c: any) => c.fecha_vencimiento && c.fecha_vencimiento <= limite).length;
+
+  const filas = useMemo(() => {
+    const devuelto: Record<string, number> = {};
+    for (const m of movs) devuelto[m.prestamo_id] = (devuelto[m.prestamo_id] ?? 0) + Number(m.monto ?? 0);
+    return empleados
+      .filter((e) => (verInactivos || e.activo !== false) && e.nombre.toLowerCase().includes(buscar.toLowerCase()))
+      .map((e) => {
+        const adeuda = prestamos.filter((p) => p.empleado_id === e.id)
+          .reduce((a, p) => a + Math.max(0, Number(p.monto ?? 0) - (devuelto[p.id] ?? 0)), 0);
+        const aPagar = pend.filter((p: any) => p.empleado_id === e.id).reduce((a: number, p: any) => a + Number(p.monto ?? 0), 0);
+        return { e, adeuda: Math.round(adeuda * 100) / 100, aPagar };
+      });
+  }, [empleados, prestamos, movs, pend, buscar, verInactivos]);
+  const totPagar = filas.reduce((a, f) => a + f.aPagar, 0);
+  const totAdeuda = filas.reduce((a, f) => a + f.adeuda, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Kpi label="La empresa debe pagar" v={formatPesos(totPagar)} />
+        <Kpi label="Los empleados deben" v={formatPesos(totAdeuda)} />
+        <Kpi label="Carnets vencidos / por vencer (≤30 días)" v={String(carnetsAlerta)} />
+      </div>
+      <Card>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Saldos por empleado</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input className="w-56 pl-8" placeholder="Buscar empleado..." value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={verInactivos} onChange={(e) => setVerInactivos(e.target.checked)} />Inactivos</label>
+              <LiquidarHectareasDialog />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Tocá un empleado para ver su ficha y cargar pagos, compras, devoluciones o liquidaciones.</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>Empleado</TableHead><TableHead>Función</TableHead><TableHead>Frecuencia</TableHead>
+              <TableHead className="text-right">A pagar</TableHead><TableHead className="text-right">Adeuda</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {filas.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Sin empleados</TableCell></TableRow>}
+              {filas.map(({ e, aPagar, adeuda }) => (
+                <TableRow key={e.id} className="cursor-pointer" onClick={() => onElegir(e.id)}>
+                  <TableCell className="font-medium">{e.nombre}{e.activo === false && <Badge variant="outline" className="ml-2">inactivo</Badge>}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.funcion ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.frecuencia_pago ?? "—"}</TableCell>
+                  <TableCell className="text-right">{aPagar ? formatPesos(aPagar) : "—"}</TableCell>
+                  <TableCell className={`text-right ${adeuda ? "font-semibold text-destructive" : ""}`}>{adeuda ? formatPesos(adeuda) : "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
